@@ -2,7 +2,8 @@
   'use strict';
 
   const M = window.FortuneModel;
-  let draft = M.deepClone(M.loadConfig());
+  const loadSavedConfig = M.loadConfig.bind(M);
+  let draft = M.deepClone(loadSavedConfig());
 
   const $ = id => document.getElementById(id);
   const forfeitList = $('forfeitEditorList');
@@ -244,7 +245,7 @@
   async function loadXml(file) { try { draft = await M.readXmlFile(file); renderAll(); markDirty(); toast('XML loaded into editor. Press Apply changes to activate it.'); } catch (error) { toast(error.message || 'Could not load XML.'); } finally { fileInput.value = ''; } }
 
   function refreshFromSaved(message = 'AI changes applied. Editor refreshed.') {
-    draft = M.deepClone(M.loadConfig());
+    draft = M.deepClone(loadSavedConfig());
     renderAll();
     document.body.classList.remove('dirty');
     toast(message);
@@ -254,7 +255,13 @@
   window.FortuneEditor = {
     refreshFromSaved,
     renderAll,
-    getDraft: () => M.deepClone(draft)
+    getDraft: () => M.deepClone(draft),
+    getSavedConfig: () => M.deepClone(loadSavedConfig())
+  };
+
+  M.loadConfig = function editorAwareLoadConfig() {
+    if (document.body?.dataset?.page === 'edit' && document.body.classList.contains('dirty')) return M.deepClone(draft);
+    return loadSavedConfig();
   };
 
   document.querySelectorAll('.editor-tab').forEach(button => button.addEventListener('click', () => {
