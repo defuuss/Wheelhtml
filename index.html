@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070a12">
+  <title>Fortune Engine</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="play">
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Fortune Engine home">
+      <span class="brand-mark">✦</span>
+      <span>
+        <strong>FORTUNE ENGINE</strong>
+        <small>Weighted challenge wheel</small>
+      </span>
+    </a>
+    <nav class="top-actions" aria-label="Main actions">
+      <button class="btn ghost" id="loadBtn" type="button">Load XML</button>
+      <button class="btn ghost" id="saveBtn" type="button">Save XML</button>
+      <a class="btn primary" href="edit.html">Edit wheel</a>
+      <input id="fileInput" type="file" accept=".xml,text/xml,application/xml" hidden>
+    </nav>
+  </header>
+
+  <main class="play-layout">
+    <section class="stage-panel" aria-label="Wheel">
+      <div class="level-strip-wrap">
+        <div class="section-kicker">ACTIVE GROUPS</div>
+        <div id="levelLights" class="level-lights" aria-live="polite"></div>
+      </div>
+
+      <div class="wheel-zone">
+        <div class="wheel-shell" id="wheelShell">
+          <div class="pointer" id="pointer" aria-hidden="true"><span></span></div>
+          <div class="wheel-glow"></div>
+          <div class="wheel-rotor" id="wheelRotor" aria-label="Wheel of forfeits"></div>
+          <div class="wheel-hub" aria-hidden="true">
+            <div class="hub-ring"></div>
+            <div class="hub-core">✦</div>
+          </div>
+        </div>
+
+        <div class="spin-row">
+          <button id="spinBtn" class="spin-button" type="button">
+            <span class="spin-label">SPIN</span>
+            <span class="spin-sub">Press to tempt fate</span>
+          </button>
+        </div>
+
+        <div class="wheel-stats" aria-label="Wheel statistics">
+          <div><span>SPINS</span><strong id="spinCount">0</strong></div>
+          <div><span>ACTIVE</span><strong id="activeCount">0</strong></div>
+          <div><span>CHANCE</span><strong id="chanceHint">—</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <div class="now-card">
+        <div class="section-kicker">CURRENT STATE</div>
+        <h2 id="stateTitle">Ready to spin</h2>
+        <p id="stateText">The wheel is loaded. Results can unlock new groups, trigger cooldowns and change the next spin.</p>
+        <div class="state-actions">
+          <button id="undoBtn" class="btn ghost" type="button" disabled>Undo last spin</button>
+          <button id="resetBtn" class="btn danger-soft" type="button">Reset session</button>
+        </div>
+      </div>
+
+      <div class="probability-card">
+        <div class="card-heading">
+          <div>
+            <div class="section-kicker">ODDS</div>
+            <h3>Probability inspector</h3>
+          </div>
+          <span class="tiny-pill">live</span>
+        </div>
+        <div id="probabilityList" class="probability-list"></div>
+      </div>
+    </aside>
+
+    <section class="history-panel">
+      <div class="history-heading">
+        <div>
+          <div class="section-kicker">SESSION</div>
+          <h3>Recent spins</h3>
+        </div>
+        <span id="historyHint" class="muted">Nothing selected yet</span>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </main>
+
+  <div id="resultOverlay" class="result-overlay" hidden>
+    <div class="result-backdrop"></div>
+    <section id="resultCard" class="result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div id="resultMystery" class="result-mystery">?</div>
+      <div id="resultIcon" class="result-icon">✦</div>
+      <div class="section-kicker" id="resultCategory">RESULT</div>
+      <h2 id="resultTitle">Selected</h2>
+      <p id="resultDescription"></p>
+      <div id="unlockNotice" class="unlock-notice" hidden></div>
+      <div class="result-actions">
+        <button id="resultCloseBtn" class="btn primary large" type="button">Continue</button>
+        <button id="resultSpinBtn" class="btn ghost large" type="button">Spin again</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="model.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
