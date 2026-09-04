@@ -1,4 +1,5 @@
 /* Dramatic mystery result reveal */
+.result-card{position:relative;overflow:hidden}
 .mystery-curtain{--mystery-color:#65d8ff;position:absolute;inset:0;z-index:30;display:grid;place-items:center;overflow:hidden;border-radius:inherit;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--mystery-color) 16%,#111827),#090d17 58%,#05070c);opacity:0;transition:opacity .2s ease}
 .mystery-curtain.active{opacity:1}
 .mystery-curtain-inner{position:relative;z-index:2;display:grid;justify-items:center;text-align:center;padding:28px;min-width:min(340px,90%)}
