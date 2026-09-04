@@ -4,360 +4,158 @@
   const M = window.FortuneModel;
   const D = window.FortuneDependencyState;
   const S = window.FortuneSpinStyle;
-  if (!M || !D || window.__fortuneAiDependencyV4) return;
-  window.__fortuneAiDependencyV4 = true;
+  if (!M || !D || window.__fortuneAiEditorEngine) return;
+  window.__fortuneAiEditorEngine = true;
 
-  let installed = false;
-  let busy = false;
-  let history = [];
-  let undo = null;
-  let timer = null;
-  let started = 0;
   const $ = id => document.getElementById(id);
+  const state = { models: [], history: [], busy: false, timer: null, started: 0, phase: 'Ready', undo: null, lastFailed: null };
   const clone = value => M.deepClone ? M.deepClone(value) : JSON.parse(JSON.stringify(value));
-  const clamp = (v, a, b, d) => { const n = Number(v); return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
-  const slug = s => String(s || 'item').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 42) || 'item';
-
-  const token = () => $('aiToken')?.value.trim() || '';
-  const model = () => $('aiModel')?.value || '';
+  const clamp = (value, min, max, fallback) => { const n = Number(value); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback; };
+  const slug = value => String(value || 'item').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 42) || 'item';
   const provider = () => $('aiProvider')?.value || 'custom';
+  const token = () => $('aiToken')?.value.trim() || '';
+  const selectedModel = () => $('aiModel')?.value || '';
   const endpoint = () => $('aiEndpoint')?.value.trim().replace(/\/+$/, '') || '';
 
+  function injectStyles() {
+    if ($('aiEditorEngineStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'aiEditorEngineStyles';
+    style.textContent = `.ai-retry-row{display:flex;gap:7px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}.ai-retry-btn{min-height:29px;padding:0 10px;border:1px solid rgba(101,216,255,.2);border-radius:8px;background:rgba(101,216,255,.06);color:#c9f5ff;font-size:.64rem;font-weight:850;cursor:pointer}.ai-retry-btn:hover{background:rgba(101,216,255,.12);border-color:rgba(101,216,255,.38)}.ai-engine-note{margin-top:7px;color:var(--muted2);font-size:.61rem;line-height:1.4}`;
+    document.head.appendChild(style);
+  }
+
+  function setStatus(text, type = '') { const node = $('aiStatus'); if (node) { node.textContent = text; node.className = `ai-status ${type}`.trim(); } }
+  function addMessage(role, text, meta = '', retryText = '') {
+    const box = $('chatMessages'); if (!box) return null;
+    const row = document.createElement('div'); row.className = `ai-chat-message ${role}`;
+    const bubble = document.createElement('div'); bubble.className = 'ai-chat-bubble';
+    const copy = document.createElement('div'); copy.className = 'ai-chat-copy'; copy.textContent = text; bubble.appendChild(copy);
+    if (meta) { const m = document.createElement('div'); m.className = 'ai-chat-meta'; m.textContent = meta; bubble.appendChild(m); }
+    if (retryText) { const wrap = document.createElement('div'); wrap.className = 'ai-retry-row'; const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'ai-retry-btn'; retry.textContent = '↻ Retry request'; retry.dataset.retryText = retryText; wrap.appendChild(retry); bubble.appendChild(wrap); }
+    row.appendChild(bubble); box.appendChild(row); box.scrollTop = box.scrollHeight; return row;
+  }
+  function setPhase(phase) { state.phase = phase; updateHeartbeat(); }
+  function updateHeartbeat() {
+    if (!state.busy) return;
+    const seconds = Math.floor((performance.now() - state.started) / 1000);
+    if ($('sendAiBtn')) $('sendAiBtn').textContent = `⏳ Working… ${seconds}s`;
+    setStatus(`${state.phase}… ${seconds}s`, 'working');
+    const pending = $('chatMessages')?.querySelector('.ai-chat-message.system:last-child .ai-chat-meta');
+    if (pending && /elapsed|Preparing|Waiting|Repairing|Validating|Applying/i.test(pending.textContent)) pending.textContent = `${state.phase} · ${seconds}s elapsed`;
+  }
+  function startWork(phase) { state.busy = true; state.started = performance.now(); state.phase = phase; ['sendAiBtn','testAiBtn','loadModelsBtn'].forEach(id => { const node = $(id); if (node) node.disabled = true; }); if ($('chatInput')) $('chatInput').disabled = true; clearInterval(state.timer); updateHeartbeat(); state.timer = setInterval(updateHeartbeat, 1000); }
+  function stopWork() { state.busy = false; clearInterval(state.timer); state.timer = null; if ($('sendAiBtn')) { $('sendAiBtn').disabled = false; $('sendAiBtn').textContent = 'Send'; } if ($('testAiBtn')) { $('testAiBtn').disabled = false; $('testAiBtn').textContent = '✓ Test AI'; } if ($('loadModelsBtn')) { $('loadModelsBtn').disabled = false; $('loadModelsBtn').textContent = '↻ Load models'; } if ($('chatInput')) $('chatInput').disabled = false; }
+
+  function providerDefaults(kind) { if (kind === 'nanogpt') return 'https://nano-gpt.com/api/v1'; if (kind === 'openrouter') return 'https://openrouter.ai/api/v1'; return ''; }
+  function modelsUrl() {
+    if (provider() === 'nanogpt') return 'https://nano-gpt.com/api/v1/models?detailed=true';
+    if (provider() === 'openrouter') return 'https://openrouter.ai/api/v1/models';
+    const raw = endpoint(); if (!raw) return '';
+    try { const url = new URL(raw); let path = url.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '').replace(/\/models$/i, ''); url.pathname = `${path}/models`.replace(/\/+/g, '/'); return url.toString(); } catch (_) { return `${raw}/models`; }
+  }
   function chatUrl() {
-    const raw = endpoint();
-    if (!raw) return '';
-    try {
-      const url = new URL(raw);
-      let path = url.pathname.replace(/\/+$/, '');
-      if (/\/chat\/completions$/i.test(path)) return url.toString();
-      path = path.replace(/\/models$/i, '');
-      url.pathname = `${path}/chat/completions`.replace(/\/+/g, '/');
-      return url.toString();
-    } catch (_) { return raw; }
+    const raw = endpoint(); if (!raw) return '';
+    try { const url = new URL(raw); let path = url.pathname.replace(/\/+$/, ''); if (/\/chat\/completions$/i.test(path)) return url.toString(); path = path.replace(/\/models$/i, ''); url.pathname = `${path}/chat/completions`.replace(/\/+/g, '/'); return url.toString(); } catch (_) { return raw; }
   }
-
-  function headers() {
-    const h = { 'Content-Type': 'application/json' };
-    if (token()) h.Authorization = `Bearer ${token()}`;
-    if (provider() === 'openrouter') {
-      h['HTTP-Referer'] = location.origin + location.pathname;
-      h['X-Title'] = 'Fortune Engine AI Editor';
-    }
-    return h;
+  function headers(json = false, auth = true) { const h = {}; if (json) h['Content-Type'] = 'application/json'; if (auth && token()) h.Authorization = `Bearer ${token()}`; if (provider() === 'openrouter') { h['HTTP-Referer'] = location.origin + location.pathname; h['X-Title'] = 'Fortune Engine AI Editor'; } return h; }
+  async function fetchJson(url, init = {}, timeoutMs = 120000) {
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
+    try { const response = await fetch(url, { ...init, signal: controller.signal }); const text = await response.text(); let data = {}; try { data = text ? JSON.parse(text) : {}; } catch (_) { throw new Error(`Provider returned non-JSON data (HTTP ${response.status}).`); } if (!response.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${response.status}`); return data; }
+    catch (error) { if (error?.name === 'AbortError') throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`); if (error instanceof TypeError || /NetworkError|Failed to fetch/i.test(String(error?.message))) throw new Error(`Browser could not reach ${url}. Check the endpoint or CORS settings.`); throw error; }
+    finally { clearTimeout(timer); }
   }
-
-  function status(text, type = '') {
-    const node = $('aiStatus');
-    if (!node) return;
-    node.textContent = text;
-    node.className = `ai-status ${type}`.trim();
+  function normalizeModels(data) {
+    let list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : data?.data && typeof data.data === 'object' ? Object.values(data.data) : data?.models && typeof data.models === 'object' ? Object.values(data.models) : [];
+    return list.map(value => { if (typeof value === 'string') return { id: value, name: value }; if (!value || typeof value !== 'object') return null; const id = String(value.id || value.model || value.slug || value.name || ''); if (!id) return null; return { ...value, id, name: value.name || value.display_name || value.displayName || id }; }).filter(item => item?.id && !/embedding|rerank|tts|speech|transcri|image|video/i.test(item.id));
   }
-
-  function addMessage(role, text, meta = '') {
-    const box = $('chatMessages');
-    if (!box) return null;
-    const row = document.createElement('div');
-    row.className = `ai-chat-message ${role}`;
-    const bubble = document.createElement('div');
-    bubble.className = 'ai-chat-bubble';
-    const copy = document.createElement('div');
-    copy.className = 'ai-chat-copy';
-    copy.textContent = text;
-    bubble.appendChild(copy);
-    if (meta) {
-      const m = document.createElement('div');
-      m.className = 'ai-chat-meta';
-      m.textContent = meta;
-      bubble.appendChild(m);
-    }
-    row.appendChild(bubble);
-    box.appendChild(row);
-    box.scrollTop = box.scrollHeight;
-    return row;
+  function renderModels() {
+    const select = $('aiModel'); if (!select) return;
+    const old = select.value || select.dataset.restoreModel || '', query = ($('modelFilter')?.value || '').trim().toLowerCase();
+    const visible = state.models.filter(item => !query || `${item.id} ${item.name || ''} ${item.description || ''}`.toLowerCase().includes(query));
+    select.innerHTML = '';
+    if (!visible.length) { const option = document.createElement('option'); option.value = ''; option.textContent = state.models.length ? 'No models match search' : 'Load models first'; select.appendChild(option); return; }
+    visible.forEach(item => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name && item.name !== item.id ? `${item.name} · ${item.id}` : item.id; select.appendChild(option); });
+    if ([...select.options].some(option => option.value === old)) select.value = old;
+    if (select.dataset.restoreModel && select.value === select.dataset.restoreModel) delete select.dataset.restoreModel;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   }
-
-  function start(row) {
-    busy = true;
-    started = performance.now();
-    ['sendAiBtn', 'testAiBtn', 'loadModelsBtn'].forEach(id => { const e = $(id); if (e) e.disabled = true; });
-    if ($('chatInput')) $('chatInput').disabled = true;
-    const tick = () => {
-      const sec = Math.floor((performance.now() - started) / 1000);
-      if ($('sendAiBtn')) $('sendAiBtn').textContent = `⏳ Working… ${sec}s`;
-      status(`AI is building real wheel changes… ${sec}s`, 'working');
-      const meta = row?.querySelector('.ai-chat-meta');
-      if (meta) meta.textContent = `${sec}s elapsed`;
-    };
-    tick();
-    timer = setInterval(tick, 1000);
+  async function loadModels() {
+    if (state.busy) return; startWork('Loading models'); if ($('loadModelsBtn')) $('loadModelsBtn').textContent = 'Loading…';
+    try { const url = modelsUrl(); if (!/^https:\/\//i.test(url)) throw new Error('Enter a valid HTTPS API base URL.'); let data; if (provider() === 'nanogpt' || provider() === 'openrouter') data = await fetchJson(url, { method: 'GET' }, 45000); else { try { data = await fetchJson(url, { method: 'GET', headers: headers(false, true) }, 45000); } catch (_) { data = await fetchJson(url, { method: 'GET' }, 45000); } } state.models = normalizeModels(data).sort((a,b) => String(a.name || a.id).localeCompare(String(b.name || b.id), undefined, { sensitivity:'base' })); renderModels(); setStatus(`Loaded ${state.models.length} models.`, 'ok'); }
+    catch (error) { setStatus(`Could not load models: ${error.message}`, 'error'); }
+    finally { stopWork(); }
   }
+  function extractText(data) { const message = data?.choices?.[0]?.message, content = message?.content; if (typeof content === 'string' && content.trim()) return content; if (Array.isArray(content)) { const text = content.map(item => item?.text || item?.content || '').join(''); if (text.trim()) return text; } if (typeof data?.output_text === 'string' && data.output_text.trim()) return data.output_text; if (typeof message?.reasoning_content === 'string' && message.reasoning_content.trim()) return message.reasoning_content; throw new Error('Provider returned no readable assistant text.'); }
+  async function complete(messages, options = {}) { const maxTokens = options.maxTokens ?? 3600, temperature = options.temperature ?? 0, timeoutMs = options.timeoutMs ?? 300000; if (!selectedModel()) throw new Error('Choose a model first.'); if (!token()) throw new Error('Enter the API token first.'); const url = chatUrl(); if (!/^https:\/\//i.test(url)) throw new Error('Invalid chat endpoint.'); const data = await fetchJson(url, { method:'POST', headers:headers(true,true), body:JSON.stringify({ model:selectedModel(), messages, temperature, max_tokens:maxTokens }) }, timeoutMs); return { data, text:extractText(data) }; }
+  async function testApi() { if (state.busy) return; startWork('Testing API'); try { const started = performance.now(); const result = await complete([{ role:'user', content:'Reply with exactly OK and nothing else.' }], { maxTokens:64, timeoutMs:60000 }); const seconds = ((performance.now() - started)/1000).toFixed(1), used = result.data?.model || selectedModel(); setStatus(`Connected · ${used} · ${seconds}s · ${result.text.trim().slice(0,50)}`, 'ok'); addMessage('system', `✓ API test passed in ${seconds}s with ${used}.`); } catch (error) { setStatus(`Test failed: ${error.message}`, 'error'); addMessage('system', `✕ API test failed: ${error.message}`); } finally { stopWork(); } }
 
-  function stop() {
-    busy = false;
-    clearInterval(timer);
-    timer = null;
-    if ($('sendAiBtn')) { $('sendAiBtn').disabled = false; $('sendAiBtn').textContent = 'Send'; }
-    if ($('testAiBtn')) $('testAiBtn').disabled = false;
-    if ($('loadModelsBtn')) $('loadModelsBtn').disabled = false;
-    if ($('chatInput')) $('chatInput').disabled = false;
+  function requestMode(text) {
+    const value = String(text || '');
+    const edit = /\b(add|create|insert|remove|delete|rename|change|modify|update|make|set|move|put|place|assign|adapt|fix|correct|organize|organise|sort|reorder|restructure|ensure|enable|disable|attach|depend|require|unlock|hinzuf|ergänz|lösch|entfern|änder|umbenenn|verschieb|zuord|anpass|korrig|sortier|abhäng|freischalt|ajout|cré|supprim|modifi|renomm|déplac|adapt|corrig|organis|tri|dépend|déverrou)\w*/i.test(value);
+    const analysisOnly = /\b(do not change|don't change|without changing|no changes|only check|just check|check only|only review|only explain|nur prüfen|nichts ändern|ohne zu ändern|ne rien modifier|sans modifier)\b/i.test(value);
+    if (edit) return 'edit'; if (analysisOnly) return 'analysis'; if (/\b(check|review|inspect|explain|why|logic|odds|reachable|progression|prüf|erklär|warum|vérif|explique|pourquoi)\b/i.test(value)) return 'analysis'; return 'edit';
   }
-
-  function compactContext() {
+  function currentContext() {
     const c = M.loadConfig();
-    return {
-      groups: c.levels.map(g => ({ id: g.id, name: g.name, activeAtStart: g.activeAtStart })),
-      forfeits: c.forfeits.map(f => ({
-        id: f.id, name: f.name, levelId: f.levelId, category: f.category, weight: f.weight,
-        lifetime: f.lifetime, mystery: f.mystery, enabled: f.enabled,
-        requiresMode: f.requiresMode || 'all', requiresForfeitIds: f.requiresForfeitIds || [],
-        unlockLevels: f.unlockLevels || []
-      })),
-      rules: (c.rules || []).map(r => ({
-        id: r.id, name: r.name, mode: r.mode, minOccurrences: r.minOccurrences || 1,
-        conditionForfeitIds: r.conditionForfeitIds || [], unlockLevels: r.unlockLevels || [], enabled: r.enabled
-      }))
-    };
+    return { settings:clone(c.settings), spinStyle:clone(S?.load?.() || {}), groups:c.levels.map(g => ({ id:g.id,name:g.name,icon:g.icon,color:g.color,activeAtStart:g.activeAtStart })), forfeits:c.forfeits.map(f => ({ id:f.id,name:f.name,icon:f.icon,color:f.color,weight:f.weight,levelId:f.levelId,category:f.category,description:f.description,animation:f.animation,lifetime:clone(f.lifetime),cooldown:f.cooldown,eventType:f.eventType,mystery:f.mystery,enabled:f.enabled,unlockLevels:[...(f.unlockLevels||[])],requiresMode:f.requiresMode||'all',requiresForfeitIds:[...(f.requiresForfeitIds||[])] })), rules:(c.rules||[]).map(r => ({ id:r.id,name:r.name,mode:r.mode,minOccurrences:r.minOccurrences||1,conditionForfeitIds:[...(r.conditionForfeitIds||[])],unlockLevels:[...(r.unlockLevels||[])],enabled:r.enabled })) };
   }
 
-  function systemPrompt() {
-    return `You are editing Fortune Engine. CURRENT CONFIG: ${JSON.stringify(compactContext())}\n\nIMPORTANT MODEL:\n- GROUPS are broad game states only (examples: Humiliation, Disgusting, Cleaning). Do NOT create a group just to enforce an order between individual forfeits.\n- FORFEIT DEPENDENCIES enforce order between individual wheel entries. A forfeit with requiresForfeitIds is absent from the wheel until its prerequisite result(s) have occurred. requiresMode is all or any.\n- To make a parent disappear after it is selected, set its lifetime to {"type":"once","spins":1}.\n- Example: Socks after Shoes = update/add Socks with requiresForfeitIds:["shoes-id"], requiresMode:"all". Shoes can be lifetime once. No Socks group is needed.\n- GROUP UNLOCK RULES are for broad states. minOccurrences allows count thresholds, e.g. Skip Turn 3 times -> unlock Humiliation.\n\nReturn ONLY strict JSON: {"reply":"short answer","actions":[]}. For ANY edit request, actions MUST contain executable changes; never claim a change if actions is empty.\nActions: add_forfeit {item}, update_forfeit {id,changes}, remove_forfeit {id}, add_group {group}, update_group {id,changes}, remove_group {id}, add_rule {rule}, update_rule {id,changes}, remove_rule {id}, update_settings {changes}, update_spin_style {changes}.\nForfeit fields include id,name,icon,color,weight,levelId,category,description,animation,lifetime,cooldown,eventType,mystery,enabled,unlockLevels,requiresMode,requiresForfeitIds.\nRule fields include id,name,mode,minOccurrences,conditionForfeitIds,unlockLevels,enabled.\nUse exact existing IDs when referencing existing things. Preserve unrelated configuration. Use the user's requested language for player-facing text. No markdown or prose outside JSON.`;
+  const ENGINE_GUIDE = `FORTUNE ENGINE CONFIGURATION MODEL\n\n1. GROUPS / LEVELS\n- A group is a broad game state or category gate, not a sequence step. Examples: Start, Clothing, Humiliation, Disgusting, Cleaning.\n- Group fields: id, name, icon, color, activeAtStart.\n- A forfeit is eligible only if its own group is active.\n- Use unlockLevels on a forfeit when selecting that forfeit should activate one or more broad groups.\n- Use conditional group rules when a broad group should unlock after ALL/ANY specified results, optionally after minOccurrences.\n- Do NOT create extra groups merely to express Shoes -> Socks or similar item ordering. Use forfeit prerequisites for that.\n\n2. FORFEITS / WHEEL ENTRIES\n- Fields: id, name, icon, color, weight, levelId, category, description, animation, lifetime, cooldown, eventType, mystery, enabled, unlockLevels, requiresMode, requiresForfeitIds.\n- levelId MUST reference an existing group id.\n- weight controls relative probability among currently eligible entries.\n- enabled=false removes the entry from selection entirely.\n- cooldown=N temporarily removes it for N completed spins after it is selected.\n- lifetime.type=forever keeps it; once removes it after its first hit; spins keeps it for a configured number of spins after activation.\n- eventType may be normal, spinAgain, unlock, doubleSpin, immunity, randomize.\n\n3. AVAILABILITY / PREREQUISITES\n- requiresForfeitIds is the list of prerequisite FORFEIT IDs.\n- requiresMode=all means every listed prerequisite result must have happened in the current session.\n- requiresMode=any means at least one listed prerequisite result must have happened.\n- Until the condition is met, the dependent forfeit is not on the wheel.\n- Example: if socks-cut may only appear after shoes-off, update socks-cut with requiresMode:'all', requiresForfeitIds:['shoes-off'].\n- If shoes-off should disappear once completed, also set its lifetime to {type:'once',spins:1}.\n- Dependencies must not be circular and must not reference the forfeit itself.\n\n4. GROUP UNLOCK RULES\n- Rules are for broad group activation, not ordinary item sequencing.\n- Fields: id, name, mode(all|any), minOccurrences, conditionForfeitIds, unlockLevels, enabled.\n- Example: after BOTH shoes-off and shirt-off have occurred, unlock Humiliation. Use a rule with mode:'all'.\n\n5. MYSTERY\n- mystery=true is only a DISPLAY mode. The real hidden result is still stored in name, icon and description.\n- The wheel displays a mystery marker until selected, then reveals the actual configured result.\n- Never create a meaningless result literally called only 'Mystery Challenge' unless the user explicitly wants that text as the real hidden result.\n\n6. SPIN STYLE\n- General settings include total min/max spin time and minimum turns.\n- Spin style supports maxTurns, spinUpMinSeconds, spinUpMaxSeconds, spinDownMinSeconds, spinDownMaxSeconds, dramaEnabled, dramaChance, dramaCreepMinDegrees, dramaCreepMaxDegrees, showSlowIcon, iconPreviewStartPercent.\n- Drama is a small creep after an almost-stop; it must not create another full re-spin.\n\n7. PATCH ACTIONS\n- add_forfeit: {type:'add_forfeit', item:{...complete new item...}}\n- update_forfeit: {type:'update_forfeit', id:'EXISTING_ID', changes:{...only changed fields...}}\n- remove_forfeit: {type:'remove_forfeit', id:'EXISTING_ID'}\n- add_group: {type:'add_group', group:{id,name,icon,color,activeAtStart}}\n- update_group: {type:'update_group', id:'EXISTING_ID', changes:{...}}\n- remove_group: {type:'remove_group', id:'EXISTING_ID'}\n- add_rule: {type:'add_rule', rule:{id,name,mode,minOccurrences,conditionForfeitIds,unlockLevels,enabled}}\n- update_rule: {type:'update_rule', id:'EXISTING_ID', changes:{...}}\n- remove_rule: {type:'remove_rule', id:'EXISTING_ID'}\n- update_settings: {type:'update_settings', changes:{...}}\n- update_spin_style: {type:'update_spin_style', changes:{...}}\n\n8. INTEGRITY RULES\n- Preserve all unrelated entries and settings.\n- Use exact existing IDs for all references to existing groups/forfeits/rules.\n- Prefer update actions instead of deleting/recreating existing items.\n- When moving a forfeit to the correct group, use update_forfeit changes.levelId.\n- When correcting dependencies, use update_forfeit changes.requiresMode and changes.requiresForfeitIds.\n- Do not invent references to IDs that do not exist, except IDs of new objects that you add in the same response.\n- Keep at least one group activeAtStart.\n- Never create circular prerequisites.\n\n9. HOW TO HANDLE 'CHECK AND FIX' REQUESTS\n- If the user says 'check', 'review', or 'inspect' AND also asks to put/move/adapt/fix/correct/change anything, this is EDIT mode.\n- Inspect the CURRENT CONFIG, identify the matching existing items by id/name/category/description, then return the concrete update actions required.\n- If everything is already correct, set assessment.alreadySatisfied=true and explain exactly why; otherwise actions MUST NOT be empty.\n\nEXAMPLE EDIT\nUser: 'Check the Clothing cut forfeits, put them in the right Group and adapt the dependencies.'\nCorrect behavior: inspect all existing cutting-related clothing forfeits. For every item in a wrong broad group, emit update_forfeit with changes.levelId. For every item whose order is wrong, emit update_forfeit with requiresForfeitIds/requiresMode. Do not merely say you checked them.`;
+
+  function systemPrompt(mode) {
+    return `You are the configuration engineer inside Fortune Engine. You are not a casual assistant.\nREQUEST MODE: ${mode.toUpperCase()}\n\n${ENGINE_GUIDE}\n\nCURRENT CONFIGURATION JSON:\n${JSON.stringify(currentContext())}\n\nOUTPUT CONTRACT\nReturn ONLY one strict JSON object, no markdown and no prose outside JSON, in this shape:\n{\"mode\":\"${mode}\",\"reply\":\"short user-facing summary\",\"actions\":[],\"assessment\":{\"alreadySatisfied\":false,\"findings\":[]}}\n\nFor EDIT mode: actions must contain every concrete patch needed. actions may be empty ONLY when assessment.alreadySatisfied is true and findings give specific evidence from the current configuration. Never claim that you changed or fixed something with an empty actions array.\nFor ANALYSIS mode: actions must be empty unless the user explicitly asks you to also fix something.\nUse the user's requested language for player-facing names/descriptions. Preserve unrelated configuration. JSON must be syntactically valid.`;
   }
-
-  function editIntent(text) {
-    return /\b(add|create|insert|remove|delete|rename|change|modify|update|make|set|move|enable|disable|attach|depend|require|unlock|hinzuf|ergänz|lösch|entfern|änder|umbenenn|verschieb|abhäng|freischalt|ajout|cré|supprim|modifi|renomm|déplac|dépend|déverrou)\w*/i.test(text);
-  }
-
-  function parseJson(text) {
-    let raw = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-    const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
-    if (a >= 0 && b > a) raw = raw.slice(a, b + 1);
-    return JSON.parse(raw);
-  }
-
-  async function request(messages, maxTokens = 2600, timeoutMs = 300000) {
-    if (!token()) throw new Error('Enter the API token first.');
-    if (!model()) throw new Error('Choose a model first.');
-    const url = chatUrl();
-    if (!/^https:\/\//i.test(url)) throw new Error('Invalid chat endpoint.');
-    const ac = new AbortController();
-    const timeout = setTimeout(() => ac.abort(), timeoutMs);
-    try {
-      const response = await fetch(url, {
-        method: 'POST', headers: headers(), signal: ac.signal,
-        body: JSON.stringify({ model: model(), messages, temperature: 0, max_tokens: maxTokens })
-      });
-      const raw = await response.text();
-      let data = {};
-      try { data = raw ? JSON.parse(raw) : {}; } catch (_) { throw new Error(`Provider returned non-JSON HTTP data (${response.status}).`); }
-      if (!response.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${response.status}`);
-      const content = data?.choices?.[0]?.message?.content;
-      if (typeof content === 'string' && content.trim()) return content;
-      if (Array.isArray(content)) return content.map(x => x?.text || x?.content || '').join('');
-      throw new Error('Provider returned no readable answer.');
-    } catch (e) {
-      if (e?.name === 'AbortError') throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
-      throw e;
-    } finally { clearTimeout(timeout); }
-  }
-
-  async function structured(text) {
-    const messages = [{ role: 'system', content: systemPrompt() }, ...history.slice(-4), { role: 'user', content: text }];
-    let raw = await request(messages);
-    let answer;
-    try { answer = parseJson(raw); }
-    catch (_) {
-      raw = await request([
-        { role: 'system', content: 'Repair the following into one strict valid JSON object with reply and actions. Preserve all requested actions. No markdown.' },
-        { role: 'user', content: raw.slice(0, 14000) }
-      ], 2200, 180000);
-      answer = parseJson(raw);
-    }
-
-    if (editIntent(text) && (!Array.isArray(answer.actions) || !answer.actions.length)) {
-      const retry = await request([
-        { role: 'system', content: systemPrompt() },
-        { role: 'user', content: text },
-        { role: 'assistant', content: JSON.stringify(answer) },
-        { role: 'user', content: 'This is an EDIT. You described changes but returned no executable actions. Return strict JSON again with the concrete patch actions. For sequencing individual forfeits use requiresForfeitIds, NOT new groups.' }
-      ], 2400, 180000);
-      answer = parseJson(retry);
-      if (!Array.isArray(answer.actions) || !answer.actions.length) throw new Error('The model described an edit but still returned no executable actions.');
+  function parseJson(text) { let raw = String(text || '').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/i,''); const first = raw.indexOf('{'), last = raw.lastIndexOf('}'); if (first >= 0 && last > first) raw = raw.slice(first,last+1); return JSON.parse(raw); }
+  async function repairJson(raw) { setPhase('Repairing JSON'); const result = await complete([{ role:'system', content:'Repair the supplied text into exactly one strict JSON object with keys mode, reply, actions, assessment. Preserve every intended patch action. No markdown or explanation.' },{ role:'user', content:String(raw).slice(0,18000) }], { maxTokens:3000, timeoutMs:180000 }); return parseJson(result.text); }
+  async function getStructured(text, mode, strictRetry = false) {
+    setPhase(strictRetry ? 'Retrying with strict edit contract' : 'Waiting for model');
+    const messages = [{ role:'system', content:systemPrompt(mode) }, ...state.history.slice(-4), { role:'user', content:text }];
+    let result = await complete(messages, { maxTokens:4200, timeoutMs:300000 }), answer;
+    try { answer = parseJson(result.text); } catch (_) { answer = await repairJson(result.text); }
+    const actions = Array.isArray(answer?.actions) ? answer.actions : [], satisfied = answer?.assessment?.alreadySatisfied === true, returnedMode = String(answer?.mode || '').toLowerCase();
+    if (mode === 'edit' && (returnedMode === 'analysis' || (!actions.length && !satisfied))) {
+      if (strictRetry) throw new Error('The AI still returned no executable edit actions.');
+      setPhase('Requesting concrete patch actions');
+      const correction = await complete([{ role:'system', content:systemPrompt('edit') },{ role:'user', content:text },{ role:'assistant', content:JSON.stringify(answer) },{ role:'user', content:'STRICT CORRECTION: This is an EDIT request. Inspect the CURRENT CONFIG again. Return the concrete patch actions required to perform the request. If and only if it is already exactly correct, return actions:[] with assessment.alreadySatisfied:true and specific evidence. Do not merely describe changes.' }], { maxTokens:4200, timeoutMs:240000 });
+      try { answer = parseJson(correction.text); } catch (_) { answer = await repairJson(correction.text); }
+      if (!Array.isArray(answer?.actions) || (!answer.actions.length && answer?.assessment?.alreadySatisfied !== true)) throw new Error('The AI returned no executable wheel changes after an automatic retry.');
     }
     return answer;
   }
 
-  function resolveGroup(c, ref) {
-    const v = String(ref || '').trim().toLowerCase();
-    return c.levels.find(g => g.id.toLowerCase() === v) || c.levels.find(g => g.name.toLowerCase() === v);
-  }
-  function resolveForfeit(c, ref) {
-    const v = String(ref || '').trim().toLowerCase();
-    return c.forfeits.find(f => f.id.toLowerCase() === v) || c.forfeits.find(f => f.name.toLowerCase() === v);
-  }
-  function resolveRule(c, ref) {
-    const v = String(ref || '').trim().toLowerCase();
-    return (c.rules || []).find(r => r.id.toLowerCase() === v) || (c.rules || []).find(r => r.name.toLowerCase() === v);
-  }
+  function resolveGroup(c, ref) { const v = String(ref || '').trim().toLowerCase(); return c.levels.find(g => g.id.toLowerCase() === v) || c.levels.find(g => g.name.toLowerCase() === v); }
+  function resolveForfeit(c, ref) { const v = String(ref || '').trim().toLowerCase(); return c.forfeits.find(f => f.id.toLowerCase() === v) || c.forfeits.find(f => f.name.toLowerCase() === v); }
+  function resolveRule(c, ref) { const v = String(ref || '').trim().toLowerCase(); return (c.rules || []).find(r => r.id.toLowerCase() === v) || (c.rules || []).find(r => r.name.toLowerCase() === v); }
   function uniqueId(base, used) { let id = slug(base), n = 2; while (used.has(id)) id = `${slug(base)}-${n++}`; used.add(id); return id; }
-  function refForfeits(c, refs, own = '') { return [...new Set((Array.isArray(refs) ? refs : []).map(v => resolveForfeit(c, v)?.id).filter(id => id && id !== own))]; }
-  function refGroups(c, refs) { return [...new Set((Array.isArray(refs) ? refs : []).map(v => resolveGroup(c, v)?.id).filter(Boolean))]; }
+  function groupRefs(c, refs) { if (!Array.isArray(refs)) return []; return [...new Set(refs.map(ref => { const g = resolveGroup(c,ref); if (!g) throw new Error(`Unknown group reference: ${ref}`); return g.id; }))]; }
+  function forfeitRefs(c, refs, ownId='') { if (!Array.isArray(refs)) return []; return [...new Set(refs.map(ref => { const f = resolveForfeit(c,ref); if (!f) throw new Error(`Unknown forfeit reference: ${ref}`); return f.id; }).filter(id => id !== ownId))]; }
+  function normalizeLifetime(value, fallback={type:'forever',spins:3}) { if (typeof value === 'string') value={type:value}; if (!value || typeof value !== 'object') return clone(fallback); const type=['forever','once','spins'].includes(value.type)?value.type:fallback.type; return { type, spins:Math.round(clamp(value.spins,1,999,fallback.spins||3)) }; }
+  function normalizeForfeitShell(c,input,used) { const g=resolveGroup(c,input.levelId)||(!input.levelId?c.levels[0]:null); if(!g) throw new Error(`Unknown group for new forfeit: ${input.levelId}`); return { id:uniqueId(input.id||input.name||'forfeit',used),name:String(input.name||'New Forfeit').slice(0,80),icon:String(input.icon||'🎯').slice(0,12),color:/^#[0-9a-f]{6}$/i.test(input.color||'')?input.color:'#65d8ff',weight:clamp(input.weight,.1,100,1),levelId:g.id,category:String(input.category||'General').slice(0,40),description:String(input.description||'').slice(0,240),animation:['zoom','shake','pulse','flash','confetti'].includes(input.animation)?input.animation:'pulse',lifetime:normalizeLifetime(input.lifetime),cooldown:Math.round(clamp(input.cooldown,0,99,0)),eventType:['normal','spinAgain','unlock','doubleSpin','immunity','randomize'].includes(input.eventType)?input.eventType:'normal',mystery:!!input.mystery,enabled:input.enabled!==false,unlockLevels:[],requiresMode:input.requiresMode==='any'?'any':'all',requiresForfeitIds:[] }; }
+  function applyForfeitChanges(c,item,next) { next=clone(next||{}); if('name'in next)item.name=String(next.name||item.name).slice(0,80); if('icon'in next)item.icon=String(next.icon||item.icon).slice(0,12); if('color'in next&&/^#[0-9a-f]{6}$/i.test(next.color||''))item.color=next.color; if('weight'in next)item.weight=clamp(next.weight,.1,100,item.weight); if('levelId'in next){const g=resolveGroup(c,next.levelId);if(!g)throw new Error(`Unknown group reference: ${next.levelId}`);item.levelId=g.id;} if('category'in next)item.category=String(next.category||'').slice(0,40); if('description'in next)item.description=String(next.description||'').slice(0,240); if('animation'in next&&['zoom','shake','pulse','flash','confetti'].includes(next.animation))item.animation=next.animation; if('lifetime'in next)item.lifetime=normalizeLifetime(next.lifetime,item.lifetime); if('cooldown'in next)item.cooldown=Math.round(clamp(next.cooldown,0,99,item.cooldown)); if('eventType'in next&&['normal','spinAgain','unlock','doubleSpin','immunity','randomize'].includes(next.eventType))item.eventType=next.eventType; if('mystery'in next)item.mystery=!!next.mystery; if('enabled'in next)item.enabled=next.enabled!==false; if('unlockLevels'in next)item.unlockLevels=groupRefs(c,next.unlockLevels); if('requiresMode'in next)item.requiresMode=next.requiresMode==='any'?'any':'all'; if('requiresForfeitIds'in next)item.requiresForfeitIds=forfeitRefs(c,next.requiresForfeitIds,item.id); }
+  function assertNoDependencyCycles(c) { const byId=new Map(c.forfeits.map(f=>[f.id,f])),visiting=new Set(),visited=new Set(); function walk(id,trail=[]){if(visiting.has(id))throw new Error(`Circular availability dependency detected: ${[...trail,id].join(' → ')}`);if(visited.has(id))return;visiting.add(id);const item=byId.get(id);for(const ref of item?.requiresForfeitIds||[]){if(ref===id)throw new Error(`Forfeit ${id} cannot depend on itself.`);if(!byId.has(ref))throw new Error(`Forfeit ${id} references missing prerequisite ${ref}.`);walk(ref,[...trail,id]);}visiting.delete(id);visited.add(id);} c.forfeits.forEach(f=>walk(f.id)); }
 
-  function apply(actions) {
-    const before = M.loadConfig();
-    const beforeSpin = S?.load?.() || {};
-    const c = clone(before);
-    c.rules = c.rules || [];
-    const usedF = new Set(c.forfeits.map(x => x.id));
-    const usedG = new Set(c.levels.map(x => x.id));
-    const usedR = new Set(c.rules.map(x => x.id));
-    let count = 0;
-
-    for (const action of Array.isArray(actions) ? actions : []) {
-      if (!action || typeof action !== 'object') continue;
-      if (action.type === 'add_group') {
-        const x = action.group || {};
-        c.levels.push({ id: uniqueId(x.id || x.name || 'group', usedG), name: String(x.name || 'New Group').slice(0, 60), icon: String(x.icon || '◆').slice(0, 12), color: /^#[0-9a-f]{6}$/i.test(x.color || '') ? x.color : '#65d8ff', activeAtStart: !!x.activeAtStart });
-        count++;
-      } else if (action.type === 'update_group') {
-        const x = resolveGroup(c, action.id); if (!x) throw new Error(`Unknown group ${action.id}`); Object.assign(x, action.changes || {}); count++;
-      } else if (action.type === 'remove_group') {
-        const x = resolveGroup(c, action.id); if (!x) throw new Error(`Unknown group ${action.id}`); if (c.forfeits.some(f => f.levelId === x.id)) throw new Error(`Group ${x.name} still contains forfeits.`); c.levels = c.levels.filter(g => g.id !== x.id); count++;
-      } else if (action.type === 'add_forfeit') {
-        const x = action.item || {};
-        const group = resolveGroup(c, x.levelId) || c.levels[0];
-        const item = {
-          id: uniqueId(x.id || x.name || 'forfeit', usedF), name: String(x.name || 'New Forfeit').slice(0, 80), icon: String(x.icon || '🎯').slice(0, 12),
-          color: /^#[0-9a-f]{6}$/i.test(x.color || '') ? x.color : '#65d8ff', weight: clamp(x.weight, .1, 100, 1), levelId: group.id,
-          category: String(x.category || 'General').slice(0, 40), description: String(x.description || '').slice(0, 700),
-          animation: ['zoom','shake','pulse','flash','confetti'].includes(x.animation) ? x.animation : 'pulse',
-          lifetime: x.lifetime && ['forever','once','spins'].includes(x.lifetime.type) ? { type: x.lifetime.type, spins: Math.round(clamp(x.lifetime.spins, 1, 999, 3)) } : { type: 'forever', spins: 3 },
-          cooldown: Math.round(clamp(x.cooldown, 0, 99, 0)), eventType: ['normal','spinAgain','unlock','doubleSpin','immunity','randomize'].includes(x.eventType) ? x.eventType : 'normal',
-          mystery: !!x.mystery, enabled: x.enabled !== false, unlockLevels: refGroups(c, x.unlockLevels), requiresMode: x.requiresMode === 'any' ? 'any' : 'all', requiresForfeitIds: []
-        };
-        c.forfeits.push(item);
-        item.requiresForfeitIds = refForfeits(c, x.requiresForfeitIds, item.id);
-        count++;
-      } else if (action.type === 'update_forfeit') {
-        const item = resolveForfeit(c, action.id); if (!item) throw new Error(`Unknown forfeit ${action.id}`);
-        const z = clone(action.changes || {});
-        if (z.levelId != null) { const g = resolveGroup(c, z.levelId); if (!g) throw new Error(`Unknown group ${z.levelId}`); z.levelId = g.id; }
-        if (z.unlockLevels != null) z.unlockLevels = refGroups(c, z.unlockLevels);
-        if (z.requiresForfeitIds != null) z.requiresForfeitIds = refForfeits(c, z.requiresForfeitIds, item.id);
-        if (z.requiresMode != null) z.requiresMode = z.requiresMode === 'any' ? 'any' : 'all';
-        if (z.lifetime && typeof z.lifetime === 'object') z.lifetime = { type: ['forever','once','spins'].includes(z.lifetime.type) ? z.lifetime.type : item.lifetime.type, spins: Math.round(clamp(z.lifetime.spins, 1, 999, item.lifetime.spins || 3)) };
-        Object.assign(item, z);
-        D.setForfeit(item.id, { requiresMode: item.requiresMode || 'all', requiresForfeitIds: item.requiresForfeitIds || [] });
-        count++;
-      } else if (action.type === 'remove_forfeit') {
-        const item = resolveForfeit(c, action.id); if (!item) throw new Error(`Unknown forfeit ${action.id}`);
-        c.forfeits = c.forfeits.filter(f => f.id !== item.id);
-        c.forfeits.forEach(f => { f.requiresForfeitIds = (f.requiresForfeitIds || []).filter(id => id !== item.id); D.setForfeit(f.id, f); });
-        c.rules.forEach(r => { r.conditionForfeitIds = (r.conditionForfeitIds || []).filter(id => id !== item.id); });
-        count++;
-      } else if (action.type === 'add_rule') {
-        const x = action.rule || {};
-        const rule = { id: uniqueId(x.id || x.name || 'rule', usedR), name: String(x.name || 'New Rule').slice(0, 80), mode: x.mode === 'any' ? 'any' : 'all', minOccurrences: Math.round(clamp(x.minOccurrences, 1, 99, 1)), conditionForfeitIds: refForfeits(c, x.conditionForfeitIds), unlockLevels: refGroups(c, x.unlockLevels), enabled: x.enabled !== false };
-        c.rules.push(rule); D.setRuleCount(rule.id, rule.minOccurrences); count++;
-      } else if (action.type === 'update_rule') {
-        const rule = resolveRule(c, action.id); if (!rule) throw new Error(`Unknown rule ${action.id}`);
-        const z = clone(action.changes || {});
-        if (z.conditionForfeitIds != null) z.conditionForfeitIds = refForfeits(c, z.conditionForfeitIds);
-        if (z.unlockLevels != null) z.unlockLevels = refGroups(c, z.unlockLevels);
-        if (z.minOccurrences != null) { z.minOccurrences = Math.round(clamp(z.minOccurrences, 1, 99, 1)); D.setRuleCount(rule.id, z.minOccurrences); }
-        Object.assign(rule, z); count++;
-      } else if (action.type === 'remove_rule') {
-        const rule = resolveRule(c, action.id); if (!rule) throw new Error(`Unknown rule ${action.id}`); c.rules = c.rules.filter(r => r.id !== rule.id); count++;
-      } else if (action.type === 'update_settings') {
-        c.settings = { ...c.settings, ...(action.changes || {}) }; count++;
-      } else if (action.type === 'update_spin_style') {
-        S?.save?.({ ...beforeSpin, ...(action.changes || {}) }); count++;
-      }
-    }
-
-    c.forfeits.forEach(item => D.setForfeit(item.id, { requiresMode: item.requiresMode || 'all', requiresForfeitIds: item.requiresForfeitIds || [] }));
-    c.rules.forEach(rule => D.setRuleCount(rule.id, rule.minOccurrences || 1));
-    if (!c.levels.some(g => g.activeAtStart) && c.levels[0]) c.levels[0].activeAtStart = true;
-
-    if (count) {
-      undo = { config: before, spin: beforeSpin };
-      const saved = M.saveConfig(c);
-      M.resetSession(saved);
-      if ($('undoAiBtn')) $('undoAiBtn').disabled = false;
-    }
-    return count;
+  function applyActions(actions) {
+    const before=M.loadConfig(),beforeSpin=S?.load?.()||{},c=clone(before),spin=clone(beforeSpin),list=Array.isArray(actions)?actions.filter(a=>a&&typeof a==='object'):[]; c.rules=c.rules||[];
+    const usedG=new Set(c.levels.map(g=>g.id)),usedF=new Set(c.forfeits.map(f=>f.id)),usedR=new Set(c.rules.map(r=>r.id)); let changed=0;
+    list.filter(a=>a.type==='add_group').forEach(a=>{const x=a.group||{};c.levels.push({id:uniqueId(x.id||x.name||'group',usedG),name:String(x.name||'New Group').slice(0,60),icon:String(x.icon||'◆').slice(0,12),color:/^#[0-9a-f]{6}$/i.test(x.color||'')?x.color:'#65d8ff',activeAtStart:!!x.activeAtStart});changed++;});
+    const pending=[]; list.filter(a=>a.type==='add_forfeit').forEach(a=>{const x=a.item||{},item=normalizeForfeitShell(c,x,usedF);c.forfeits.push(item);pending.push({item,input:x});changed++;}); pending.forEach(({item,input})=>{item.unlockLevels=groupRefs(c,input.unlockLevels||[]);item.requiresForfeitIds=forfeitRefs(c,input.requiresForfeitIds||[],item.id);});
+    list.filter(a=>a.type==='update_group').forEach(a=>{const g=resolveGroup(c,a.id);if(!g)throw new Error(`Unknown group: ${a.id}`);const x=a.changes||{};if('name'in x)g.name=String(x.name||g.name).slice(0,60);if('icon'in x)g.icon=String(x.icon||g.icon).slice(0,12);if('color'in x&&/^#[0-9a-f]{6}$/i.test(x.color||''))g.color=x.color;if('activeAtStart'in x)g.activeAtStart=!!x.activeAtStart;changed++;});
+    list.filter(a=>a.type==='update_forfeit').forEach(a=>{const f=resolveForfeit(c,a.id);if(!f)throw new Error(`Unknown forfeit: ${a.id}`);applyForfeitChanges(c,f,a.changes||{});changed++;});
+    list.filter(a=>a.type==='add_rule').forEach(a=>{const x=a.rule||{};c.rules.push({id:uniqueId(x.id||x.name||'rule',usedR),name:String(x.name||'New Rule').slice(0,80),mode:x.mode==='any'?'any':'all',minOccurrences:Math.round(clamp(x.minOccurrences,1,99,1)),conditionForfeitIds:forfeitRefs(c,x.conditionForfeitIds||[]),unlockLevels:groupRefs(c,x.unlockLevels||[]),enabled:x.enabled!==false});changed++;});
+    list.filter(a=>a.type==='update_rule').forEach(a=>{const r=resolveRule(c,a.id);if(!r)throw new Error(`Unknown rule: ${a.id}`);const x=a.changes||{};if('name'in x)r.name=String(x.name||r.name).slice(0,80);if('mode'in x)r.mode=x.mode==='any'?'any':'all';if('minOccurrences'in x)r.minOccurrences=Math.round(clamp(x.minOccurrences,1,99,r.minOccurrences||1));if('conditionForfeitIds'in x)r.conditionForfeitIds=forfeitRefs(c,x.conditionForfeitIds||[]);if('unlockLevels'in x)r.unlockLevels=groupRefs(c,x.unlockLevels||[]);if('enabled'in x)r.enabled=x.enabled!==false;changed++;});
+    list.filter(a=>a.type==='update_settings').forEach(a=>{c.settings={...c.settings,...(a.changes||{})};changed++;}); list.filter(a=>a.type==='update_spin_style').forEach(a=>{Object.assign(spin,a.changes||{});changed++;});
+    list.filter(a=>a.type==='remove_rule').forEach(a=>{const r=resolveRule(c,a.id);if(!r)throw new Error(`Unknown rule: ${a.id}`);c.rules=c.rules.filter(x=>x.id!==r.id);changed++;});
+    list.filter(a=>a.type==='remove_forfeit').forEach(a=>{const f=resolveForfeit(c,a.id);if(!f)throw new Error(`Unknown forfeit: ${a.id}`);c.forfeits=c.forfeits.filter(x=>x.id!==f.id);c.forfeits.forEach(x=>x.requiresForfeitIds=(x.requiresForfeitIds||[]).filter(id=>id!==f.id));c.rules.forEach(r=>r.conditionForfeitIds=(r.conditionForfeitIds||[]).filter(id=>id!==f.id));changed++;});
+    list.filter(a=>a.type==='remove_group').forEach(a=>{const g=resolveGroup(c,a.id);if(!g)throw new Error(`Unknown group: ${a.id}`);if(c.forfeits.some(f=>f.levelId===g.id))throw new Error(`Group ${g.name} still contains forfeits. Move or remove them first.`);c.levels=c.levels.filter(x=>x.id!==g.id);c.forfeits.forEach(f=>f.unlockLevels=(f.unlockLevels||[]).filter(id=>id!==g.id));c.rules.forEach(r=>r.unlockLevels=(r.unlockLevels||[]).filter(id=>id!==g.id));changed++;});
+    if(!c.levels.length)throw new Error('The wheel must contain at least one group.');if(!c.levels.some(g=>g.activeAtStart))c.levels[0].activeAtStart=true;assertNoDependencyCycles(c);
+    if(changed){state.undo={config:before,spin:beforeSpin};D.replace(c);const saved=M.saveConfig(c);M.resetSession(saved);S?.save?.(spin);if($('undoAiBtn'))$('undoAiBtn').disabled=false;refreshStats();} return changed;
   }
-
-  async function send(forced = '') {
-    if (busy) return;
-    const input = $('chatInput');
-    const text = String(forced || input?.value || '').trim();
-    if (!text) return;
-    if (!model()) { status('Choose a model first.', 'error'); return; }
-    if (!token()) { status('Enter the API token first.', 'error'); return; }
-    if (input) input.value = '';
-    addMessage('user', text);
-    const pending = addMessage('system', '⏳ AI is working on the wheel…', 'Preparing');
-    start(pending);
-    try {
-      const answer = await structured(text);
-      const changed = apply(answer.actions || []);
-      if (editIntent(text) && !changed) throw new Error('The AI returned no executable wheel changes. Nothing was saved.');
-      pending?.remove();
-      const reply = String(answer.reply || (changed ? 'Done.' : 'No changes needed.'));
-      addMessage('assistant', reply, changed ? `✓ Applied ${changed} wheel change${changed === 1 ? '' : 's'}` : 'No wheel changes');
-      history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
-      history = history.slice(-6);
-      status(changed ? `Applied ${changed} wheel change${changed === 1 ? '' : 's'}.` : 'Ready.', 'ok');
-    } catch (e) {
-      pending?.remove();
-      addMessage('assistant', `I could not complete that request: ${e.message}`, 'Not applied');
-      status(`Request failed: ${e.message}`, 'error');
-    } finally { stop(); input?.focus(); }
-  }
-
-  function install() {
-    if (!document.getElementById('sendAiBtn') || installed) return;
-    installed = true;
-    const replace = (id, handler) => {
-      const old = $(id); if (!old) return null;
-      const next = old.cloneNode(true); old.replaceWith(next); next.addEventListener('click', handler); return next;
-    };
-    replace('sendAiBtn', () => send());
-    const input = $('chatInput');
-    if (input) {
-      const next = input.cloneNode(true); next.value = input.value; input.replaceWith(next);
-      next.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
-    }
-    replace('undoAiBtn', () => {
-      if (!undo) return;
-      D.replace(undo.config);
-      const saved = M.saveConfig(undo.config); M.resetSession(saved); S?.save?.(undo.spin); undo = null;
-      if ($('undoAiBtn')) $('undoAiBtn').disabled = true;
-      addMessage('system', 'Last AI edit undone.');
-      status('Last AI edit undone.', 'ok');
-    });
-    replace('clearChatBtn', () => { history = []; if ($('chatMessages')) $('chatMessages').innerHTML = ''; addMessage('system', 'Chat cleared.'); });
-    document.querySelectorAll('[data-ai-command]').forEach(old => {
-      const next = old.cloneNode(true); old.replaceWith(next); next.addEventListener('click', () => send(next.dataset.aiCommand || ''));
-    });
-    addMessage('system', 'Dependency-aware AI active: individual ordering uses forfeit dependencies; groups remain broad game states.');
-  }
-
-  function armAfterLegacyLoader() {
-    const check = () => {
-      const legacy = [...document.scripts].find(s => /ai-chat-fix-v3\.js/.test(s.src));
-      if (legacy) {
-        legacy.addEventListener('load', () => setTimeout(install, 0), { once: true });
-        setTimeout(install, 1200);
-        return true;
-      }
-      return false;
-    };
-    if (check()) return;
-    const obs = new MutationObserver(() => { if (check()) obs.disconnect(); });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
-    setTimeout(() => { obs.disconnect(); install(); }, 4000);
-  }
-
-  armAfterLegacyLoader();
+  function refreshStats(){const c=M.loadConfig();if($('chatGroupCount'))$('chatGroupCount').textContent=c.levels.length;if($('chatForfeitCount'))$('chatForfeitCount').textContent=c.forfeits.length;if($('chatRuleCount'))$('chatRuleCount').textContent=(c.rules||[]).length;const badge=$('logicBadge');if(badge){try{assertNoDependencyCycles(c);badge.textContent='Logic OK';badge.classList.remove('warn');}catch(_){badge.textContent='Logic warning';badge.classList.add('warn');}}}
+  async function sendMessage(forced='',options={}){if(state.busy)return;const input=$('chatInput'),text=String(forced||input?.value||'').trim();if(!text)return;if(!selectedModel()){setStatus('Choose a model first.','error');addMessage('system','Choose a model before sending.');return;}if(!token()){setStatus('Enter API token first.','error');addMessage('system','Enter your API token before sending.');return;}if(input&&!forced)input.value='';addMessage('user',options.retry?`↻ Retry: ${text}`:text);const pending=addMessage('system','⏳ AI is working on the wheel…','Preparing · 0s elapsed');startWork('Preparing full wheel context');const mode=requestMode(text);try{const answer=await getStructured(text,mode,!!options.strict);setPhase('Validating patch');const actions=Array.isArray(answer?.actions)?answer.actions:[],satisfied=answer?.assessment?.alreadySatisfied===true;let changed=0;if(actions.length){setPhase('Applying wheel changes');changed=applyActions(actions);}if(mode==='edit'&&!changed&&!satisfied)throw new Error('The AI returned no executable wheel changes. Nothing was saved.');pending?.remove();const reply=String(answer?.reply||(changed?'Done.':'No changes were needed.'));let meta=changed?`✓ Applied ${changed} wheel change${changed===1?'':'s'}`:'✓ Checked · no changes needed';if(satisfied&&answer?.assessment?.findings?.length)meta+=` · ${answer.assessment.findings.length} finding${answer.assessment.findings.length===1?'':'s'}`;addMessage('assistant',reply,meta);state.history.push({role:'user',content:text},{role:'assistant',content:reply});state.history=state.history.slice(-6);state.lastFailed=null;setStatus(changed?`Applied ${changed} wheel change${changed===1?'':'s'}.`:'Check completed.','ok');if(changed)window.dispatchEvent(new CustomEvent('fortune-ai-applied',{detail:{count:changed}}));}catch(error){pending?.remove();state.lastFailed=text;addMessage('assistant',`I could not complete that request: ${error.message}`,'Not applied',text);setStatus(`Request failed: ${error.message}`,'error');}finally{stopWork();input?.focus();}}
+  function undoLast(){if(!state.undo)return;D.replace(state.undo.config);const saved=M.saveConfig(state.undo.config);M.resetSession(saved);S?.save?.(state.undo.spin);state.undo=null;if($('undoAiBtn'))$('undoAiBtn').disabled=true;refreshStats();addMessage('system','Last AI edit undone.');setStatus('Last AI edit undone.','ok');window.dispatchEvent(new CustomEvent('fortune-ai-applied',{detail:{count:0,undo:true}}));}
+  function clearChat(){state.history=[];const box=$('chatMessages');if(box)box.innerHTML='';addMessage('system','Chat cleared. The next request will still receive the complete current wheel configuration.');}
+  function install(){injectStyles();refreshStats();$('loadModelsBtn')?.addEventListener('click',loadModels);$('modelFilter')?.addEventListener('input',renderModels);$('testAiBtn')?.addEventListener('click',testApi);$('sendAiBtn')?.addEventListener('click',()=>sendMessage());$('undoAiBtn')?.addEventListener('click',undoLast);$('clearChatBtn')?.addEventListener('click',clearChat);$('chatInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});$('chatMessages')?.addEventListener('click',e=>{const b=e.target.closest('.ai-retry-btn');if(!b)return;const text=b.dataset.retryText||state.lastFailed||'';if(text)sendMessage(text,{retry:true,strict:true});});$('aiProvider')?.addEventListener('change',()=>{const suggested=providerDefaults(provider());if(suggested&&$('aiEndpoint'))$('aiEndpoint').value=suggested;state.models=[];renderModels();});$('toggleToken')?.addEventListener('click',()=>{const field=$('aiToken');if(!field)return;const show=field.type==='password';field.type=show?'text':'password';$('toggleToken').textContent=show?'Hide':'Show';});document.querySelectorAll('[data-ai-command]').forEach(b=>b.addEventListener('click',()=>sendMessage(b.dataset.aiCommand||'')));addMessage('system','AI engine ready. Every request receives the full wheel model, groups, forfeits, dependencies, rules and spin settings. Mixed “check and fix” requests are treated as edits.');if($('aiModel')?.dataset.restoreModel)setTimeout(loadModels,120);if($('aiStatus')?.parentElement&&!$('aiStatus').parentElement.querySelector('.ai-engine-note')){const note=document.createElement('div');note.className='ai-engine-note';note.textContent='Edits are only reported as successful after validated patch actions are actually saved. Failed edits include a Retry button.';$('aiStatus').insertAdjacentElement('afterend',note);}}
+  window.FortuneAiEditorEngine={loadModels,testApi,sendMessage,refreshStats,requestMode,engineGuide:ENGINE_GUIDE};
+  install();
 })();
