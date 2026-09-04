@@ -1,67 +1,650 @@
 (() => {
-'use strict';
-const M=window.FortuneModel,$=id=>document.getElementById(id),S=window.FortuneSpinStyle;
-let config=M.loadConfig(),session=M.loadSession(config),spinning=false,rotation=0,audio=null,segments=[];
-const rotor=$('wheelRotor'),spinBtn=$('spinBtn'),pointer=$('pointer'),overlay=$('resultOverlay'),card=$('resultCard'),mystery=$('resultMystery'),rIcon=$('resultIcon'),rTitle=$('resultTitle'),rDesc=$('resultDescription'),rCategory=$('resultCategory'),unlockNotice=$('unlockNotice'),fileInput=$('fileInput');
-const norm=d=>((d%360)+360)%360;
-const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const polar=(cx,cy,r,a)=>({x:cx+r*Math.cos(a*Math.PI/180),y:cy+r*Math.sin(a*Math.PI/180)});
-const randomInt=(min,max)=>Math.floor(min+Math.random()*(max-min+1));
-function arc(cx,cy,r,a,b){const p=polar(cx,cy,r,a),q=polar(cx,cy,r,b);return `M ${cx} ${cy} L ${p.x} ${p.y} A ${r} ${r} 0 ${b-a>180?1:0} 1 ${q.x} ${q.y} Z`;}
-function weight(i){return Math.max(.01,i.weight*(Number(session.runtime[i.id]?.weightMultiplier)||1));}
-function active(){return config.forfeits.filter(i=>{const r=session.runtime[i.id];return i.enabled&&r&&!r.removed&&r.cooldown<=0&&session.activeLevels[i.levelId]&&!(i.lifetime.type==='spins'&&r.remainingSpins!==null&&r.remainingSpins<=0);});}
-function makeSegments(items){const total=items.reduce((s,i)=>s+weight(i),0);let a=-90;return items.map(item=>{const w=weight(item),span=total?w/total*360:0,o={item,start:a,end:a+span,span,weight:w,total};a+=span;return o;});}
-function svg(tag,attrs={}){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));return n;}
-function renderWheel(){
- const items=active();segments=makeSegments(items);rotor.innerHTML='';spinBtn.disabled=spinning||!segments.length;
- if(!segments.length){rotor.innerHTML='<div class="wheel-empty"><strong>No active forfeits</strong><span>Unlock a group or add entries in Edit.</span></div>';return;}
- const s=svg('svg',{viewBox:'0 0 600 600',role:'img','aria-label':`${segments.length} active wheel entries`});s.classList.add('wheel-svg');
- segments.forEach((g,idx)=>{
-  const p=svg('path',{d:arc(300,300,286,g.start,g.end),fill:g.item.color,class:'wheel-segment','data-index':idx});const t=svg('title');t.textContent=g.item.mystery?`Mystery · ${(g.weight/g.total*100).toFixed(1)}%`:`${g.item.name} · ${(g.weight/g.total*100).toFixed(1)}%`;p.appendChild(t);s.appendChild(p);
-  const edge=polar(300,300,286,g.start);s.appendChild(svg('line',{x1:300,y1:300,x2:edge.x,y2:edge.y,class:'wheel-divider'}));
-  if(g.span>=7){const mid=g.start+g.span/2,pos=polar(300,300,g.span<18?230:205,mid),grp=svg('g',{transform:`translate(${pos.x} ${pos.y}) rotate(${mid+90})`}),ic=svg('text',{x:0,y:config.settings.showTextOnWheel&&g.span>=20?-5:7,'text-anchor':'middle',class:'wheel-icon'});ic.textContent=g.item.mystery?'❓':g.item.icon;grp.appendChild(ic);
-   if(config.settings.showTextOnWheel&&g.span>=20){const tx=svg('text',{x:0,y:25,'text-anchor':'middle',class:'wheel-label'});let n=g.item.mystery?'MYSTERY':g.item.name,lim=g.span>=35?16:10;tx.textContent=n.length>lim?n.slice(0,lim-1)+'…':n;grp.appendChild(tx);}s.appendChild(grp);}
- });s.appendChild(svg('circle',{cx:300,cy:300,r:286,class:'wheel-rim'}));rotor.appendChild(s);rotor.style.transform=`rotate(${rotation}deg)`;
-}
-function renderLevels(){const box=$('levelLights');box.innerHTML='';config.levels.forEach(l=>{const on=!!session.activeLevels[l.id],d=document.createElement('div');d.className=`level-light ${on?'active':'locked'}`;d.style.setProperty('--level-color',l.color);d.innerHTML=`<span class="level-dot">${esc(l.icon)}</span><span>${esc(l.name)}</span><b>${on?'ON':'LOCKED'}</b>`;box.appendChild(d);});}
-function renderOdds(){const c=document.querySelector('.probability-card');if(c)c.hidden=!config.settings.showProbabilities;const box=$('probabilityList');box.innerHTML='';const list=active(),total=list.reduce((s,i)=>s+weight(i),0);list.sort((a,b)=>weight(b)-weight(a)).forEach(i=>{const d=document.createElement('div');d.className='probability-row';d.innerHTML=`<span class="prob-icon" style="--item-color:${i.color}">${esc(i.mystery?'❓':i.icon)}</span><span class="prob-name"><strong>${esc(i.mystery?'Mystery':i.name)}</strong><small>weight ${weight(i).toFixed(1)}</small></span><span class="prob-value">${(weight(i)/total*100).toFixed(1)}%</span>`;box.appendChild(d);});if(!list.length)box.innerHTML='<div class="empty-small">No selectable entries.</div>';}
-function renderHistory(){const box=$('historyList'),h=session.history.slice(-8).reverse();box.innerHTML='';$('historyHint').textContent=session.history.length?`${session.history.length} result${session.history.length===1?'':'s'} this session`:'Nothing selected yet';h.forEach((e,i)=>{const d=document.createElement('div');d.className='history-item';d.innerHTML=`<span class="history-index">${session.history.length-i}</span><span class="history-icon" style="--item-color:${e.color}">${esc(e.icon)}</span><span class="history-copy"><strong>${esc(e.name)}</strong><small>${esc(e.category)}${e.unlocked?.length?' · unlocked '+esc(e.unlocked.join(', ')):''}</small></span><span class="history-time">${esc(e.time)}</span>`;box.appendChild(d);});if(!h.length)box.innerHTML='<div class="history-empty">Your last results will appear here.</div>';$('undoBtn').disabled=!session.undoStack.length||spinning;}
-function renderAll(){document.title=`${config.settings.title} · Fortune Engine`;renderLevels();renderWheel();renderOdds();renderHistory();$('spinCount').textContent=session.spinCount;$('activeCount').textContent=active().length;$('chanceHint').textContent=active().length?'WEIGHTED':'—';M.saveSession(session);}
-function choose(list){let n=Math.random()*list.reduce((s,g)=>s+g.weight,0);for(const g of list){n-=g.weight;if(n<=0)return g;}return list.at(-1);}
-function pointerIndex(r,list){const a=norm(-90-r);for(let i=0;i<list.length;i++)if(norm(a-norm(list[i].start))<=list[i].span+.0001)return i;return 0;}
-const easeOut=t=>1-Math.pow(1-t,5);
-const easeInOut=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-function snapshot(){const s=M.deepClone(session);s.undoStack=[];session.undoStack.push(s);if(session.undoStack.length>12)session.undoStack.shift();}
-function ensureSpinPreview(){let p=$('liveSpinPreview');if(p)return p;p=document.createElement('div');p.id='liveSpinPreview';p.className='spin-live-preview';p.setAttribute('aria-live','polite');p.innerHTML='<span class="spin-live-icon">✦</span><span class="spin-live-name">Current</span><span class="spin-live-caption">UNDER THE POINTER</span>';const shell=$('wheelShell');shell?.appendChild(p);return p;}
-function hideSpinPreview(){const p=ensureSpinPreview();p.classList.remove('show','bump','second-wind');}
-function updateSpinPreview(item,bump=true){const style=S?.load?.()||{};if(style.showSlowIcon===false)return;const p=ensureSpinPreview();const icon=p.querySelector('.spin-live-icon'),name=p.querySelector('.spin-live-name');icon.textContent=item?.mystery?'❓':(item?.icon||'✦');name.textContent=item?.mystery?'Mystery':(item?.name||'Current');p.style.setProperty('--preview-color',item?.color||'#65d8ff');p.classList.add('show');if(bump){p.classList.remove('bump');void p.offsetWidth;p.classList.add('bump');}}
-function secondWindSignal(){const p=ensureSpinPreview();p.classList.add('show','second-wind');p.querySelector('.spin-live-caption').textContent='SECOND WIND';[520,690,910].forEach((f,i)=>beep(f,.12,.04,i*.055));setTimeout(()=>{p.classList.remove('second-wind');p.querySelector('.spin-live-caption').textContent='UNDER THE POINTER';},900);}
-function animatePhase(from,to,duration,list,{preview=false,ease=easeOut}={}){return new Promise(done=>{const t0=performance.now();let last=pointerIndex(from,list);const frame=now=>{const t=Math.min(1,(now-t0)/Math.max(1,duration));rotation=from+(to-from)*ease(t);rotor.style.transform=`rotate(${rotation}deg)`;const idx=pointerIndex(rotation,list);if(idx!==last){last=idx;tick();if(preview)updateSpinPreview(list[idx]?.item);}else if(preview&&t===0)updateSpinPreview(list[idx]?.item,false);t<1?requestAnimationFrame(frame):done();};requestAnimationFrame(frame);});}
-async function spin(){
- if(spinning||!segments.length)return;hideResult();hideSpinPreview();spinning=true;spinBtn.disabled=true;$('undoBtn').disabled=true;state('Spinning…','The wheel is deciding. The final slowdown may have a surprise.');snapshot();
- const list=makeSegments(active()),pick=choose(list),target=pick.start+pick.span*(.22+Math.random()*.56),desired=norm(-90-target),align=norm(desired-norm(rotation));
- const style=S?.load?.()||{maxTurns:Math.max(config.settings.minTurns+2,9),dramaEnabled:true,dramaChance:35,dramaExtraMinTurns:1,dramaExtraMaxTurns:2,showSlowIcon:true};
- const minTurns=Math.max(3,Math.round(config.settings.minTurns||6)),maxTurns=Math.max(minTurns,Math.round(style.maxTurns||minTurns+2)),baseTurns=randomInt(minTurns,maxTurns);
- const min=Math.min(config.settings.minSpinSeconds,config.settings.maxSpinSeconds),max=Math.max(config.settings.minSpinSeconds,config.settings.maxSpinSeconds),duration=(min+Math.random()*(max-min))*1000;
- const baseFinal=rotation+baseTurns*360+align,start=rotation;
- const drama=style.dramaEnabled!==false&&Math.random()*100<Number(style.dramaChance||0);
- if(!drama){const previewStart=.55+Math.random()*.12,split=duration*previewStart,mid=start+(baseFinal-start)*easeOut(previewStart);await animatePhase(start,mid,split,list,{preview:false,ease:easeOut});await animatePhase(mid,baseFinal,duration-split,list,{preview:style.showSlowIcon!==false,ease:easeOut});rotation=baseFinal;}
- else{const extraTurns=randomInt(Math.max(1,Number(style.dramaExtraMinTurns)||1),Math.max(Number(style.dramaExtraMinTurns)||1,Number(style.dramaExtraMaxTurns)||2));const trigger=.62+Math.random()*.14;const almost=baseFinal-(28+Math.random()*42);const phase1=Math.max(2400,duration*trigger);await animatePhase(start,almost,phase1,list,{preview:false,ease:easeOut});updateSpinPreview(list[pointerIndex(rotation,list)]?.item,false);await animatePhase(almost,baseFinal-(10+Math.random()*18),Math.max(700,duration*.12),list,{preview:style.showSlowIcon!==false,ease:easeOut});state('Wait…','It looked finished — but the wheel found a second wind.');secondWindSignal();const final=baseFinal+extraTurns*360;const boostEnd=rotation+extraTurns*360*.52;await animatePhase(rotation,boostEnd,900+Math.random()*700,list,{preview:style.showSlowIcon!==false,ease:easeInOut});await animatePhase(boostEnd,final,1800+Math.random()*1300,list,{preview:style.showSlowIcon!==false,ease:easeOut});rotation=final;}
- rotor.style.transform=`rotate(${rotation}deg)`;updateSpinPreview(pick.item,false);const outcome=applyResult(pick.item);spinning=false;renderAll();setTimeout(()=>{hideSpinPreview();showResult(pick.item,outcome);},260);
-}
-function evaluateRules(current){const done=new Set(session.history.map(h=>h.id));done.add(current);const unlocked=[],rules=[];(config.rules||[]).forEach(r=>{if(!r.enabled||!r.conditionForfeitIds.length)return;const m=r.conditionForfeitIds.map(id=>done.has(id)),ok=r.mode==='any'?m.some(Boolean):m.every(Boolean);if(!ok)return;const fresh=[];r.unlockLevels.forEach(id=>{if(session.activeLevels[id])return;session.activeLevels[id]=true;const l=config.levels.find(x=>x.id===id);if(l){unlocked.push(l.name);fresh.push(l.name);}});if(fresh.length)rules.push(r.name);});return{unlocked,rules};}
-function applyResult(item){const before={...session.activeLevels},unlocked=[];session.spinCount++;Object.values(session.runtime).forEach(r=>{if(r.cooldown>0)r.cooldown--;});item.unlockLevels.forEach(id=>{if(!session.activeLevels[id]){session.activeLevels[id]=true;const l=config.levels.find(x=>x.id===id);if(l)unlocked.push(l.name);}});evaluateRules(item.id).unlocked.forEach(n=>{if(!unlocked.includes(n))unlocked.push(n);});config.forfeits.forEach(i=>{const r=session.runtime[i.id];if(!r||!before[i.levelId]||r.removed)return;if(i.lifetime.type==='spins'&&r.remainingSpins!==null){r.remainingSpins--;if(r.remainingSpins<=0)r.removed=true;}});const rt=session.runtime[item.id];if(item.lifetime.type==='once')rt.removed=true;if(!rt.removed&&item.cooldown>0)rt.cooldown=item.cooldown;let msg='';if(item.eventType==='spinAgain')msg='Spin again is active — the next spin is waiting for you.';else if(item.eventType==='doubleSpin'){session.doubleSpinTokens=(session.doubleSpinTokens||0)+1;msg='Double-spin token earned.';}else if(item.eventType==='immunity'){session.immunityTokens=(session.immunityTokens||0)+1;msg=`Immunity token earned. You now have ${session.immunityTokens}.`;}else if(item.eventType==='randomize'){active().forEach(i=>session.runtime[i.id].weightMultiplier=Number((.6+Math.random()).toFixed(2)));msg='Chaos Shuffle changed the effective weights of active entries.';}else if(item.eventType==='unlock'&&unlocked.length)msg=`${unlocked.join(', ')} ${unlocked.length===1?'is':'are'} now active.`;session.history.push({id:item.id,name:item.name,icon:item.icon,color:item.color,category:item.category,unlocked,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})});if(session.history.length>50)session.history.shift();M.saveSession(session);return{unlocked,specialMessage:msg};}
-function state(t,x){$('stateTitle').textContent=t;$('stateText').textContent=x;}
-function showResult(item,o){overlay.hidden=false;overlay.classList.add('show');card.className=`result-card result-${item.animation}`;card.style.setProperty('--result-color',item.color);rCategory.textContent=item.category||'RESULT';rTitle.textContent=item.mystery?'Mystery revealed…':item.name;rDesc.textContent=item.mystery?'The wheel kept this one hidden.':(item.description||'Selected by the wheel.');rIcon.textContent=item.mystery?'❓':item.icon;mystery.hidden=!item.mystery;rIcon.hidden=item.mystery;unlockNotice.hidden=!(o.unlocked.length||o.specialMessage);unlockNotice.textContent=o.unlocked.length?`UNLOCKED · ${o.unlocked.join(' + ')}`:o.specialMessage;$('resultSpinBtn').textContent=item.eventType==='spinAgain'?'Spin again!':'Spin again';tone();if(item.mystery)setTimeout(()=>{if(overlay.hidden)return;mystery.hidden=true;rIcon.hidden=false;rIcon.textContent=item.icon;rTitle.textContent=item.name;rDesc.textContent=item.description||'Mystery revealed.';card.classList.add('mystery-revealed');if(item.animation==='confetti')confetti();},950);else if(item.animation==='confetti')setTimeout(confetti,180);const bits=[item.name];if(o.unlocked.length)bits.push('Unlocked '+o.unlocked.join(', '));if(o.specialMessage)bits.push(o.specialMessage);state('Last result',bits.join(' · '));}
-function hideResult(){overlay.classList.remove('show');overlay.hidden=true;card.className='result-card';}
-function confetti(){const colors=['#fff','#57d3ff','#ff6bd6','#ffb454','#8b7cff'];for(let i=0;i<38;i++){const p=document.createElement('i');p.className='confetti-piece';p.style.setProperty('--x',`${(Math.random()-.5)*520}px`);p.style.setProperty('--y',`${-80-Math.random()*330}px`);p.style.setProperty('--r',`${Math.random()*720-360}deg`);p.style.setProperty('--c',colors[i%colors.length]);card.appendChild(p);setTimeout(()=>p.remove(),1600);}}
-function ctx(){if(!config.settings.soundEnabled)return null;if(!audio){const C=window.AudioContext||window.webkitAudioContext;if(C)audio=new C();}if(audio?.state==='suspended')audio.resume().catch(()=>{});return audio;}
-function beep(freq=.0,d=.04,g=.04,delay=0){const c=ctx();if(!c)return;const o=c.createOscillator(),v=c.createGain(),at=c.currentTime+delay;o.frequency.value=freq;v.gain.setValueAtTime(g,at);v.gain.exponentialRampToValueAtTime(.001,at+d);o.connect(v).connect(c.destination);o.start(at);o.stop(at+d+.01);}
-function tick(){pointer.classList.remove('tick');void pointer.offsetWidth;pointer.classList.add('tick');beep(780,.035,.045);}
-function tone(){[440,660,880].forEach((f,i)=>beep(f,.16,.055,i*.08));}
-function undo(){if(spinning||!session.undoStack.length)return;hideSpinPreview();const stack=session.undoStack,prev=stack.pop();session={...prev,undoStack:stack};rotation=0;state('Last spin undone','The previous wheel state, cooldowns, lifetimes and unlocks have been restored.');renderAll();toast('Last spin restored.');}
-function reset(){if(!confirm('Reset the current session? This clears spin history, cooldowns and unlocked groups. Your wheel configuration stays intact.'))return;hideSpinPreview();session=M.resetSession(config);rotation=0;state('Session reset','The wheel is back to its configured starting groups.');renderAll();toast('Session reset.');}
-function toast(m){const n=$('toast');n.textContent=m;n.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>n.classList.remove('show'),2400);}
-async function loadXml(file){try{config=M.saveConfig(await M.readXmlFile(file));session=M.resetSession(config);rotation=0;renderAll();state('XML loaded','A fresh session was started with the imported wheel configuration.');toast('Wheel loaded from XML.');}catch(e){toast(e.message||'Could not load XML.');}finally{fileInput.value='';}}
-ensureSpinPreview();spinBtn.addEventListener('click',()=>{ctx();spin();});$('saveBtn').addEventListener('click',()=>M.downloadXml(config));$('loadBtn').addEventListener('click',()=>fileInput.click());fileInput.addEventListener('change',()=>loadXml(fileInput.files?.[0]));$('undoBtn').addEventListener('click',undo);$('resetBtn').addEventListener('click',reset);$('resultCloseBtn').addEventListener('click',hideResult);$('resultSpinBtn').addEventListener('click',()=>{hideResult();setTimeout(spin,100);});overlay.addEventListener('click',e=>{if(e.target.classList.contains('result-backdrop'))hideResult();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!overlay.hidden)hideResult();});renderAll();
+  'use strict';
+
+  const M = window.FortuneModel;
+  const S = window.FortuneSpinStyle;
+  const $ = id => document.getElementById(id);
+
+  let config = M.loadConfig();
+  let session = M.loadSession(config);
+  let spinning = false;
+  let rotation = 0;
+  let audio = null;
+  let segments = [];
+
+  const rotor = $('wheelRotor');
+  const spinBtn = $('spinBtn');
+  const pointer = $('pointer');
+  const overlay = $('resultOverlay');
+  const card = $('resultCard');
+  const mystery = $('resultMystery');
+  const rIcon = $('resultIcon');
+  const rTitle = $('resultTitle');
+  const rDesc = $('resultDescription');
+  const rCategory = $('resultCategory');
+  const unlockNotice = $('unlockNotice');
+  const fileInput = $('fileInput');
+
+  const norm = deg => ((deg % 360) + 360) % 360;
+  const esc = value => String(value ?? '').replace(/[&<>'\"]/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;'
+  }[c]));
+  const randomInt = (min, max) => {
+    const a = Math.ceil(Math.min(min, max));
+    const b = Math.floor(Math.max(min, max));
+    return Math.floor(a + Math.random() * (b - a + 1));
+  };
+  const polar = (cx, cy, r, angle) => ({
+    x: cx + r * Math.cos(angle * Math.PI / 180),
+    y: cy + r * Math.sin(angle * Math.PI / 180)
+  });
+
+  function arc(cx, cy, r, start, end) {
+    const p = polar(cx, cy, r, start);
+    const q = polar(cx, cy, r, end);
+    return `M ${cx} ${cy} L ${p.x} ${p.y} A ${r} ${r} 0 ${end - start > 180 ? 1 : 0} 1 ${q.x} ${q.y} Z`;
+  }
+
+  function weight(item) {
+    return Math.max(.01, item.weight * (Number(session.runtime[item.id]?.weightMultiplier) || 1));
+  }
+
+  function active() {
+    return config.forfeits.filter(item => {
+      const runtime = session.runtime[item.id];
+      return item.enabled && runtime && !runtime.removed && runtime.cooldown <= 0 &&
+        session.activeLevels[item.levelId] &&
+        !(item.lifetime.type === 'spins' && runtime.remainingSpins !== null && runtime.remainingSpins <= 0);
+    });
+  }
+
+  function makeSegments(items) {
+    const total = items.reduce((sum, item) => sum + weight(item), 0);
+    let angle = -90;
+    return items.map(item => {
+      const itemWeight = weight(item);
+      const span = total ? itemWeight / total * 360 : 0;
+      const segment = { item, start: angle, end: angle + span, span, weight: itemWeight, total };
+      angle += span;
+      return segment;
+    });
+  }
+
+  function svg(tag, attrs = {}) {
+    const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+    return node;
+  }
+
+  function renderWheel() {
+    const items = active();
+    segments = makeSegments(items);
+    rotor.innerHTML = '';
+    spinBtn.disabled = spinning || !segments.length;
+
+    if (!segments.length) {
+      rotor.innerHTML = '<div class="wheel-empty"><strong>No active forfeits</strong><span>Unlock a group or add entries in Edit.</span></div>';
+      return;
+    }
+
+    const root = svg('svg', {
+      viewBox: '0 0 600 600',
+      role: 'img',
+      'aria-label': `${segments.length} active wheel entries`
+    });
+    root.classList.add('wheel-svg');
+
+    segments.forEach((segment, index) => {
+      const path = svg('path', {
+        d: arc(300, 300, 286, segment.start, segment.end),
+        fill: segment.item.color,
+        class: 'wheel-segment',
+        'data-index': index
+      });
+      const title = svg('title');
+      title.textContent = segment.item.mystery
+        ? `Mystery · ${(segment.weight / segment.total * 100).toFixed(1)}%`
+        : `${segment.item.name} · ${(segment.weight / segment.total * 100).toFixed(1)}%`;
+      path.appendChild(title);
+      root.appendChild(path);
+
+      const edge = polar(300, 300, 286, segment.start);
+      root.appendChild(svg('line', {
+        x1: 300, y1: 300, x2: edge.x, y2: edge.y, class: 'wheel-divider'
+      }));
+
+      if (segment.span >= 7) {
+        const mid = segment.start + segment.span / 2;
+        const pos = polar(300, 300, segment.span < 18 ? 230 : 205, mid);
+        const group = svg('g', { transform: `translate(${pos.x} ${pos.y}) rotate(${mid + 90})` });
+        const icon = svg('text', {
+          x: 0,
+          y: config.settings.showTextOnWheel && segment.span >= 20 ? -5 : 7,
+          'text-anchor': 'middle',
+          class: 'wheel-icon'
+        });
+        icon.textContent = segment.item.mystery ? '❓' : segment.item.icon;
+        group.appendChild(icon);
+
+        if (config.settings.showTextOnWheel && segment.span >= 20) {
+          const text = svg('text', { x: 0, y: 25, 'text-anchor': 'middle', class: 'wheel-label' });
+          const raw = segment.item.mystery ? 'MYSTERY' : segment.item.name;
+          const limit = segment.span >= 35 ? 16 : 10;
+          text.textContent = raw.length > limit ? raw.slice(0, limit - 1) + '…' : raw;
+          group.appendChild(text);
+        }
+        root.appendChild(group);
+      }
+    });
+
+    root.appendChild(svg('circle', { cx: 300, cy: 300, r: 286, class: 'wheel-rim' }));
+    rotor.appendChild(root);
+    rotor.style.transform = `rotate(${rotation}deg)`;
+  }
+
+  function renderLevels() {
+    const box = $('levelLights');
+    box.innerHTML = '';
+    config.levels.forEach(level => {
+      const on = !!session.activeLevels[level.id];
+      const node = document.createElement('div');
+      node.className = `level-light ${on ? 'active' : 'locked'}`;
+      node.style.setProperty('--level-color', level.color);
+      node.innerHTML = `<span class="level-dot">${esc(level.icon)}</span><span>${esc(level.name)}</span><b>${on ? 'ON' : 'LOCKED'}</b>`;
+      box.appendChild(node);
+    });
+  }
+
+  function renderOdds() {
+    const cardNode = document.querySelector('.probability-card');
+    if (cardNode) cardNode.hidden = !config.settings.showProbabilities;
+    const box = $('probabilityList');
+    box.innerHTML = '';
+    const list = active();
+    const total = list.reduce((sum, item) => sum + weight(item), 0);
+    list.sort((a, b) => weight(b) - weight(a)).forEach(item => {
+      const node = document.createElement('div');
+      node.className = 'probability-row';
+      node.innerHTML = `<span class="prob-icon" style="--item-color:${item.color}">${esc(item.mystery ? '❓' : item.icon)}</span><span class="prob-name"><strong>${esc(item.mystery ? 'Mystery' : item.name)}</strong><small>weight ${weight(item).toFixed(1)}</small></span><span class="prob-value">${(weight(item) / total * 100).toFixed(1)}%</span>`;
+      box.appendChild(node);
+    });
+    if (!list.length) box.innerHTML = '<div class="empty-small">No selectable entries.</div>';
+  }
+
+  function renderHistory() {
+    const box = $('historyList');
+    const history = session.history.slice(-8).reverse();
+    box.innerHTML = '';
+    $('historyHint').textContent = session.history.length
+      ? `${session.history.length} result${session.history.length === 1 ? '' : 's'} this session`
+      : 'Nothing selected yet';
+
+    history.forEach((entry, index) => {
+      const node = document.createElement('div');
+      node.className = 'history-item';
+      node.innerHTML = `<span class="history-index">${session.history.length - index}</span><span class="history-icon" style="--item-color:${entry.color}">${esc(entry.icon)}</span><span class="history-copy"><strong>${esc(entry.name)}</strong><small>${esc(entry.category)}${entry.unlocked?.length ? ' · unlocked ' + esc(entry.unlocked.join(', ')) : ''}</small></span><span class="history-time">${esc(entry.time)}</span>`;
+      box.appendChild(node);
+    });
+
+    if (!history.length) box.innerHTML = '<div class="history-empty">Your last results will appear here.</div>';
+    $('undoBtn').disabled = !session.undoStack.length || spinning;
+  }
+
+  function renderAll() {
+    document.title = `${config.settings.title} · Fortune Engine`;
+    renderLevels();
+    renderWheel();
+    renderOdds();
+    renderHistory();
+    $('spinCount').textContent = session.spinCount;
+    $('activeCount').textContent = active().length;
+    $('chanceHint').textContent = active().length ? 'WEIGHTED' : '—';
+    M.saveSession(session);
+  }
+
+  function choose(list) {
+    let needle = Math.random() * list.reduce((sum, segment) => sum + segment.weight, 0);
+    for (const segment of list) {
+      needle -= segment.weight;
+      if (needle <= 0) return segment;
+    }
+    return list.at(-1);
+  }
+
+  function pointerIndex(currentRotation, list) {
+    const angle = norm(-90 - currentRotation);
+    for (let i = 0; i < list.length; i++) {
+      if (norm(angle - norm(list[i].start)) <= list[i].span + .0001) return i;
+    }
+    return 0;
+  }
+
+  const easeOut = t => 1 - Math.pow(1 - t, 5);
+  const smoothStep = t => t * t * (3 - 2 * t);
+
+  function snapshot() {
+    const snap = M.deepClone(session);
+    snap.undoStack = [];
+    session.undoStack.push(snap);
+    if (session.undoStack.length > 12) session.undoStack.shift();
+  }
+
+  function ensureSpinPreview() {
+    let preview = $('liveSpinPreview');
+    if (preview) return preview;
+    preview = document.createElement('div');
+    preview.id = 'liveSpinPreview';
+    preview.className = 'spin-live-preview';
+    preview.setAttribute('aria-live', 'polite');
+    preview.innerHTML = '<span class="spin-live-icon">✦</span><span class="spin-live-name">Current</span><span class="spin-live-caption">UNDER THE POINTER</span>';
+    $('wheelShell')?.appendChild(preview);
+    return preview;
+  }
+
+  function hideSpinPreview() {
+    const preview = ensureSpinPreview();
+    preview.classList.remove('show', 'bump', 'second-wind');
+    const caption = preview.querySelector('.spin-live-caption');
+    if (caption) caption.textContent = 'UNDER THE POINTER';
+  }
+
+  function updateSpinPreview(item, bump = true) {
+    const style = S?.load?.() || {};
+    if (style.showSlowIcon === false) return;
+    const preview = ensureSpinPreview();
+    const icon = preview.querySelector('.spin-live-icon');
+    const name = preview.querySelector('.spin-live-name');
+    icon.textContent = item?.mystery ? '❓' : (item?.icon || '✦');
+    name.textContent = item?.mystery ? 'Mystery' : (item?.name || 'Current');
+    preview.style.setProperty('--preview-color', item?.color || '#65d8ff');
+    preview.classList.add('show');
+    if (bump) {
+      preview.classList.remove('bump');
+      void preview.offsetWidth;
+      preview.classList.add('bump');
+    }
+  }
+
+  function dramaSignal() {
+    const preview = ensureSpinPreview();
+    preview.classList.add('show', 'second-wind');
+    const caption = preview.querySelector('.spin-live-caption');
+    if (caption) caption.textContent = 'NOT YET…';
+    [430, 540, 680].forEach((freq, i) => beep(freq, .11, .035, i * .06));
+    setTimeout(() => {
+      preview.classList.remove('second-wind');
+      if (caption) caption.textContent = 'STILL MOVING';
+    }, 800);
+  }
+
+  function animatePhase(from, to, duration, list, options = {}) {
+    const ease = options.ease || easeOut;
+    const previewAfter = Number.isFinite(options.previewAfter) ? options.previewAfter : null;
+    return new Promise(done => {
+      const started = performance.now();
+      let last = pointerIndex(from, list);
+      let previewVisible = false;
+
+      const frame = now => {
+        const t = Math.min(1, (now - started) / Math.max(1, duration));
+        rotation = from + (to - from) * ease(t);
+        rotor.style.transform = `rotate(${rotation}deg)`;
+        const index = pointerIndex(rotation, list);
+        const shouldPreview = previewAfter !== null && t >= previewAfter;
+
+        if (shouldPreview && !previewVisible) {
+          previewVisible = true;
+          updateSpinPreview(list[index]?.item, false);
+        }
+        if (index !== last) {
+          last = index;
+          tick();
+          if (shouldPreview) updateSpinPreview(list[index]?.item);
+        }
+
+        if (t < 1) requestAnimationFrame(frame);
+        else done();
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function spin() {
+    if (spinning || !segments.length) return;
+    hideResult();
+    hideSpinPreview();
+    spinning = true;
+    spinBtn.disabled = true;
+    $('undoBtn').disabled = true;
+    state('Spinning…', 'The wheel is deciding. Watch the pointer as the icons begin appearing during the slowdown.');
+    snapshot();
+
+    const list = makeSegments(active());
+    const pick = choose(list);
+    const target = pick.start + pick.span * (.22 + Math.random() * .56);
+    const desired = norm(-90 - target);
+    const alignment = norm(desired - norm(rotation));
+    const style = S?.load?.() || {
+      maxTurns: Math.max(config.settings.minTurns + 2, 9),
+      dramaEnabled: true,
+      dramaChance: 35,
+      dramaCreepMinDegrees: 30,
+      dramaCreepMaxDegrees: 80,
+      showSlowIcon: true,
+      iconPreviewStartPercent: 35
+    };
+
+    const minTurns = Math.max(3, Math.round(config.settings.minTurns || 6));
+    const maxTurns = Math.max(minTurns, Math.round(style.maxTurns || minTurns + 2));
+    const fullTurns = randomInt(minTurns, maxTurns);
+    const minSeconds = Math.min(config.settings.minSpinSeconds, config.settings.maxSpinSeconds);
+    const maxSeconds = Math.max(config.settings.minSpinSeconds, config.settings.maxSpinSeconds);
+    const duration = (minSeconds + Math.random() * (maxSeconds - minSeconds)) * 1000;
+    const start = rotation;
+    const final = rotation + fullTurns * 360 + alignment;
+    const previewStart = Math.max(.1, Math.min(.8, Number(style.iconPreviewStartPercent || 35) / 100));
+    const drama = style.dramaEnabled !== false && Math.random() * 100 < Number(style.dramaChance || 0);
+
+    if (!drama) {
+      await animatePhase(start, final, duration, list, {
+        ease: easeOut,
+        previewAfter: style.showSlowIcon === false ? null : previewStart
+      });
+      rotation = final;
+    } else {
+      const minCreep = Math.max(5, Number(style.dramaCreepMinDegrees || 30));
+      const maxCreep = Math.max(minCreep, Number(style.dramaCreepMaxDegrees || 80));
+      const creepDegrees = randomInt(minCreep, maxCreep);
+      const fakeStop = final - creepDegrees;
+      const firstDuration = Math.max(2500, duration * (.84 + Math.random() * .08));
+
+      await animatePhase(start, fakeStop, firstDuration, list, {
+        ease: easeOut,
+        previewAfter: style.showSlowIcon === false ? null : previewStart
+      });
+
+      rotation = fakeStop;
+      updateSpinPreview(list[pointerIndex(rotation, list)]?.item, false);
+      state('Almost…', 'The wheel looks finished… but it is still moving.');
+      dramaSignal();
+      await wait(280 + Math.random() * 420);
+
+      // Important: this is only a small continuation, never another full spin.
+      await animatePhase(fakeStop, final, 1500 + Math.random() * 1300, list, {
+        ease: smoothStep,
+        previewAfter: style.showSlowIcon === false ? null : 0
+      });
+      rotation = final;
+    }
+
+    rotor.style.transform = `rotate(${rotation}deg)`;
+    updateSpinPreview(pick.item, false);
+    const outcome = applyResult(pick.item);
+    spinning = false;
+    renderAll();
+    setTimeout(() => {
+      hideSpinPreview();
+      showResult(pick.item, outcome);
+    }, 300);
+  }
+
+  function evaluateRules(currentId) {
+    const occurred = new Set(session.history.map(entry => entry.id));
+    occurred.add(currentId);
+    const unlocked = [];
+    const rules = [];
+
+    (config.rules || []).forEach(rule => {
+      if (!rule.enabled || !rule.conditionForfeitIds.length) return;
+      const matches = rule.conditionForfeitIds.map(id => occurred.has(id));
+      const ok = rule.mode === 'any' ? matches.some(Boolean) : matches.every(Boolean);
+      if (!ok) return;
+      const fresh = [];
+      rule.unlockLevels.forEach(id => {
+        if (session.activeLevels[id]) return;
+        session.activeLevels[id] = true;
+        const level = config.levels.find(item => item.id === id);
+        if (level) {
+          unlocked.push(level.name);
+          fresh.push(level.name);
+        }
+      });
+      if (fresh.length) rules.push(rule.name);
+    });
+    return { unlocked, rules };
+  }
+
+  function applyResult(item) {
+    const activeBefore = { ...session.activeLevels };
+    const unlocked = [];
+    session.spinCount++;
+
+    Object.values(session.runtime).forEach(runtime => {
+      if (runtime.cooldown > 0) runtime.cooldown--;
+    });
+
+    item.unlockLevels.forEach(id => {
+      if (session.activeLevels[id]) return;
+      session.activeLevels[id] = true;
+      const level = config.levels.find(entry => entry.id === id);
+      if (level) unlocked.push(level.name);
+    });
+
+    evaluateRules(item.id).unlocked.forEach(name => {
+      if (!unlocked.includes(name)) unlocked.push(name);
+    });
+
+    config.forfeits.forEach(entry => {
+      const runtime = session.runtime[entry.id];
+      if (!runtime || !activeBefore[entry.levelId] || runtime.removed) return;
+      if (entry.lifetime.type === 'spins' && runtime.remainingSpins !== null) {
+        runtime.remainingSpins--;
+        if (runtime.remainingSpins <= 0) runtime.removed = true;
+      }
+    });
+
+    const runtime = session.runtime[item.id];
+    if (item.lifetime.type === 'once') runtime.removed = true;
+    if (!runtime.removed && item.cooldown > 0) runtime.cooldown = item.cooldown;
+
+    let specialMessage = '';
+    if (item.eventType === 'spinAgain') {
+      specialMessage = 'Spin again is active — the next spin is waiting for you.';
+    } else if (item.eventType === 'doubleSpin') {
+      session.doubleSpinTokens = (session.doubleSpinTokens || 0) + 1;
+      specialMessage = 'Double-spin token earned.';
+    } else if (item.eventType === 'immunity') {
+      session.immunityTokens = (session.immunityTokens || 0) + 1;
+      specialMessage = `Immunity token earned. You now have ${session.immunityTokens}.`;
+    } else if (item.eventType === 'randomize') {
+      active().forEach(entry => {
+        session.runtime[entry.id].weightMultiplier = Number((.6 + Math.random()).toFixed(2));
+      });
+      specialMessage = 'Chaos Shuffle changed the effective weights of active entries.';
+    } else if (item.eventType === 'unlock' && unlocked.length) {
+      specialMessage = `${unlocked.join(', ')} ${unlocked.length === 1 ? 'is' : 'are'} now active.`;
+    }
+
+    session.history.push({
+      id: item.id,
+      name: item.name,
+      icon: item.icon,
+      color: item.color,
+      category: item.category,
+      unlocked,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+    if (session.history.length > 50) session.history.shift();
+    M.saveSession(session);
+    return { unlocked, specialMessage };
+  }
+
+  function state(title, text) {
+    $('stateTitle').textContent = title;
+    $('stateText').textContent = text;
+  }
+
+  function showResult(item, outcome) {
+    overlay.hidden = false;
+    overlay.classList.add('show');
+    card.className = `result-card result-${item.animation}`;
+    card.style.setProperty('--result-color', item.color);
+    rCategory.textContent = item.category || 'RESULT';
+    rTitle.textContent = item.mystery ? 'Mystery revealed…' : item.name;
+    rDesc.textContent = item.mystery ? 'The wheel kept this one hidden.' : (item.description || 'Selected by the wheel.');
+    rIcon.textContent = item.mystery ? '❓' : item.icon;
+    mystery.hidden = !item.mystery;
+    rIcon.hidden = item.mystery;
+    unlockNotice.hidden = !(outcome.unlocked.length || outcome.specialMessage);
+    unlockNotice.textContent = outcome.unlocked.length
+      ? `UNLOCKED · ${outcome.unlocked.join(' + ')}`
+      : outcome.specialMessage;
+    $('resultSpinBtn').textContent = item.eventType === 'spinAgain' ? 'Spin again!' : 'Spin again';
+    tone();
+
+    if (item.mystery) {
+      setTimeout(() => {
+        if (overlay.hidden) return;
+        mystery.hidden = true;
+        rIcon.hidden = false;
+        rIcon.textContent = item.icon;
+        rTitle.textContent = item.name;
+        rDesc.textContent = item.description || 'Mystery revealed.';
+        card.classList.add('mystery-revealed');
+        if (item.animation === 'confetti') confetti();
+      }, 950);
+    } else if (item.animation === 'confetti') {
+      setTimeout(confetti, 180);
+    }
+
+    const bits = [item.name];
+    if (outcome.unlocked.length) bits.push('Unlocked ' + outcome.unlocked.join(', '));
+    if (outcome.specialMessage) bits.push(outcome.specialMessage);
+    state('Last result', bits.join(' · '));
+  }
+
+  function hideResult() {
+    overlay.classList.remove('show');
+    overlay.hidden = true;
+    card.className = 'result-card';
+  }
+
+  function confetti() {
+    const colors = ['#fff', '#57d3ff', '#ff6bd6', '#ffb454', '#8b7cff'];
+    for (let i = 0; i < 38; i++) {
+      const piece = document.createElement('i');
+      piece.className = 'confetti-piece';
+      piece.style.setProperty('--x', `${(Math.random() - .5) * 520}px`);
+      piece.style.setProperty('--y', `${-80 - Math.random() * 330}px`);
+      piece.style.setProperty('--r', `${Math.random() * 720 - 360}deg`);
+      piece.style.setProperty('--c', colors[i % colors.length]);
+      card.appendChild(piece);
+      setTimeout(() => piece.remove(), 1600);
+    }
+  }
+
+  function ctx() {
+    if (!config.settings.soundEnabled) return null;
+    if (!audio) {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (Audio) audio = new Audio();
+    }
+    if (audio?.state === 'suspended') audio.resume().catch(() => {});
+    return audio;
+  }
+
+  function beep(freq = 0, duration = .04, gain = .04, delay = 0) {
+    const context = ctx();
+    if (!context) return;
+    const oscillator = context.createOscillator();
+    const volume = context.createGain();
+    const at = context.currentTime + delay;
+    oscillator.frequency.value = freq;
+    volume.gain.setValueAtTime(gain, at);
+    volume.gain.exponentialRampToValueAtTime(.001, at + duration);
+    oscillator.connect(volume).connect(context.destination);
+    oscillator.start(at);
+    oscillator.stop(at + duration + .01);
+  }
+
+  function tick() {
+    pointer.classList.remove('tick');
+    void pointer.offsetWidth;
+    pointer.classList.add('tick');
+    beep(780, .035, .045);
+  }
+
+  function tone() {
+    [440, 660, 880].forEach((freq, i) => beep(freq, .16, .055, i * .08));
+  }
+
+  function undo() {
+    if (spinning || !session.undoStack.length) return;
+    const stack = session.undoStack;
+    const previous = stack.pop();
+    session = { ...previous, undoStack: stack };
+    rotation = 0;
+    state('Last spin undone', 'The previous wheel state, cooldowns, lifetimes and unlocks have been restored.');
+    renderAll();
+    toast('Last spin restored.');
+  }
+
+  function reset() {
+    if (!confirm('Reset the current session? This clears spin history, cooldowns and unlocked groups. Your wheel configuration stays intact.')) return;
+    session = M.resetSession(config);
+    rotation = 0;
+    state('Session reset', 'The wheel is back to its configured starting groups.');
+    renderAll();
+    toast('Session reset.');
+  }
+
+  function toast(message) {
+    const node = $('toast');
+    node.textContent = message;
+    node.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => node.classList.remove('show'), 2400);
+  }
+
+  async function loadXml(file) {
+    try {
+      config = M.saveConfig(await M.readXmlFile(file));
+      session = M.resetSession(config);
+      rotation = 0;
+      renderAll();
+      state('XML loaded', 'A fresh session was started with the imported wheel configuration.');
+      toast('Wheel loaded from XML.');
+    } catch (error) {
+      toast(error.message || 'Could not load XML.');
+    } finally {
+      fileInput.value = '';
+    }
+  }
+
+  spinBtn.addEventListener('click', () => {
+    ctx();
+    spin();
+  });
+  $('saveBtn').addEventListener('click', () => M.downloadXml(config));
+  $('loadBtn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => loadXml(fileInput.files?.[0]));
+  $('undoBtn').addEventListener('click', undo);
+  $('resetBtn').addEventListener('click', reset);
+  $('resultCloseBtn').addEventListener('click', hideResult);
+  $('resultSpinBtn').addEventListener('click', () => {
+    hideResult();
+    setTimeout(spin, 100);
+  });
+  overlay.addEventListener('click', event => {
+    if (event.target.classList.contains('result-backdrop')) hideResult();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !overlay.hidden) hideResult();
+  });
+
+  renderAll();
 })();
