@@ -40,6 +40,17 @@
     return !!group.querySelector('.group-badge.start');
   }
 
+  function visibleOrderFor(card, fallbackIndex) {
+    // dependency-editor.js owns the visual order whenever it has assigned CSS `order`.
+    // Using the alphabetical DOM index here used to overwrite those badges and caused
+    // values such as 02, 03, 01, 05, 04 while the cards themselves were shown in
+    // dependency order.
+    const dependencyOrder = Number(card.style.order);
+    return Number.isFinite(dependencyOrder) && dependencyOrder > 0
+      ? Math.round(dependencyOrder)
+      : fallbackIndex + 1;
+  }
+
   function sortForfeitCards(group) {
     const body = group.querySelector('.forfeit-group-body');
     if (!body) return;
@@ -63,7 +74,7 @@
         const head = card.querySelector(':scope > .editor-card-head');
         head?.insertBefore(badge, head.firstChild);
       }
-      badge.textContent = String(index + 1).padStart(2, '0');
+      badge.textContent = String(visibleOrderFor(card, index)).padStart(2, '0');
     });
   }
 
@@ -89,7 +100,7 @@
     const help = document.createElement('div');
     help.id = 'forfeitTreeHelp';
     help.className = 'forfeit-tree-help';
-    help.innerHTML = '<span class="tree-symbol">├─</span><span>Tree view · start groups first · groups and child forfeits sorted automatically by name</span>';
+    help.innerHTML = '<span class="tree-symbol">├─</span><span>Tree view · start groups first · dependency order controls the visible sequence</span>';
     (tools || forfeitPane.querySelector('.editor-toolbar'))?.insertAdjacentElement('afterend', help);
   }
 
