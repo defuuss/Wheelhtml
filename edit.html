@@ -230,6 +230,21 @@
   <script src="group-quick-add.js"></script>
   <script src="dependency-editor.js?v=2"></script>
   <script src="editor-ai-integrated.js?v=4"></script>
-  <script src="ai-engine.js?v=4"></script>
+  <script src="ai-engine.js?v=5"></script>
+  <script>
+    (() => {
+      const showVersion = () => {
+        const status = document.getElementById('aiStatus');
+        if (!status || document.getElementById('aiEngineVersionBadge')) return;
+        const badge = document.createElement('div');
+        badge.id = 'aiEngineVersionBadge';
+        badge.className = 'ai-engine-note';
+        badge.textContent = 'AI engine v5 · final-answer parser + NanoGPT reasoning disabled';
+        status.insertAdjacentElement('afterend', badge);
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showVersion);
+      else showVersion();
+    })();
+  </script>
 </body>
 </html>
