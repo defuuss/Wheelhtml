@@ -243,6 +243,20 @@
   function toast(message) { const node = $('editorToast'); node.textContent = message; node.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('show'), 2600); }
   async function loadXml(file) { try { draft = await M.readXmlFile(file); renderAll(); markDirty(); toast('XML loaded into editor. Press Apply changes to activate it.'); } catch (error) { toast(error.message || 'Could not load XML.'); } finally { fileInput.value = ''; } }
 
+  function refreshFromSaved(message = 'AI changes applied. Editor refreshed.') {
+    draft = M.deepClone(M.loadConfig());
+    renderAll();
+    document.body.classList.remove('dirty');
+    toast(message);
+    window.dispatchEvent(new CustomEvent('fortune-editor-refreshed'));
+  }
+
+  window.FortuneEditor = {
+    refreshFromSaved,
+    renderAll,
+    getDraft: () => M.deepClone(draft)
+  };
+
   document.querySelectorAll('.editor-tab').forEach(button => button.addEventListener('click', () => {
     document.querySelectorAll('.editor-tab').forEach(tab => tab.classList.toggle('active', tab === button));
     document.querySelectorAll('.editor-pane').forEach(pane => pane.classList.remove('active'));
