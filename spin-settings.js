@@ -9,9 +9,10 @@
     maxTurns: 9,
     dramaEnabled: true,
     dramaChance: 35,
-    dramaExtraMinTurns: 1,
-    dramaExtraMaxTurns: 2,
-    showSlowIcon: true
+    dramaCreepMinDegrees: 30,
+    dramaCreepMaxDegrees: 80,
+    showSlowIcon: true,
+    iconPreviewStartPercent: 35
   };
 
   const clamp = (value, min, max, fallback) => {
@@ -19,16 +20,32 @@
     return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
   };
 
+  function oldTurnsToDegrees(value, fallback) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(clamp(n * 40, 10, 160, fallback)) : fallback;
+  }
+
   function clean(input = {}) {
-    const minExtra = Math.round(clamp(input.dramaExtraMinTurns, 1, 3, defaults.dramaExtraMinTurns));
-    const maxExtra = Math.round(clamp(input.dramaExtraMaxTurns, minExtra, 4, Math.max(minExtra, defaults.dramaExtraMaxTurns)));
+    const minDegrees = Math.round(clamp(
+      input.dramaCreepMinDegrees ?? (input.dramaExtraMinTurns != null ? oldTurnsToDegrees(input.dramaExtraMinTurns, defaults.dramaCreepMinDegrees) : undefined),
+      5, 160, defaults.dramaCreepMinDegrees
+    ));
+    const maxDegrees = Math.round(clamp(
+      input.dramaCreepMaxDegrees ?? (input.dramaExtraMaxTurns != null ? oldTurnsToDegrees(input.dramaExtraMaxTurns, defaults.dramaCreepMaxDegrees) : undefined),
+      minDegrees, 180, Math.max(minDegrees, defaults.dramaCreepMaxDegrees)
+    ));
+
     return {
       maxTurns: Math.round(clamp(input.maxTurns, 3, 24, defaults.maxTurns)),
       dramaEnabled: input.dramaEnabled !== false,
       dramaChance: Math.round(clamp(input.dramaChance, 0, 100, defaults.dramaChance)),
-      dramaExtraMinTurns: minExtra,
-      dramaExtraMaxTurns: maxExtra,
-      showSlowIcon: input.showSlowIcon !== false
+      dramaCreepMinDegrees: minDegrees,
+      dramaCreepMaxDegrees: maxDegrees,
+      showSlowIcon: input.showSlowIcon !== false,
+      iconPreviewStartPercent: Math.round(clamp(input.iconPreviewStartPercent, 10, 80, defaults.iconPreviewStartPercent)),
+      // Kept as compatibility aliases for older AI prompts/configs. They are no longer full extra turns.
+      dramaExtraMinTurns: 1,
+      dramaExtraMaxTurns: 2
     };
   }
 
@@ -41,8 +58,16 @@
     }
   }
 
-  function save(next) {
-    const value = clean({ ...load(), ...next });
+  function save(next = {}) {
+    const base = load();
+    const merged = { ...base, ...next };
+    if (!Object.prototype.hasOwnProperty.call(next, 'dramaCreepMinDegrees') && Object.prototype.hasOwnProperty.call(next, 'dramaExtraMinTurns')) {
+      merged.dramaCreepMinDegrees = oldTurnsToDegrees(next.dramaExtraMinTurns, base.dramaCreepMinDegrees);
+    }
+    if (!Object.prototype.hasOwnProperty.call(next, 'dramaCreepMaxDegrees') && Object.prototype.hasOwnProperty.call(next, 'dramaExtraMaxTurns')) {
+      merged.dramaCreepMaxDegrees = oldTurnsToDegrees(next.dramaExtraMaxTurns, base.dramaCreepMaxDegrees);
+    }
+    const value = clean(merged);
     localStorage.setItem(KEY, JSON.stringify(value));
     return value;
   }
@@ -58,15 +83,19 @@
       const value = node.getAttribute(name);
       return value == null ? fallback : value === 'true';
     };
-    const result = save({
+    return save({
       maxTurns: node.hasAttribute('maxTurns') ? node.getAttribute('maxTurns') : Math.max(current.maxTurns, minTurns + 2),
       dramaEnabled: readBool('dramaEnabled', current.dramaEnabled),
       dramaChance: node.hasAttribute('dramaChance') ? node.getAttribute('dramaChance') : current.dramaChance,
-      dramaExtraMinTurns: node.hasAttribute('dramaExtraMinTurns') ? node.getAttribute('dramaExtraMinTurns') : current.dramaExtraMinTurns,
-      dramaExtraMaxTurns: node.hasAttribute('dramaExtraMaxTurns') ? node.getAttribute('dramaExtraMaxTurns') : current.dramaExtraMaxTurns,
-      showSlowIcon: readBool('showSlowIcon', current.showSlowIcon)
+      dramaCreepMinDegrees: node.hasAttribute('dramaCreepMinDegrees')
+        ? node.getAttribute('dramaCreepMinDegrees')
+        : (node.hasAttribute('dramaExtraMinTurns') ? oldTurnsToDegrees(node.getAttribute('dramaExtraMinTurns'), current.dramaCreepMinDegrees) : current.dramaCreepMinDegrees),
+      dramaCreepMaxDegrees: node.hasAttribute('dramaCreepMaxDegrees')
+        ? node.getAttribute('dramaCreepMaxDegrees')
+        : (node.hasAttribute('dramaExtraMaxTurns') ? oldTurnsToDegrees(node.getAttribute('dramaExtraMaxTurns'), current.dramaCreepMaxDegrees) : current.dramaCreepMaxDegrees),
+      showSlowIcon: readBool('showSlowIcon', current.showSlowIcon),
+      iconPreviewStartPercent: node.hasAttribute('iconPreviewStartPercent') ? node.getAttribute('iconPreviewStartPercent') : current.iconPreviewStartPercent
     });
-    return result;
   }
 
   function addToXml(xmlText) {
@@ -78,8 +107,11 @@
         .replace(/\sdramaChance="[^"]*"/g, '')
         .replace(/\sdramaExtraMinTurns="[^"]*"/g, '')
         .replace(/\sdramaExtraMaxTurns="[^"]*"/g, '')
-        .replace(/\sshowSlowIcon="[^"]*"/g, '');
-      return `<settings${stripped} maxTurns="${s.maxTurns}" dramaEnabled="${s.dramaEnabled}" dramaChance="${s.dramaChance}" dramaExtraMinTurns="${s.dramaExtraMinTurns}" dramaExtraMaxTurns="${s.dramaExtraMaxTurns}" showSlowIcon="${s.showSlowIcon}" />`;
+        .replace(/\sdramaCreepMinDegrees="[^"]*"/g, '')
+        .replace(/\sdramaCreepMaxDegrees="[^"]*"/g, '')
+        .replace(/\sshowSlowIcon="[^"]*"/g, '')
+        .replace(/\siconPreviewStartPercent="[^"]*"/g, '');
+      return `<settings${stripped} maxTurns="${s.maxTurns}" dramaEnabled="${s.dramaEnabled}" dramaChance="${s.dramaChance}" dramaCreepMinDegrees="${s.dramaCreepMinDegrees}" dramaCreepMaxDegrees="${s.dramaCreepMaxDegrees}" showSlowIcon="${s.showSlowIcon}" iconPreviewStartPercent="${s.iconPreviewStartPercent}" />`;
     });
   }
 
@@ -105,10 +137,27 @@
     return config;
   };
 
+  function injectStyles() {
+    if (document.getElementById('spinDramaV2Styles')) return;
+    const style = document.createElement('style');
+    style.id = 'spinDramaV2Styles';
+    style.textContent = `
+      .drama-master{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;margin:12px 0;border:1px solid rgba(101,216,255,.18);border-radius:13px;background:rgba(101,216,255,.045)}
+      .drama-master strong{display:block;font-size:.78rem}.drama-master small{display:block;margin-top:3px;color:var(--muted);font-size:.66rem;line-height:1.4}
+      .drama-status{min-width:42px;padding:4px 7px;border-radius:99px;text-align:center;font-size:.6rem;font-weight:900;border:1px solid var(--border);color:var(--muted)}
+      .drama-master.on .drama-status{color:#8ff4cf;border-color:rgba(69,224,168,.22);background:rgba(69,224,168,.07)}
+      .drama-toggle{width:46px;height:26px;accent-color:var(--accent)}
+      .drama-controls.is-off{opacity:.45}.drama-controls.is-off input{cursor:not-allowed}
+      .spin-range-note{margin-top:6px;color:var(--muted2);font-size:.65rem;line-height:1.45}
+    `;
+    document.head.appendChild(style);
+  }
+
   function injectEditorUi() {
     if (document.body.dataset.page !== 'edit' || document.getElementById('spinDramaCard')) return;
     const grid = document.querySelector('#tab-settings .settings-grid');
     if (!grid) return;
+    injectStyles();
 
     const minTurns = document.getElementById('minTurns');
     if (minTurns) {
@@ -122,18 +171,42 @@
     card.innerHTML = `
       <div class="section-kicker">DRAMA</div>
       <h3>Random spin & suspense</h3>
-      <p class="muted spin-settings-note">Spin time already uses the minimum / maximum seconds above. These options add a random rotation range and an occasional second wind.</p>
+      <p class="muted spin-settings-note">Spin time is random between the minimum and maximum seconds. Drama mode never re-spins the wheel: it only lets an almost-finished wheel creep a little farther before the real stop.</p>
       <label class="field">Maximum full rotations<input id="maxTurns" type="number" min="3" max="24" step="1"></label>
-      <label class="check-line"><input id="dramaEnabled" type="checkbox"> <span>Enable random second-wind drama</span></label>
-      <label class="field">Second-wind chance (%)<input id="dramaChance" type="number" min="0" max="100" step="1"></label>
-      <div class="spin-mini-grid">
-        <label class="field">Extra turns from<input id="dramaExtraMinTurns" type="number" min="1" max="3" step="1"></label>
-        <label class="field">Extra turns to<input id="dramaExtraMaxTurns" type="number" min="1" max="4" step="1"></label>
+      <label class="drama-master">
+        <span><strong>Drama mode</strong><small>Randomly fake an almost-stop, then continue slowly for a short distance.</small></span>
+        <input id="dramaEnabled" class="drama-toggle" type="checkbox">
+        <span id="dramaStatus" class="drama-status">ON</span>
+      </label>
+      <div id="dramaControls" class="drama-controls">
+        <label class="field">Drama chance (%)<input id="dramaChance" type="number" min="0" max="100" step="1"></label>
+        <div class="spin-mini-grid">
+          <label class="field">Continue from (degrees)<input id="dramaCreepMinDegrees" type="number" min="5" max="160" step="5"></label>
+          <label class="field">Continue to (degrees)<input id="dramaCreepMaxDegrees" type="number" min="5" max="180" step="5"></label>
+        </div>
+        <div class="spin-range-note">Example: 30–80° means it can drift only part of a turn after the fake stop — never another full spin.</div>
       </div>
-      <label class="check-line"><input id="showSlowIcon" type="checkbox"> <span>Show the current pictogram above the wheel during the slow finish</span></label>`;
+      <label class="check-line"><input id="showSlowIcon" type="checkbox"> <span>Show the current pictogram above the wheel while it is slowing</span></label>
+      <label class="field">Start live pictograms after (%)<input id="iconPreviewStartPercent" type="number" min="10" max="80" step="5"></label>
+      <div class="spin-range-note">Lower values make the big pictogram start earlier. Default: 35% of the spin.</div>`;
     grid.appendChild(card);
 
-    const ids = ['maxTurns','dramaEnabled','dramaChance','dramaExtraMinTurns','dramaExtraMaxTurns','showSlowIcon'];
+    const ids = ['maxTurns','dramaEnabled','dramaChance','dramaCreepMinDegrees','dramaCreepMaxDegrees','showSlowIcon','iconPreviewStartPercent'];
+
+    const updateDramaUi = () => {
+      const enabled = !!document.getElementById('dramaEnabled')?.checked;
+      const master = document.getElementById('dramaEnabled')?.closest('.drama-master');
+      const controls = document.getElementById('dramaControls');
+      master?.classList.toggle('on', enabled);
+      controls?.classList.toggle('is-off', !enabled);
+      const status = document.getElementById('dramaStatus');
+      if (status) status.textContent = enabled ? 'ON' : 'OFF';
+      ['dramaChance','dramaCreepMinDegrees','dramaCreepMaxDegrees'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enabled;
+      });
+    };
+
     const sync = () => {
       const s = load();
       ids.forEach(id => {
@@ -145,24 +218,28 @@
       const min = Number(document.getElementById('minTurns')?.value || 6);
       const max = document.getElementById('maxTurns');
       if (max && Number(max.value) < min) max.value = Math.min(24, min + 2);
+      updateDramaUi();
     };
 
     const persist = () => {
       const minTurnsValue = Math.round(clamp(document.getElementById('minTurns')?.value, 3, 20, 6));
       const maxTurnsValue = Math.round(clamp(document.getElementById('maxTurns')?.value, minTurnsValue, 24, Math.max(9, minTurnsValue)));
-      const minExtra = Math.round(clamp(document.getElementById('dramaExtraMinTurns')?.value, 1, 3, 1));
-      const maxExtra = Math.round(clamp(document.getElementById('dramaExtraMaxTurns')?.value, minExtra, 4, Math.max(2, minExtra)));
+      const minDegrees = Math.round(clamp(document.getElementById('dramaCreepMinDegrees')?.value, 5, 160, defaults.dramaCreepMinDegrees));
+      const maxDegrees = Math.round(clamp(document.getElementById('dramaCreepMaxDegrees')?.value, minDegrees, 180, Math.max(defaults.dramaCreepMaxDegrees, minDegrees)));
       const s = save({
         maxTurns: maxTurnsValue,
         dramaEnabled: !!document.getElementById('dramaEnabled')?.checked,
         dramaChance: document.getElementById('dramaChance')?.value,
-        dramaExtraMinTurns: minExtra,
-        dramaExtraMaxTurns: maxExtra,
-        showSlowIcon: !!document.getElementById('showSlowIcon')?.checked
+        dramaCreepMinDegrees: minDegrees,
+        dramaCreepMaxDegrees: maxDegrees,
+        showSlowIcon: !!document.getElementById('showSlowIcon')?.checked,
+        iconPreviewStartPercent: document.getElementById('iconPreviewStartPercent')?.value
       });
       document.getElementById('maxTurns').value = s.maxTurns;
-      document.getElementById('dramaExtraMinTurns').value = s.dramaExtraMinTurns;
-      document.getElementById('dramaExtraMaxTurns').value = s.dramaExtraMaxTurns;
+      document.getElementById('dramaCreepMinDegrees').value = s.dramaCreepMinDegrees;
+      document.getElementById('dramaCreepMaxDegrees').value = s.dramaCreepMaxDegrees;
+      document.getElementById('iconPreviewStartPercent').value = s.iconPreviewStartPercent;
+      updateDramaUi();
     };
 
     ids.forEach(id => {
