@@ -1,0 +1,144 @@
+/* Visual hierarchy for the editor tree. */
+#forfeitEditorList.grouped-forfeits {
+  position: relative;
+  display: grid;
+  gap: 14px;
+}
+
+.forfeit-group {
+  --tree-color: var(--group-color, #64748b);
+  position: relative;
+  overflow: visible;
+}
+
+.forfeit-group-head {
+  position: relative;
+  z-index: 2;
+}
+
+.forfeit-group-body {
+  position: relative;
+  margin: 2px 0 4px 24px;
+  padding: 10px 0 2px 28px;
+  display: grid;
+  gap: 8px;
+}
+
+.forfeit-group-body::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: -3px;
+  bottom: 22px;
+  width: 2px;
+  border-radius: 99px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--tree-color) 72%, transparent),
+    color-mix(in srgb, var(--tree-color) 20%, transparent));
+}
+
+.forfeit-group .forfeit-editor-card {
+  position: relative;
+  margin: 0;
+  border-color: rgba(255,255,255,.075);
+  box-shadow: none;
+  background: rgba(12,16,27,.72);
+}
+
+.forfeit-group .forfeit-editor-card::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 31px;
+  width: 20px;
+  height: 2px;
+  background: color-mix(in srgb, var(--tree-color) 48%, transparent);
+}
+
+.forfeit-group .forfeit-editor-card::after {
+  content: "";
+  position: absolute;
+  left: -24px;
+  top: 27px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--tree-color) 60%, #182033);
+  background: #0b0f19;
+  box-shadow: 0 0 0 3px rgba(7,9,18,.8);
+}
+
+.forfeit-group .forfeit-editor-card:hover {
+  border-color: color-mix(in srgb, var(--tree-color) 28%, rgba(255,255,255,.11));
+  background: color-mix(in srgb, var(--tree-color) 4%, rgba(12,16,27,.76));
+}
+
+.forfeit-group.collapsed .forfeit-group-body {
+  display: none;
+}
+
+.tree-order-badge {
+  min-width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03);
+  color: var(--muted2);
+  font-size: .62rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.forfeit-tree-help {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 12px;
+  color: var(--muted2);
+  font-size: .72rem;
+}
+
+.forfeit-tree-help .tree-symbol {
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#levelEditorList.tree-sorted-levels {
+  display: grid;
+  gap: 9px;
+}
+
+#levelEditorList.tree-sorted-levels .level-editor-card {
+  position: relative;
+  padding-left: 38px;
+}
+
+#levelEditorList.tree-sorted-levels .level-editor-card::before {
+  content: attr(data-tree-order);
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03);
+  color: var(--muted2);
+  font-size: .6rem;
+  font-weight: 900;
+}
+
+@media (max-width: 700px) {
+  .forfeit-group-body {
+    margin-left: 13px;
+    padding-left: 22px;
+  }
+  .forfeit-group-body::before { left: 5px; }
+  .forfeit-group .forfeit-editor-card::before { left: -17px; width: 17px; }
+  .forfeit-group .forfeit-editor-card::after { left: -21px; }
+}
