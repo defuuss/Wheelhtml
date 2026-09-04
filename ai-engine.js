@@ -8,10 +8,12 @@
   window.__fortuneAiEditorEngine = true;
 
   const $ = id => document.getElementById(id);
-  const state = { models: [], history: [], busy: false, timer: null, started: 0, phase: 'Ready', undo: null, lastFailed: null };
   const clone = value => M.deepClone ? M.deepClone(value) : JSON.parse(JSON.stringify(value));
-  const clamp = (value, min, max, fallback) => { const n = Number(value); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback; };
-  const slug = value => String(value || 'item').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 42) || 'item';
+  const state = {
+    models: [], history: [], busy: false, timer: null, started: 0,
+    phase: 'Ready', undo: null, lastFailed: null
+  };
+
   const provider = () => $('aiProvider')?.value || 'custom';
   const token = () => $('aiToken')?.value.trim() || '';
   const selectedModel = () => $('aiModel')?.value || '';
@@ -21,21 +23,61 @@
     if ($('aiEditorEngineStyles')) return;
     const style = document.createElement('style');
     style.id = 'aiEditorEngineStyles';
-    style.textContent = `.ai-retry-row{display:flex;gap:7px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}.ai-retry-btn{min-height:29px;padding:0 10px;border:1px solid rgba(101,216,255,.2);border-radius:8px;background:rgba(101,216,255,.06);color:#c9f5ff;font-size:.64rem;font-weight:850;cursor:pointer}.ai-retry-btn:hover{background:rgba(101,216,255,.12);border-color:rgba(101,216,255,.38)}.ai-engine-note{margin-top:7px;color:var(--muted2);font-size:.61rem;line-height:1.4}`;
+    style.textContent = `
+      .ai-retry-row{display:flex;gap:7px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}
+      .ai-retry-btn{min-height:29px;padding:0 10px;border:1px solid rgba(101,216,255,.2);border-radius:8px;background:rgba(101,216,255,.06);color:#c9f5ff;font-size:.64rem;font-weight:850;cursor:pointer}
+      .ai-retry-btn:hover{background:rgba(101,216,255,.12);border-color:rgba(101,216,255,.38)}
+      .ai-engine-note{margin-top:7px;color:var(--muted2);font-size:.61rem;line-height:1.4}
+    `;
     document.head.appendChild(style);
   }
 
-  function setStatus(text, type = '') { const node = $('aiStatus'); if (node) { node.textContent = text; node.className = `ai-status ${type}`.trim(); } }
-  function addMessage(role, text, meta = '', retryText = '') {
-    const box = $('chatMessages'); if (!box) return null;
-    const row = document.createElement('div'); row.className = `ai-chat-message ${role}`;
-    const bubble = document.createElement('div'); bubble.className = 'ai-chat-bubble';
-    const copy = document.createElement('div'); copy.className = 'ai-chat-copy'; copy.textContent = text; bubble.appendChild(copy);
-    if (meta) { const m = document.createElement('div'); m.className = 'ai-chat-meta'; m.textContent = meta; bubble.appendChild(m); }
-    if (retryText) { const wrap = document.createElement('div'); wrap.className = 'ai-retry-row'; const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'ai-retry-btn'; retry.textContent = '↻ Retry request'; retry.dataset.retryText = retryText; wrap.appendChild(retry); bubble.appendChild(wrap); }
-    row.appendChild(bubble); box.appendChild(row); box.scrollTop = box.scrollHeight; return row;
+  function setStatus(text, type = '') {
+    const node = $('aiStatus');
+    if (!node) return;
+    node.textContent = text;
+    node.className = `ai-status ${type}`.trim();
   }
-  function setPhase(phase) { state.phase = phase; updateHeartbeat(); }
+
+  function addMessage(role, text, meta = '', retryText = '') {
+    const box = $('chatMessages');
+    if (!box) return null;
+    const row = document.createElement('div');
+    row.className = `ai-chat-message ${role}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'ai-chat-bubble';
+    const copy = document.createElement('div');
+    copy.className = 'ai-chat-copy';
+    copy.textContent = text;
+    bubble.appendChild(copy);
+    if (meta) {
+      const m = document.createElement('div');
+      m.className = 'ai-chat-meta';
+      m.textContent = meta;
+      bubble.appendChild(m);
+    }
+    if (retryText) {
+      const wrap = document.createElement('div');
+      wrap.className = 'ai-retry-row';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'ai-retry-btn';
+      retry.textContent = '↻ Retry request';
+      retry.dataset.retryText = retryText;
+      wrap.appendChild(retry);
+      bubble.appendChild(wrap);
+    }
+    row.appendChild(bubble);
+    box.appendChild(row);
+    box.scrollTop = box.scrollHeight;
+    return row;
+  }
+
+  function setPhase(phase) {
+    state.phase = phase;
+    updateHeartbeat();
+  }
+
   function updateHeartbeat() {
     if (!state.busy) return;
     const seconds = Math.floor((performance.now() - state.started) / 1000);
@@ -44,165 +86,678 @@
     const pending = $('chatMessages')?.querySelector('.ai-chat-message.system:last-child .ai-chat-meta');
     if (pending) pending.textContent = `${state.phase} · ${seconds}s elapsed`;
   }
-  function startWork(phase) { state.busy = true; state.started = performance.now(); state.phase = phase; ['sendAiBtn','testAiBtn','loadModelsBtn'].forEach(id => { const node = $(id); if (node) node.disabled = true; }); if ($('chatInput')) $('chatInput').disabled = true; clearInterval(state.timer); updateHeartbeat(); state.timer = setInterval(updateHeartbeat, 1000); }
-  function stopWork() { state.busy = false; clearInterval(state.timer); state.timer = null; if ($('sendAiBtn')) { $('sendAiBtn').disabled = false; $('sendAiBtn').textContent = 'Send'; } if ($('testAiBtn')) { $('testAiBtn').disabled = false; $('testAiBtn').textContent = '✓ Test AI'; } if ($('loadModelsBtn')) { $('loadModelsBtn').disabled = false; $('loadModelsBtn').textContent = '↻ Load models'; } if ($('chatInput')) $('chatInput').disabled = false; }
 
-  function providerDefaults(kind) { if (kind === 'nanogpt') return 'https://nano-gpt.com/api/v1'; if (kind === 'openrouter') return 'https://openrouter.ai/api/v1'; return ''; }
+  function startWork(phase) {
+    state.busy = true;
+    state.started = performance.now();
+    state.phase = phase;
+    ['sendAiBtn', 'testAiBtn', 'loadModelsBtn'].forEach(id => {
+      const node = $(id);
+      if (node) node.disabled = true;
+    });
+    if ($('chatInput')) $('chatInput').disabled = true;
+    clearInterval(state.timer);
+    updateHeartbeat();
+    state.timer = setInterval(updateHeartbeat, 1000);
+  }
+
+  function stopWork() {
+    state.busy = false;
+    clearInterval(state.timer);
+    state.timer = null;
+    if ($('sendAiBtn')) { $('sendAiBtn').disabled = false; $('sendAiBtn').textContent = 'Send'; }
+    if ($('testAiBtn')) { $('testAiBtn').disabled = false; $('testAiBtn').textContent = '✓ Test AI'; }
+    if ($('loadModelsBtn')) { $('loadModelsBtn').disabled = false; $('loadModelsBtn').textContent = '↻ Load models'; }
+    if ($('chatInput')) $('chatInput').disabled = false;
+  }
+
+  function providerDefaults(kind) {
+    if (kind === 'nanogpt') return 'https://nano-gpt.com/api/v1';
+    if (kind === 'openrouter') return 'https://openrouter.ai/api/v1';
+    return '';
+  }
+
   function modelsUrl() {
     if (provider() === 'nanogpt') return 'https://nano-gpt.com/api/v1/models?detailed=true';
     if (provider() === 'openrouter') return 'https://openrouter.ai/api/v1/models';
-    const raw = endpoint(); if (!raw) return '';
-    try { const url = new URL(raw); let path = url.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '').replace(/\/models$/i, ''); url.pathname = `${path}/models`.replace(/\/+/g, '/'); return url.toString(); } catch (_) { return `${raw}/models`; }
+    const raw = endpoint();
+    if (!raw) return '';
+    try {
+      const url = new URL(raw);
+      let path = url.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '').replace(/\/models$/i, '');
+      url.pathname = `${path}/models`.replace(/\/+/g, '/');
+      return url.toString();
+    } catch (_) {
+      return `${raw}/models`;
+    }
   }
+
   function chatUrl() {
-    const raw = endpoint(); if (!raw) return '';
-    try { const url = new URL(raw); let path = url.pathname.replace(/\/+$/, ''); if (/\/chat\/completions$/i.test(path)) return url.toString(); path = path.replace(/\/models$/i, ''); url.pathname = `${path}/chat/completions`.replace(/\/+/g, '/'); return url.toString(); } catch (_) { return raw; }
+    const raw = endpoint();
+    if (!raw) return '';
+    try {
+      const url = new URL(raw);
+      let path = url.pathname.replace(/\/+$/, '');
+      if (/\/chat\/completions$/i.test(path)) return url.toString();
+      path = path.replace(/\/models$/i, '');
+      url.pathname = `${path}/chat/completions`.replace(/\/+/g, '/');
+      return url.toString();
+    } catch (_) {
+      return raw;
+    }
   }
-  function headers(json = false, auth = true) { const h = {}; if (json) h['Content-Type'] = 'application/json'; if (auth && token()) h.Authorization = `Bearer ${token()}`; if (provider() === 'openrouter') { h['HTTP-Referer'] = location.origin + location.pathname; h['X-Title'] = 'Fortune Engine AI Editor'; } return h; }
+
+  function headers(json = false, auth = true) {
+    const h = {};
+    if (json) h['Content-Type'] = 'application/json';
+    if (auth && token()) h.Authorization = `Bearer ${token()}`;
+    if (provider() === 'openrouter') {
+      h['HTTP-Referer'] = location.origin + location.pathname;
+      h['X-Title'] = 'Fortune Engine AI Editor';
+    }
+    return h;
+  }
+
   async function fetchJson(url, init = {}, timeoutMs = 120000) {
-    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
-    try { const response = await fetch(url, { ...init, signal: controller.signal }); const text = await response.text(); let data = {}; try { data = text ? JSON.parse(text) : {}; } catch (_) { throw new Error(`Provider returned non-JSON data (HTTP ${response.status}).`); } if (!response.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${response.status}`); return data; }
-    catch (error) { if (error?.name === 'AbortError') throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`); if (error instanceof TypeError || /NetworkError|Failed to fetch/i.test(String(error?.message))) throw new Error(`Browser could not reach ${url}. Check the endpoint or CORS settings.`); throw error; }
-    finally { clearTimeout(timer); }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      const text = await response.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; }
+      catch (_) { throw new Error(`Provider returned non-JSON data (HTTP ${response.status}).`); }
+      if (!response.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${response.status}`);
+      return data;
+    } catch (error) {
+      if (error?.name === 'AbortError') throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
+      if (error instanceof TypeError || /NetworkError|Failed to fetch/i.test(String(error?.message))) {
+        throw new Error(`Browser could not reach ${url}. Check the endpoint or CORS settings.`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
   function normalizeModels(data) {
-    let list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : data?.data && typeof data.data === 'object' ? Object.values(data.data) : data?.models && typeof data.models === 'object' ? Object.values(data.models) : [];
-    return list.map(value => { if (typeof value === 'string') return { id:value, name:value }; if (!value || typeof value !== 'object') return null; const id = String(value.id || value.model || value.slug || value.name || ''); if (!id) return null; return { ...value, id, name:value.name || value.display_name || value.displayName || id }; }).filter(item => item?.id && !/embedding|rerank|tts|speech|transcri|image|video/i.test(item.id));
+    let list = Array.isArray(data) ? data
+      : Array.isArray(data?.data) ? data.data
+      : Array.isArray(data?.models) ? data.models
+      : data?.data && typeof data.data === 'object' ? Object.values(data.data)
+      : data?.models && typeof data.models === 'object' ? Object.values(data.models)
+      : [];
+    return list.map(value => {
+      if (typeof value === 'string') return { id: value, name: value };
+      if (!value || typeof value !== 'object') return null;
+      const id = String(value.id || value.model || value.slug || value.name || '');
+      if (!id) return null;
+      return { ...value, id, name: value.name || value.display_name || value.displayName || id };
+    }).filter(item => item?.id && !/embedding|rerank|tts|speech|transcri|image|video/i.test(item.id));
   }
+
   function renderModels() {
-    const select = $('aiModel'); if (!select) return;
-    const old = select.value || select.dataset.restoreModel || '', query = ($('modelFilter')?.value || '').trim().toLowerCase();
+    const select = $('aiModel');
+    if (!select) return;
+    const old = select.value || select.dataset.restoreModel || '';
+    const query = ($('modelFilter')?.value || '').trim().toLowerCase();
     const visible = state.models.filter(item => !query || `${item.id} ${item.name || ''} ${item.description || ''}`.toLowerCase().includes(query));
     select.innerHTML = '';
-    if (!visible.length) { const option = document.createElement('option'); option.value = ''; option.textContent = state.models.length ? 'No models match search' : 'Load models first'; select.appendChild(option); return; }
-    visible.forEach(item => { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name && item.name !== item.id ? `${item.name} · ${item.id}` : item.id; select.appendChild(option); });
+    if (!visible.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = state.models.length ? 'No models match search' : 'Load models first';
+      select.appendChild(option);
+      return;
+    }
+    visible.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name && item.name !== item.id ? `${item.name} · ${item.id}` : item.id;
+      select.appendChild(option);
+    });
     if ([...select.options].some(option => option.value === old)) select.value = old;
     if (select.dataset.restoreModel && select.value === select.dataset.restoreModel) delete select.dataset.restoreModel;
-    select.dispatchEvent(new Event('change', { bubbles:true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   }
+
   async function loadModels() {
-    if (state.busy) return; startWork('Loading models');
-    try { const url = modelsUrl(); if (!/^https:\/\//i.test(url)) throw new Error('Enter a valid HTTPS API base URL.'); let data; if (provider() === 'nanogpt' || provider() === 'openrouter') data = await fetchJson(url,{method:'GET'},45000); else { try { data = await fetchJson(url,{method:'GET',headers:headers(false,true)},45000); } catch (_) { data = await fetchJson(url,{method:'GET'},45000); } } state.models = normalizeModels(data).sort((a,b)=>String(a.name||a.id).localeCompare(String(b.name||b.id),undefined,{sensitivity:'base'})); renderModels(); setStatus(`Loaded ${state.models.length} models.`,'ok'); }
-    catch (error) { setStatus(`Could not load models: ${error.message}`,'error'); }
-    finally { stopWork(); }
+    if (state.busy) return;
+    startWork('Loading models');
+    try {
+      const url = modelsUrl();
+      if (!/^https:\/\//i.test(url)) throw new Error('Enter a valid HTTPS API base URL.');
+      let data;
+      if (provider() === 'nanogpt' || provider() === 'openrouter') {
+        data = await fetchJson(url, { method: 'GET' }, 45000);
+      } else {
+        try { data = await fetchJson(url, { method: 'GET', headers: headers(false, true) }, 45000); }
+        catch (_) { data = await fetchJson(url, { method: 'GET' }, 45000); }
+      }
+      state.models = normalizeModels(data).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id), undefined, { sensitivity: 'base' }));
+      renderModels();
+      setStatus(`Loaded ${state.models.length} models.`, 'ok');
+    } catch (error) {
+      setStatus(`Could not load models: ${error.message}`, 'error');
+    } finally {
+      stopWork();
+    }
   }
-  function extractText(data) { const message=data?.choices?.[0]?.message, content=message?.content; if(typeof content==='string'&&content.trim())return content; if(Array.isArray(content)){const text=content.map(item=>item?.text||item?.content||'').join('');if(text.trim())return text;} if(typeof data?.output_text==='string'&&data.output_text.trim())return data.output_text; if(typeof message?.reasoning_content==='string'&&message.reasoning_content.trim())return message.reasoning_content; throw new Error('Provider returned no readable assistant text.'); }
-  async function complete(messages, options={}) { const maxTokens=options.maxTokens??3600, temperature=options.temperature??0, timeoutMs=options.timeoutMs??300000; if(!selectedModel())throw new Error('Choose a model first.'); if(!token())throw new Error('Enter the API token first.'); const url=chatUrl(); if(!/^https:\/\//i.test(url))throw new Error('Invalid chat endpoint.'); const data=await fetchJson(url,{method:'POST',headers:headers(true,true),body:JSON.stringify({model:selectedModel(),messages,temperature,max_tokens:maxTokens})},timeoutMs); return {data,text:extractText(data)}; }
-  async function testApi() { if(state.busy)return; startWork('Testing API'); try{const started=performance.now();const result=await complete([{role:'user',content:'Reply with exactly OK and nothing else.'}],{maxTokens:64,timeoutMs:60000});const seconds=((performance.now()-started)/1000).toFixed(1),used=result.data?.model||selectedModel();setStatus(`Connected · ${used} · ${seconds}s · ${result.text.trim().slice(0,50)}`,'ok');addMessage('system',`✓ API test passed in ${seconds}s with ${used}.`);}catch(error){setStatus(`Test failed: ${error.message}`,'error');addMessage('system',`✕ API test failed: ${error.message}`);}finally{stopWork();} }
+
+  function extractText(data) {
+    const message = data?.choices?.[0]?.message;
+    const content = message?.content;
+    if (typeof content === 'string' && content.trim()) return content;
+    if (Array.isArray(content)) {
+      const text = content.map(item => item?.text || item?.content || '').join('');
+      if (text.trim()) return text;
+    }
+    if (typeof data?.output_text === 'string' && data.output_text.trim()) return data.output_text;
+    if (typeof message?.reasoning_content === 'string' && message.reasoning_content.trim()) return message.reasoning_content;
+    throw new Error('Provider returned no readable assistant text.');
+  }
+
+  async function complete(messages, options = {}) {
+    const maxTokens = options.maxTokens ?? 6000;
+    const temperature = options.temperature ?? 0;
+    const timeoutMs = options.timeoutMs ?? 300000;
+    if (!selectedModel()) throw new Error('Choose a model first.');
+    if (!token()) throw new Error('Enter the API token first.');
+    const url = chatUrl();
+    if (!/^https:\/\//i.test(url)) throw new Error('Invalid chat endpoint.');
+    const data = await fetchJson(url, {
+      method: 'POST',
+      headers: headers(true, true),
+      body: JSON.stringify({ model: selectedModel(), messages, temperature, max_tokens: maxTokens })
+    }, timeoutMs);
+    return { data, text: extractText(data) };
+  }
+
+  async function testApi() {
+    if (state.busy) return;
+    startWork('Testing API');
+    try {
+      const started = performance.now();
+      const result = await complete([{ role: 'user', content: 'Reply with exactly OK and nothing else.' }], { maxTokens: 64, timeoutMs: 60000 });
+      const seconds = ((performance.now() - started) / 1000).toFixed(1);
+      const used = result.data?.model || selectedModel();
+      setStatus(`Connected · ${used} · ${seconds}s · ${result.text.trim().slice(0, 50)}`, 'ok');
+      addMessage('system', `✓ API test passed in ${seconds}s with ${used}.`);
+    } catch (error) {
+      setStatus(`Test failed: ${error.message}`, 'error');
+      addMessage('system', `✕ API test failed: ${error.message}`);
+    } finally {
+      stopWork();
+    }
+  }
 
   function requestMode(text) {
-    const value=String(text||'');
-    const edit=/\b(add|create|insert|remove|delete|rename|change|modify|update|make|set|move|put|place|assign|adapt|fix|correct|organize|organise|sort|reorder|restructure|ensure|enable|disable|attach|depend|require|unlock|hinzuf|ergänz|lösch|entfern|änder|umbenenn|verschieb|zuord|anpass|korrig|sortier|abhäng|freischalt|ajout|cré|supprim|modifi|renomm|déplac|adapt|corrig|organis|tri|dépend|déverrou)\w*/i.test(value);
-    const analysisOnly=/\b(do not change|don't change|without changing|no changes|only check|just check|check only|only review|only explain|nur prüfen|nichts ändern|ohne zu ändern|ne rien modifier|sans modifier)\b/i.test(value);
-    if(edit)return'edit'; if(analysisOnly)return'analysis'; if(/\b(check|review|inspect|explain|why|logic|odds|reachable|progression|prüf|erklär|warum|vérif|explique|pourquoi)\b/i.test(value))return'analysis'; return'edit';
+    const value = String(text || '');
+    const edit = /\b(add|create|insert|remove|delete|rename|change|modify|update|make|set|move|put|place|assign|adapt|fix|correct|organize|organise|sort|reorder|restructure|ensure|enable|disable|attach|depend|require|unlock|hinzuf|ergänz|lösch|entfern|änder|umbenenn|verschieb|zuord|anpass|korrig|sortier|abhäng|freischalt|ajout|cré|supprim|modifi|renomm|déplac|adapt|corrig|organis|tri|dépend|déverrou)\w*/i.test(value);
+    const analysisOnly = /\b(do not change|don't change|without changing|no changes|only check|just check|check only|only review|only explain|nur prüfen|nichts ändern|ohne zu ändern|ne rien modifier|sans modifier)\b/i.test(value);
+    if (analysisOnly) return 'analysis';
+    if (edit) return 'edit';
+    if (/\b(check|review|inspect|explain|why|logic|odds|reachable|progression|prüf|erklär|warum|vérif|explique|pourquoi)\b/i.test(value)) return 'analysis';
+    return 'edit';
   }
-  function isComplexEdit(text) { return requestMode(text)==='edit' && (/\b(check|review|all|every|group|depend|order|logic|organ|sort|restruct|adapt|fix|correct|prüf|gruppe|abhäng|reihen|korrig|vérif|groupe|dépend|ordre|corrig)\w*/i.test(text) || String(text).length>180); }
 
-  function currentContext() {
-    const c=M.loadConfig(), groups=new Map(c.levels.map(g=>[g.id,g])), forfeits=new Map(c.forfeits.map(f=>[f.id,f]));
-    const dependents=new Map(c.forfeits.map(f=>[f.id,[]]));
-    c.forfeits.forEach(f=>(f.requiresForfeitIds||[]).forEach(id=>{if(dependents.has(id))dependents.get(id).push(f.id);}));
+  function currentConfig() {
+    return clone(window.FortuneEditor?.getDraft?.() || M.loadConfig());
+  }
+
+  function addSpinToXml(xmlText, spin = S?.load?.() || {}) {
+    const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
+    if (doc.querySelector('parsererror')) return String(xmlText);
+    const node = doc.querySelector('settings');
+    if (!node) return String(xmlText);
+    const attrs = {
+      maxTurns: spin.maxTurns,
+      spinUpMinSeconds: spin.spinUpMinSeconds,
+      spinUpMaxSeconds: spin.spinUpMaxSeconds,
+      spinDownMinSeconds: spin.spinDownMinSeconds,
+      spinDownMaxSeconds: spin.spinDownMaxSeconds,
+      dramaEnabled: spin.dramaEnabled,
+      dramaChance: spin.dramaChance,
+      dramaCreepMinDegrees: spin.dramaCreepMinDegrees,
+      dramaCreepMaxDegrees: spin.dramaCreepMaxDegrees,
+      showSlowIcon: spin.showSlowIcon,
+      iconPreviewStartPercent: spin.iconPreviewStartPercent
+    };
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (value != null) node.setAttribute(key, String(value));
+    });
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc.documentElement);
+  }
+
+  function currentXml(config = currentConfig(), spin = S?.load?.() || {}) {
+    return addSpinToXml(M.configToXml(config), spin);
+  }
+
+  function readSpinFromXml(xmlText, fallback = S?.load?.() || {}) {
+    const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
+    const node = doc.querySelector('settings');
+    if (!node) return clone(fallback);
+    const number = (name, old) => node.hasAttribute(name) ? Number(node.getAttribute(name)) : old;
+    const bool = (name, old) => node.hasAttribute(name) ? node.getAttribute(name) === 'true' : old;
     return {
-      settings:clone(c.settings), spinStyle:clone(S?.load?.()||{}),
-      groups:c.levels.map(g=>({id:g.id,name:g.name,icon:g.icon,color:g.color,activeAtStart:g.activeAtStart,forfeitIds:c.forfeits.filter(f=>f.levelId===g.id).map(f=>f.id)})),
-      forfeits:c.forfeits.map(f=>({
-        id:f.id,name:f.name,icon:f.icon,color:f.color,weight:f.weight,levelId:f.levelId,groupName:groups.get(f.levelId)?.name||'',category:f.category,description:f.description,animation:f.animation,lifetime:clone(f.lifetime),cooldown:f.cooldown,eventType:f.eventType,mystery:f.mystery,enabled:f.enabled,
-        unlockLevels:[...(f.unlockLevels||[])],unlockGroupNames:(f.unlockLevels||[]).map(id=>groups.get(id)?.name||id),
-        requiresMode:f.requiresMode||'all',requiresForfeitIds:[...(f.requiresForfeitIds||[])],prerequisiteNames:(f.requiresForfeitIds||[]).map(id=>forfeits.get(id)?.name||id),
-        dependentForfeitIds:[...(dependents.get(f.id)||[])],dependentNames:(dependents.get(f.id)||[]).map(id=>forfeits.get(id)?.name||id)
-      })),
-      rules:(c.rules||[]).map(r=>({id:r.id,name:r.name,mode:r.mode,minOccurrences:r.minOccurrences||1,conditionForfeitIds:[...(r.conditionForfeitIds||[])],conditionNames:(r.conditionForfeitIds||[]).map(id=>forfeits.get(id)?.name||id),unlockLevels:[...(r.unlockLevels||[])],unlockGroupNames:(r.unlockLevels||[]).map(id=>groups.get(id)?.name||id),enabled:r.enabled}))
+      ...clone(fallback),
+      maxTurns: number('maxTurns', fallback.maxTurns),
+      spinUpMinSeconds: number('spinUpMinSeconds', fallback.spinUpMinSeconds),
+      spinUpMaxSeconds: number('spinUpMaxSeconds', fallback.spinUpMaxSeconds),
+      spinDownMinSeconds: number('spinDownMinSeconds', fallback.spinDownMinSeconds),
+      spinDownMaxSeconds: number('spinDownMaxSeconds', fallback.spinDownMaxSeconds),
+      dramaEnabled: bool('dramaEnabled', fallback.dramaEnabled),
+      dramaChance: number('dramaChance', fallback.dramaChance),
+      dramaCreepMinDegrees: number('dramaCreepMinDegrees', fallback.dramaCreepMinDegrees),
+      dramaCreepMaxDegrees: number('dramaCreepMaxDegrees', fallback.dramaCreepMaxDegrees),
+      showSlowIcon: bool('showSlowIcon', fallback.showSlowIcon),
+      iconPreviewStartPercent: number('iconPreviewStartPercent', fallback.iconPreviewStartPercent)
     };
   }
 
-  function humanMap(context) {
-    const lines=[];
-    context.groups.forEach(g=>{
-      lines.push(`GROUP ${g.id} = ${g.name} | activeAtStart=${g.activeAtStart}`);
-      context.forfeits.filter(f=>f.levelId===g.id).forEach(f=>{
-        const req=f.requiresForfeitIds.length?`${f.requiresMode.toUpperCase()}(${f.requiresForfeitIds.join(',')})`:'none';
-        const unlock=f.unlockLevels.length?f.unlockLevels.join(','):'none';
-        lines.push(`  - ${f.id} | ${f.name} | category=${f.category||'-'} | prereq=${req} | unlocks=${unlock} | lifetime=${f.lifetime?.type||'forever'} | cooldown=${f.cooldown||0} | weight=${f.weight} | mystery=${!!f.mystery} | enabled=${f.enabled!==false}`);
+  const ENGINE_GUIDE = `FORTUNE ENGINE — COMPLETE XML EDITING MODEL
+
+The XML document is the complete source of truth for the wheel configuration. For EDIT requests you receive the whole current XML and must return the whole corrected XML.
+
+1. ELIGIBILITY
+A forfeit can appear only when its group is active, enabled=true, its <requires> condition is satisfied, it has not been removed by lifetime behavior, cooldown is zero, and any spin lifetime is still active. Weight is relative only among currently eligible entries.
+
+2. GROUPS
+<group> is a broad thematic/game-state container such as Start, Clothing, Humiliation, Disgusting, Cleaning or Strip Show. A forfeit's group="..." attribute assigns it to one broad group. Do not create groups merely to express simple ordering between individual forfeits.
+
+3. AVAILABILITY / DEPENDENCIES
+Inside a <forfeit>, <requires mode="all|any"> contains <forfeit ref="ID"/> prerequisites. Those referenced results must have happened earlier in the current play session before this forfeit can appear.
+- A -> B means B requires A.
+- If A must happen before BOTH B and C, but B and C may happen in either order or independently, then B requires A and C requires A. Do NOT make B require C or C require B.
+- For a simple sequence A -> B -> C, B requires A and C normally requires B only.
+- mode="all" means all listed prerequisites; mode="any" means at least one.
+- Never create self or circular dependencies.
+- If no prerequisite is needed, omit <requires> entirely.
+
+Example for the user's clothing logic: if Shoes Off must happen before Socks Off and Trousers Off, while socks and trousers can otherwise happen in either order, configure BOTH Socks Off and Trousers Off with a prerequisite on Shoes Off, and no dependency between Socks Off and Trousers Off.
+
+4. LIFETIME / COOLDOWN
+lifetime="once" removes a result after it is selected once. lifetime="forever" keeps it. lifetime="spins" uses lifetimeSpins. cooldown temporarily suppresses a previously selected item for N completed spins. Do not change these unless requested or needed for the intended progression.
+
+5. GROUP UNLOCKS
+<unlocks><group ref="ID"/></unlocks> on a forfeit activates broad groups when that result is selected. <rules> are for broad group activation after ALL/ANY result conditions, not ordinary item-to-item ordering. minOccurrences may require repeated hits.
+
+6. MYSTERY
+mystery="true" only hides the real item on the wheel. The real hidden result must still be stored in that forfeit's name, icon and description. It is revealed after selection.
+
+7. SPECIAL EVENTS
+Preserve eventType unless the user asks to change it. Valid values include normal, spinAgain, unlock, doubleSpin, immunity and randomize.
+
+8. SPIN SETTINGS
+The <settings> element also contains maxTurns, spinUpMinSeconds, spinUpMaxSeconds, spinDownMinSeconds, spinDownMaxSeconds, dramaEnabled, dramaChance, dramaCreepMinDegrees, dramaCreepMaxDegrees, showSlowIcon and iconPreviewStartPercent. Preserve them unless the user asks to change spin behavior.
+
+9. EDITING RULES
+- Read the entire XML before editing.
+- Preserve every unrelated group, forfeit, rule, attribute and description.
+- Reuse exact existing IDs for existing objects.
+- You MAY add a missing forfeit when the user says something is missing. Give it a unique lowercase ASCII id using letters, numbers and hyphens.
+- When adding a missing item, infer its broad group from the user's request and existing groups. Prefer an existing appropriate group.
+- When the user says 'check ... and fix/adapt/make right', this is an EDIT request.
+- If an existing dependency contradicts the user's stated logic, correct the <requires> element.
+- Never merely describe what should change. The returned XML itself must contain the changes.
+- Do not omit unchanged XML just to save space.
+- Do not return a partial fragment.
+
+10. OUTPUT FOR EDIT MODE
+Return ONLY one complete XML document beginning with <fortuneEngine or an XML declaration and ending with </fortuneEngine>. No markdown fences. No explanation before or after it.`;
+
+  function extractXml(text) {
+    let raw = String(text || '').trim();
+    raw = raw.replace(/^```(?:xml)?\s*/i, '').replace(/\s*```$/i, '');
+    const start = raw.indexOf('<fortuneEngine');
+    const declaration = raw.indexOf('<?xml');
+    const from = declaration >= 0 && declaration < start ? declaration : start;
+    const endTag = '</fortuneEngine>';
+    const end = raw.lastIndexOf(endTag);
+    if (start < 0 || end < 0 || end < start) throw new Error('The AI did not return a complete Fortune Engine XML document.');
+    return raw.slice(from >= 0 ? from : start, end + endTag.length).trim();
+  }
+
+  function validateRawXml(xmlText) {
+    const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
+    const parserError = doc.querySelector('parsererror');
+    if (parserError) throw new Error('The AI returned malformed XML.');
+    if (doc.documentElement?.tagName !== 'fortuneEngine') throw new Error('Returned XML root must be <fortuneEngine>.');
+    if (!doc.querySelector('fortuneEngine > settings')) throw new Error('Returned XML has no <settings> element.');
+
+    const groups = [...doc.querySelectorAll('groups > group')];
+    const forfeits = [...doc.querySelectorAll('forfeits > forfeit')];
+    const groupIds = groups.map(node => node.getAttribute('id')).filter(Boolean);
+    const forfeitIds = forfeits.map(node => node.getAttribute('id')).filter(Boolean);
+    if (!groups.length) throw new Error('Returned XML must contain at least one group.');
+    if (groupIds.length !== groups.length || new Set(groupIds).size !== groupIds.length) throw new Error('Returned XML contains missing or duplicate group IDs.');
+    if (forfeitIds.length !== forfeits.length || new Set(forfeitIds).size !== forfeitIds.length) throw new Error('Returned XML contains missing or duplicate forfeit IDs.');
+
+    const groupSet = new Set(groupIds);
+    const forfeitSet = new Set(forfeitIds);
+    const graph = new Map(forfeitIds.map(id => [id, []]));
+
+    forfeits.forEach(node => {
+      const id = node.getAttribute('id');
+      const group = node.getAttribute('group');
+      if (!groupSet.has(group)) throw new Error(`Forfeit ${id} references missing group ${group || '(empty)'}.`);
+      [...node.querySelectorAll(':scope > unlocks > group')].forEach(refNode => {
+        const ref = refNode.getAttribute('ref');
+        if (!groupSet.has(ref)) throw new Error(`Forfeit ${id} unlocks missing group ${ref}.`);
+      });
+      const req = node.querySelector(':scope > requires');
+      if (req && !['all', 'any'].includes(req.getAttribute('mode') || 'all')) throw new Error(`Forfeit ${id} has invalid requires mode.`);
+      [...(req?.querySelectorAll(':scope > forfeit') || [])].forEach(refNode => {
+        const ref = refNode.getAttribute('ref');
+        if (!forfeitSet.has(ref)) throw new Error(`Forfeit ${id} requires missing forfeit ${ref}.`);
+        if (ref === id) throw new Error(`Forfeit ${id} cannot require itself.`);
+        graph.get(id).push(ref);
       });
     });
-    if(context.rules.length){lines.push('GROUP RULES');context.rules.forEach(r=>lines.push(`  - ${r.id} | ${r.name} | ${r.mode.toUpperCase()}(${r.conditionForfeitIds.join(',')}) x${r.minOccurrences||1} -> ${r.unlockLevels.join(',')} | enabled=${r.enabled!==false}`));}
-    return lines.join('\n');
-  }
 
-  const ENGINE_GUIDE=`FORTUNE ENGINE — COMPLETE BEHAVIOR MODEL\n\nA. WHAT THE PLAYER SEES / ELIGIBILITY PIPELINE\nA wheel entry is selectable only when ALL applicable gates pass, in this conceptual order:\n1) its broad group is active; 2) the forfeit is enabled; 3) its availability prerequisites are satisfied; 4) it has not been removed by lifetime/once behavior; 5) cooldown is zero; 6) any spin-lifetime still has time remaining.\nOnly eligible entries participate in the weighted draw. Weight is RELATIVE among currently eligible entries, not a fixed percentage.\n\nB. GROUPS ARE BROAD STATES, NOT SEQUENCE STEPS\nGroups represent broad game states/themes such as Start, Clothing, Humiliation, Disgusting or Cleaning. levelId decides which broad group owns a forfeit. A group can be active at start or unlocked later.\nUse existing broad groups whenever semantically appropriate. Do not create duplicate groups that mean the same thing. Do not create a group merely to enforce A -> B ordering.\nWhen the user says 'put them in the right group', infer the thematic group from the forfeit's name/category/description and the existing group names. Example: clothing cutting/removal belongs in Clothing; cleaning tasks in Cleaning; humiliation-focused tasks in Humiliation; gross/disgust-focused tasks in Disgusting. Preserve the current group when there is no clearly better existing broad group.\n\nC. FORFEIT AVAILABILITY / ORDERING\nrequiresForfeitIds references FORFEIT IDs that must have occurred in the current play-session history before the dependent item can appear. requiresMode='all' means every listed prerequisite; 'any' means at least one.\nFor a simple chain A -> B -> C, normally B requires A and C requires B. Do NOT make C require A+B unless the user explicitly wants all earlier events required. This keeps dependencies minimal and understandable.\nFor alternative paths, use requiresMode='any'. Never make circular/self dependencies.\nDependencies are about future play-session history, not editor-time state. The editor config defines what will happen when a new play session runs.\n\nD. LIFETIME AND COOLDOWN\nlifetime.type='forever' keeps an entry indefinitely. 'once' removes it after the first time it is selected. 'spins' keeps it for the configured number of spins after activation. cooldown=N makes a selected item temporarily unavailable for N completed spins.\nIf a progression step should disappear after it has done its job, 'once' is usually appropriate. Do not change lifetime unless requested or logically necessary to enforce the requested progression.\n\nE. UNLOCKING BROAD GROUPS\nA forfeit's unlockLevels activates broad groups immediately when that result is selected.\nConditional rules activate broad groups after ALL/ANY named result conditions are met; minOccurrences allows thresholds such as a result needing to happen 3 times.\nUse group unlock rules for broad state transitions. Use forfeit prerequisites for ordinary individual-entry sequencing.\n\nF. MYSTERY\nmystery=true is DISPLAY ONLY. The real hidden result remains in name/icon/description. On the wheel it is hidden; after selection it is revealed. Never create a placeholder called only 'Mystery Challenge' unless that is genuinely the intended hidden result.\n\nG. SPECIAL EVENTS\neventType may be normal, spinAgain, unlock, doubleSpin, immunity or randomize. Keep special-event behavior unless the user asks to change it.\n\nH. SPIN BEHAVIOR\nGeneral settings hold total spin min/max and minimum turns. Spin style holds maxTurns, random spinUpMinSeconds/spinUpMaxSeconds, random spinDownMinSeconds/spinDownMaxSeconds, dramaEnabled, dramaChance, dramaCreepMinDegrees/maxDegrees, showSlowIcon and iconPreviewStartPercent. Drama is a small continuation/creep after an almost-stop, never another full re-spin.\n\nI. EDITING PRINCIPLES\n- Preserve unrelated data exactly.\n- Use exact existing IDs for existing objects and references.\n- Prefer update_* to delete/recreate.\n- If the user asks to 'check and fix/adapt/put/move', that is an EDIT, not analysis-only.\n- Inspect names, descriptions, categories, current groups, prerequisite names, reverse dependents and unlock relationships before deciding.\n- Make the smallest coherent patch that achieves the intended game behavior.\n- If a request is ambiguous but a strong interpretation follows from the current wheel structure, use that interpretation and state it briefly in reply. Ask no question unless two materially different configurations are equally plausible.\n\nJ. PATCH ACTIONS\nadd_forfeit {item}; update_forfeit {id,changes}; remove_forfeit {id}; add_group {group}; update_group {id,changes}; remove_group {id}; add_rule {rule}; update_rule {id,changes}; remove_rule {id}; update_settings {changes}; update_spin_style {changes}.\nNew forfeit fields: id,name,icon,color,weight,levelId,category,description,animation,lifetime,cooldown,eventType,mystery,enabled,unlockLevels,requiresMode,requiresForfeitIds.\nRule fields: id,name,mode,minOccurrences,conditionForfeitIds,unlockLevels,enabled.\n\nK. EXAMPLE — CHECK CLOTHING CUTS AND FIX ORDER\nIf existing entries are Shoes Off, Cut Shoes, Socks Off, Cut Socks, Cut Trousers, and the user asks to put clothing cuts in the right group and adapt dependencies:\n- move the relevant items to the existing Clothing group if they are elsewhere;\n- derive the intended chain from names/descriptions, e.g. Socks Off may require Shoes Off, Cut Socks may require Socks Off, Cut Trousers may require a prerequisite only when the wheel design implies one;\n- keep prerequisites minimal;\n- do not invent a Socks group;\n- return concrete update_forfeit actions using exact IDs.`;
+    [...doc.querySelectorAll('rules > rule')].forEach(rule => {
+      const id = rule.getAttribute('id') || '(unnamed rule)';
+      [...rule.querySelectorAll(':scope > conditions > forfeit')].forEach(node => {
+        const ref = node.getAttribute('ref');
+        if (!forfeitSet.has(ref)) throw new Error(`Rule ${id} references missing forfeit ${ref}.`);
+      });
+      [...rule.querySelectorAll(':scope > unlocks > group')].forEach(node => {
+        const ref = node.getAttribute('ref');
+        if (!groupSet.has(ref)) throw new Error(`Rule ${id} references missing group ${ref}.`);
+      });
+    });
 
-  function systemPrompt(mode, planning='') {
-    const context=currentContext();
-    return `You are the configuration engineer inside Fortune Engine. REQUEST MODE: ${mode.toUpperCase()}\n\n${ENGINE_GUIDE}\n\nCURRENT WHEEL — HUMAN MAP\n${humanMap(context)}\n\nCURRENT CONFIGURATION JSON\n${JSON.stringify(context)}\n${planning?`\nAPPROVED PLANNING NOTES FROM YOUR FIRST PASS\n${planning}\n`:''}\nOUTPUT CONTRACT\nReturn ONLY one strict JSON object, no markdown or prose outside it:\n{\"mode\":\"${mode}\",\"reply\":\"short user-facing summary\",\"actions\":[],\"assessment\":{\"alreadySatisfied\":false,\"findings\":[]}}\nFor EDIT mode, actions must contain every concrete patch needed. Empty actions are allowed only when assessment.alreadySatisfied=true with specific evidence from CURRENT CONFIGURATION. Never claim something was changed with actions:[].\nFor ANALYSIS mode, actions must be empty unless the user explicitly asks to fix something.\nUse the user's requested language for player-facing names/descriptions. JSON must be valid.`;
-  }
-
-  function parseJson(text) { let raw=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/i,'');const first=raw.indexOf('{'),last=raw.lastIndexOf('}');if(first>=0&&last>first)raw=raw.slice(first,last+1);return JSON.parse(raw); }
-  async function repairJson(raw) { setPhase('Repairing JSON');const result=await complete([{role:'system',content:'Repair the supplied text into exactly one strict valid JSON object. Preserve all intended actions. No markdown or explanation.'},{role:'user',content:String(raw).slice(0,18000)}],{maxTokens:3000,timeoutMs:180000});return parseJson(result.text); }
-  async function planningPass(text) {
-    const context=currentContext();
-    setPhase('Understanding wheel and planning changes');
-    const prompt=`You are planning a Fortune Engine edit before producing patches. ${ENGINE_GUIDE}\n\nCURRENT WHEEL HUMAN MAP\n${humanMap(context)}\n\nUSER REQUEST\n${text}\n\nReturn strict JSON only: {\"understanding\":\"what the user is trying to achieve\",\"targets\":[{\"id\":\"existing id\",\"current\":\"current role/state\",\"desired\":\"intended role/state\",\"reason\":\"why\"}],\"dependencyPlan\":[{\"forfeitId\":\"id\",\"requiresMode\":\"all|any\",\"requiresForfeitIds\":[\"id\"],\"reason\":\"why\"}],\"groupPlan\":[{\"forfeitId\":\"id\",\"levelId\":\"existing group id\",\"reason\":\"why\"}],\"notes\":[]}. Do not invent IDs. Do not emit final patch actions yet.`;
-    try { const result=await complete([{role:'system',content:prompt},{role:'user',content:text}],{maxTokens:2200,temperature:0,timeoutMs:180000});return JSON.stringify(parseJson(result.text)); }
-    catch (_) { return ''; }
-  }
-  async function getStructured(text, mode, strictRetry=false) {
-    let plan='';
-    if(mode==='edit'&&isComplexEdit(text)&&!strictRetry) plan=await planningPass(text);
-    setPhase(strictRetry?'Retrying with strict edit contract':'Building concrete patch');
-    const messages=[{role:'system',content:systemPrompt(mode,plan)},...state.history.slice(-4),{role:'user',content:text}];
-    let result=await complete(messages,{maxTokens:4600,timeoutMs:300000}),answer;
-    try{answer=parseJson(result.text);}catch(_){answer=await repairJson(result.text);}
-    const actions=Array.isArray(answer?.actions)?answer.actions:[],satisfied=answer?.assessment?.alreadySatisfied===true,returnedMode=String(answer?.mode||'').toLowerCase();
-    if(mode==='edit'&&(returnedMode==='analysis'||(!actions.length&&!satisfied))){
-      if(strictRetry)throw new Error('The AI still returned no executable edit actions.');
-      setPhase('Requesting missing concrete patch actions');
-      const correction=await complete([{role:'system',content:systemPrompt('edit',plan)},{role:'user',content:text},{role:'assistant',content:JSON.stringify(answer)},{role:'user',content:'STRICT CORRECTION: This is an EDIT. Return the concrete patch actions required by the request. Use exact IDs from the current wheel. If and only if it is already exactly correct, return actions:[] with assessment.alreadySatisfied:true and specific evidence.'}],{maxTokens:4600,timeoutMs:240000});
-      try{answer=parseJson(correction.text);}catch(_){answer=await repairJson(correction.text);}
-      if(!Array.isArray(answer?.actions)||(!answer.actions.length&&answer?.assessment?.alreadySatisfied!==true))throw new Error('The AI returned no executable wheel changes after an automatic retry.');
+    const visiting = new Set();
+    const visited = new Set();
+    function walk(id, trail = []) {
+      if (visiting.has(id)) throw new Error(`Circular dependency detected: ${[...trail, id].join(' → ')}`);
+      if (visited.has(id)) return;
+      visiting.add(id);
+      (graph.get(id) || []).forEach(next => walk(next, [...trail, id]));
+      visiting.delete(id);
+      visited.add(id);
     }
-    return answer;
+    forfeitIds.forEach(id => walk(id));
+    return doc;
   }
 
-  function resolveGroup(c,ref){const v=String(ref||'').trim().toLowerCase();return c.levels.find(g=>g.id.toLowerCase()===v)||c.levels.find(g=>g.name.toLowerCase()===v);}
-  function resolveForfeit(c,ref){const v=String(ref||'').trim().toLowerCase();return c.forfeits.find(f=>f.id.toLowerCase()===v)||c.forfeits.find(f=>f.name.toLowerCase()===v);}
-  function resolveRule(c,ref){const v=String(ref||'').trim().toLowerCase();return(c.rules||[]).find(r=>r.id.toLowerCase()===v)||(c.rules||[]).find(r=>r.name.toLowerCase()===v);}
-  function uniqueId(base,used){let id=slug(base),n=2;while(used.has(id))id=`${slug(base)}-${n++}`;used.add(id);return id;}
-  function groupRefs(c,refs){if(!Array.isArray(refs))return[];return[...new Set(refs.map(ref=>{const g=resolveGroup(c,ref);if(!g)throw new Error(`Unknown group reference: ${ref}`);return g.id;}))];}
-  function forfeitRefs(c,refs,ownId=''){if(!Array.isArray(refs))return[];return[...new Set(refs.map(ref=>{const f=resolveForfeit(c,ref);if(!f)throw new Error(`Unknown forfeit reference: ${ref}`);return f.id;}).filter(id=>id!==ownId))];}
-  function normalizeLifetime(value,fallback={type:'forever',spins:3}){if(typeof value==='string')value={type:value};if(!value||typeof value!=='object')return clone(fallback);const type=['forever','once','spins'].includes(value.type)?value.type:fallback.type;return{type,spins:Math.round(clamp(value.spins,1,999,fallback.spins||3))};}
-  function normalizeForfeitShell(c,input,used){const g=resolveGroup(c,input.levelId)||(!input.levelId?c.levels[0]:null);if(!g)throw new Error(`Unknown group for new forfeit: ${input.levelId}`);return{id:uniqueId(input.id||input.name||'forfeit',used),name:String(input.name||'New Forfeit').slice(0,80),icon:String(input.icon||'🎯').slice(0,12),color:/^#[0-9a-f]{6}$/i.test(input.color||'')?input.color:'#65d8ff',weight:clamp(input.weight,.1,100,1),levelId:g.id,category:String(input.category||'General').slice(0,40),description:String(input.description||'').slice(0,240),animation:['zoom','shake','pulse','flash','confetti'].includes(input.animation)?input.animation:'pulse',lifetime:normalizeLifetime(input.lifetime),cooldown:Math.round(clamp(input.cooldown,0,99,0)),eventType:['normal','spinAgain','unlock','doubleSpin','immunity','randomize'].includes(input.eventType)?input.eventType:'normal',mystery:!!input.mystery,enabled:input.enabled!==false,unlockLevels:[],requiresMode:input.requiresMode==='any'?'any':'all',requiresForfeitIds:[]};}
-  function applyForfeitChanges(c,item,next){next=clone(next||{});if('name'in next)item.name=String(next.name||item.name).slice(0,80);if('icon'in next)item.icon=String(next.icon||item.icon).slice(0,12);if('color'in next&&/^#[0-9a-f]{6}$/i.test(next.color||''))item.color=next.color;if('weight'in next)item.weight=clamp(next.weight,.1,100,item.weight);if('levelId'in next){const g=resolveGroup(c,next.levelId);if(!g)throw new Error(`Unknown group reference: ${next.levelId}`);item.levelId=g.id;}if('category'in next)item.category=String(next.category||'').slice(0,40);if('description'in next)item.description=String(next.description||'').slice(0,240);if('animation'in next&&['zoom','shake','pulse','flash','confetti'].includes(next.animation))item.animation=next.animation;if('lifetime'in next)item.lifetime=normalizeLifetime(next.lifetime,item.lifetime);if('cooldown'in next)item.cooldown=Math.round(clamp(next.cooldown,0,99,item.cooldown));if('eventType'in next&&['normal','spinAgain','unlock','doubleSpin','immunity','randomize'].includes(next.eventType))item.eventType=next.eventType;if('mystery'in next)item.mystery=!!next.mystery;if('enabled'in next)item.enabled=next.enabled!==false;if('unlockLevels'in next)item.unlockLevels=groupRefs(c,next.unlockLevels);if('requiresMode'in next)item.requiresMode=next.requiresMode==='any'?'any':'all';if('requiresForfeitIds'in next)item.requiresForfeitIds=forfeitRefs(c,next.requiresForfeitIds,item.id);}
-  function assertNoDependencyCycles(c){const byId=new Map(c.forfeits.map(f=>[f.id,f])),visiting=new Set(),visited=new Set();function walk(id,trail=[]){if(visiting.has(id))throw new Error(`Circular availability dependency detected: ${[...trail,id].join(' → ')}`);if(visited.has(id))return;visiting.add(id);const item=byId.get(id);for(const ref of item?.requiresForfeitIds||[]){if(ref===id)throw new Error(`Forfeit ${id} cannot depend on itself.`);if(!byId.has(ref))throw new Error(`Forfeit ${id} references missing prerequisite ${ref}.`);walk(ref,[...trail,id]);}visiting.delete(id);visited.add(id);}c.forfeits.forEach(f=>walk(f.id));}
-
-  function applyActions(actions){
-    const before=M.loadConfig(),beforeSpin=S?.load?.()||{},c=clone(before),spin=clone(beforeSpin),list=Array.isArray(actions)?actions.filter(a=>a&&typeof a==='object'):[];c.rules=c.rules||[];
-    const usedG=new Set(c.levels.map(g=>g.id)),usedF=new Set(c.forfeits.map(f=>f.id)),usedR=new Set(c.rules.map(r=>r.id));let changed=0;
-    list.filter(a=>a.type==='add_group').forEach(a=>{const x=a.group||{};c.levels.push({id:uniqueId(x.id||x.name||'group',usedG),name:String(x.name||'New Group').slice(0,60),icon:String(x.icon||'◆').slice(0,12),color:/^#[0-9a-f]{6}$/i.test(x.color||'')?x.color:'#65d8ff',activeAtStart:!!x.activeAtStart});changed++;});
-    const pending=[];list.filter(a=>a.type==='add_forfeit').forEach(a=>{const x=a.item||{},item=normalizeForfeitShell(c,x,usedF);c.forfeits.push(item);pending.push({item,input:x});changed++;});pending.forEach(({item,input})=>{item.unlockLevels=groupRefs(c,input.unlockLevels||[]);item.requiresForfeitIds=forfeitRefs(c,input.requiresForfeitIds||[],item.id);});
-    list.filter(a=>a.type==='update_group').forEach(a=>{const g=resolveGroup(c,a.id);if(!g)throw new Error(`Unknown group: ${a.id}`);const x=a.changes||{};if('name'in x)g.name=String(x.name||g.name).slice(0,60);if('icon'in x)g.icon=String(x.icon||g.icon).slice(0,12);if('color'in x&&/^#[0-9a-f]{6}$/i.test(x.color||''))g.color=x.color;if('activeAtStart'in x)g.activeAtStart=!!x.activeAtStart;changed++;});
-    list.filter(a=>a.type==='update_forfeit').forEach(a=>{const f=resolveForfeit(c,a.id);if(!f)throw new Error(`Unknown forfeit: ${a.id}`);applyForfeitChanges(c,f,a.changes||{});changed++;});
-    list.filter(a=>a.type==='add_rule').forEach(a=>{const x=a.rule||{};c.rules.push({id:uniqueId(x.id||x.name||'rule',usedR),name:String(x.name||'New Rule').slice(0,80),mode:x.mode==='any'?'any':'all',minOccurrences:Math.round(clamp(x.minOccurrences,1,99,1)),conditionForfeitIds:forfeitRefs(c,x.conditionForfeitIds||[]),unlockLevels:groupRefs(c,x.unlockLevels||[]),enabled:x.enabled!==false});changed++;});
-    list.filter(a=>a.type==='update_rule').forEach(a=>{const r=resolveRule(c,a.id);if(!r)throw new Error(`Unknown rule: ${a.id}`);const x=a.changes||{};if('name'in x)r.name=String(x.name||r.name).slice(0,80);if('mode'in x)r.mode=x.mode==='any'?'any':'all';if('minOccurrences'in x)r.minOccurrences=Math.round(clamp(x.minOccurrences,1,99,r.minOccurrences||1));if('conditionForfeitIds'in x)r.conditionForfeitIds=forfeitRefs(c,x.conditionForfeitIds||[]);if('unlockLevels'in x)r.unlockLevels=groupRefs(c,x.unlockLevels||[]);if('enabled'in x)r.enabled=x.enabled!==false;changed++;});
-    list.filter(a=>a.type==='update_settings').forEach(a=>{c.settings={...c.settings,...(a.changes||{})};changed++;});list.filter(a=>a.type==='update_spin_style').forEach(a=>{Object.assign(spin,a.changes||{});changed++;});
-    list.filter(a=>a.type==='remove_rule').forEach(a=>{const r=resolveRule(c,a.id);if(!r)throw new Error(`Unknown rule: ${a.id}`);c.rules=c.rules.filter(x=>x.id!==r.id);changed++;});
-    list.filter(a=>a.type==='remove_forfeit').forEach(a=>{const f=resolveForfeit(c,a.id);if(!f)throw new Error(`Unknown forfeit: ${a.id}`);c.forfeits=c.forfeits.filter(x=>x.id!==f.id);c.forfeits.forEach(x=>x.requiresForfeitIds=(x.requiresForfeitIds||[]).filter(id=>id!==f.id));c.rules.forEach(r=>r.conditionForfeitIds=(r.conditionForfeitIds||[]).filter(id=>id!==f.id));changed++;});
-    list.filter(a=>a.type==='remove_group').forEach(a=>{const g=resolveGroup(c,a.id);if(!g)throw new Error(`Unknown group: ${a.id}`);if(c.forfeits.some(f=>f.levelId===g.id))throw new Error(`Group ${g.name} still contains forfeits. Move or remove them first.`);c.levels=c.levels.filter(x=>x.id!==g.id);c.forfeits.forEach(f=>f.unlockLevels=(f.unlockLevels||[]).filter(id=>id!==g.id));c.rules.forEach(r=>r.unlockLevels=(r.unlockLevels||[]).filter(id=>id!==g.id));changed++;});
-    if(!c.levels.length)throw new Error('The wheel must contain at least one group.');if(!c.levels.some(g=>g.activeAtStart))c.levels[0].activeAtStart=true;assertNoDependencyCycles(c);
-    if(changed){state.undo={config:before,spin:beforeSpin};D.replace(c);const saved=M.saveConfig(c);M.resetSession(saved);S?.save?.(spin);if($('undoAiBtn'))$('undoAiBtn').disabled=false;refreshStats();}
-    return changed;
+  function stableConfig(config) {
+    return JSON.stringify(M.sanitizeConfig(clone(config)));
   }
 
-  function refreshStats(){const c=M.loadConfig();if($('chatGroupCount'))$('chatGroupCount').textContent=c.levels.length;if($('chatForfeitCount'))$('chatForfeitCount').textContent=c.forfeits.length;if($('chatRuleCount'))$('chatRuleCount').textContent=(c.rules||[]).length;const badge=$('logicBadge');if(badge){try{assertNoDependencyCycles(c);badge.textContent='Logic OK';badge.classList.remove('warn');}catch(_){badge.textContent='Logic warning';badge.classList.add('warn');}}}
-  async function sendMessage(forced='',options={}){
-    if(state.busy)return;const input=$('chatInput'),text=String(forced||input?.value||'').trim();if(!text)return;if(!selectedModel()){setStatus('Choose a model first.','error');addMessage('system','Choose a model before sending.');return;}if(!token()){setStatus('Enter API token first.','error');addMessage('system','Enter your API token before sending.');return;}if(input&&!forced)input.value='';addMessage('user',options.retry?`↻ Retry: ${text}`:text);const pending=addMessage('system','⏳ AI is working on the wheel…','Preparing · 0s elapsed');startWork('Preparing complete wheel model');const mode=requestMode(text);
-    try{const answer=await getStructured(text,mode,!!options.strict);setPhase('Validating patch');const actions=Array.isArray(answer?.actions)?answer.actions:[],satisfied=answer?.assessment?.alreadySatisfied===true;let changed=0;if(actions.length){setPhase('Applying wheel changes');changed=applyActions(actions);}if(mode==='edit'&&!changed&&!satisfied)throw new Error('The AI returned no executable wheel changes. Nothing was saved.');pending?.remove();const reply=String(answer?.reply||(changed?'Done.':'No changes were needed.'));let meta=changed?`✓ Applied ${changed} wheel change${changed===1?'':'s'}`:'✓ Checked · no changes needed';if(satisfied&&answer?.assessment?.findings?.length)meta+=` · ${answer.assessment.findings.length} finding${answer.assessment.findings.length===1?'':'s'}`;addMessage('assistant',reply,meta);state.history.push({role:'user',content:text},{role:'assistant',content:reply});state.history=state.history.slice(-6);state.lastFailed=null;setStatus(changed?`Applied ${changed} wheel change${changed===1?'':'s'}.`:'Check completed.','ok');if(changed)window.dispatchEvent(new CustomEvent('fortune-ai-applied',{detail:{count:changed}}));}
-    catch(error){pending?.remove();state.lastFailed=text;addMessage('assistant',`I could not complete that request: ${error.message}`,'Not applied',text);setStatus(`Request failed: ${error.message}`,'error');}
-    finally{stopWork();input?.focus();}
+  function diffSummary(before, after, beforeSpin, afterSpin) {
+    const oldF = new Map(before.forfeits.map(x => [x.id, x]));
+    const newF = new Map(after.forfeits.map(x => [x.id, x]));
+    const oldG = new Map(before.levels.map(x => [x.id, x]));
+    const newG = new Map(after.levels.map(x => [x.id, x]));
+    const oldR = new Map((before.rules || []).map(x => [x.id, x]));
+    const newR = new Map((after.rules || []).map(x => [x.id, x]));
+    const addedF = [...newF.keys()].filter(id => !oldF.has(id)).length;
+    const removedF = [...oldF.keys()].filter(id => !newF.has(id)).length;
+    const changedF = [...newF.keys()].filter(id => oldF.has(id) && JSON.stringify(oldF.get(id)) !== JSON.stringify(newF.get(id))).length;
+    const addedG = [...newG.keys()].filter(id => !oldG.has(id)).length;
+    const removedG = [...oldG.keys()].filter(id => !newG.has(id)).length;
+    const changedG = [...newG.keys()].filter(id => oldG.has(id) && JSON.stringify(oldG.get(id)) !== JSON.stringify(newG.get(id))).length;
+    const changedR = [...new Set([...oldR.keys(), ...newR.keys()])].filter(id => JSON.stringify(oldR.get(id)) !== JSON.stringify(newR.get(id))).length;
+    const spinChanged = JSON.stringify(beforeSpin || {}) !== JSON.stringify(afterSpin || {});
+    const total = addedF + removedF + changedF + addedG + removedG + changedG + changedR + (spinChanged ? 1 : 0);
+    const parts = [];
+    if (addedF) parts.push(`${addedF} forfeit${addedF === 1 ? '' : 's'} added`);
+    if (changedF) parts.push(`${changedF} forfeit${changedF === 1 ? '' : 's'} updated`);
+    if (removedF) parts.push(`${removedF} forfeit${removedF === 1 ? '' : 's'} removed`);
+    if (addedG || changedG || removedG) parts.push(`${addedG + changedG + removedG} group change${addedG + changedG + removedG === 1 ? '' : 's'}`);
+    if (changedR) parts.push(`${changedR} rule change${changedR === 1 ? '' : 's'}`);
+    if (spinChanged) parts.push('spin settings updated');
+    return { total, text: parts.join(' · ') || 'no configuration differences' };
   }
-  function undoLast(){if(!state.undo)return;D.replace(state.undo.config);const saved=M.saveConfig(state.undo.config);M.resetSession(saved);S?.save?.(state.undo.spin);state.undo=null;if($('undoAiBtn'))$('undoAiBtn').disabled=true;refreshStats();addMessage('system','Last AI edit undone.');setStatus('Last AI edit undone.','ok');window.dispatchEvent(new CustomEvent('fortune-ai-applied',{detail:{count:0,undo:true}}));}
-  function clearChat(){state.history=[];const box=$('chatMessages');if(box)box.innerHTML='';addMessage('system','Chat cleared. The next request still receives the complete current wheel model.');}
-  function install(){injectStyles();refreshStats();$('loadModelsBtn')?.addEventListener('click',loadModels);$('modelFilter')?.addEventListener('input',renderModels);$('testAiBtn')?.addEventListener('click',testApi);$('sendAiBtn')?.addEventListener('click',()=>sendMessage());$('undoAiBtn')?.addEventListener('click',undoLast);$('clearChatBtn')?.addEventListener('click',clearChat);$('chatInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});$('chatMessages')?.addEventListener('click',e=>{const b=e.target.closest('.ai-retry-btn');if(!b)return;const text=b.dataset.retryText||state.lastFailed||'';if(text)sendMessage(text,{retry:true,strict:true});});$('aiProvider')?.addEventListener('change',()=>{const suggested=providerDefaults(provider());if(suggested&&$('aiEndpoint'))$('aiEndpoint').value=suggested;state.models=[];renderModels();});$('toggleToken')?.addEventListener('click',()=>{const field=$('aiToken');if(!field)return;const show=field.type==='password';field.type=show?'text':'password';$('toggleToken').textContent=show?'Hide':'Show';});document.querySelectorAll('[data-ai-command]').forEach(b=>b.addEventListener('click',()=>sendMessage(b.dataset.aiCommand||'')));addMessage('system','AI engine ready. It receives the complete behavior model plus the current groups, forfeits, prerequisites, reverse dependents, rules and spin settings. Complex edits get a planning pass before patches are applied.');if($('aiModel')?.dataset.restoreModel)setTimeout(loadModels,120);if($('aiStatus')?.parentElement&&!$('aiStatus').parentElement.querySelector('.ai-engine-note')){const note=document.createElement('div');note.className='ai-engine-note';note.textContent='Complex edits: understand → plan → patch → validate → save. Failed edits include a Retry button.';$('aiStatus').insertAdjacentElement('afterend',note);}}
 
-  window.FortuneAiEditorEngine={loadModels,testApi,sendMessage,refreshStats,requestMode,engineGuide:ENGINE_GUIDE,currentContext};
+  function restoreSidecar(config) {
+    try { D.replace(config); } catch (_) {}
+  }
+
+  function parseReturnedConfig(xmlText, fallbackSpin) {
+    validateRawXml(xmlText);
+    let config;
+    try { config = M.xmlToConfig(xmlText); }
+    catch (error) { throw new Error(`Could not import returned XML: ${error.message}`); }
+    const spin = readSpinFromXml(xmlText, fallbackSpin);
+    return { config, spin };
+  }
+
+  function xmlSystemPrompt(strict = false) {
+    return `${ENGINE_GUIDE}\n\n${strict ? 'STRICT RETRY: The previous attempt was invalid, incomplete, or unchanged. You MUST actually perform the requested edits in the returned full XML.\n' : ''}Preserve the complete XML schema. Return only the full corrected XML.`;
+  }
+
+  async function requestEditedXml(text, sourceXml, strict = false) {
+    setPhase(strict ? 'Retrying full XML edit' : 'Sending complete XML to AI');
+    const recent = state.history.slice(-4);
+    const messages = [
+      { role: 'system', content: xmlSystemPrompt(strict) },
+      ...recent,
+      {
+        role: 'user',
+        content: `USER REQUEST\n${text}\n\nCURRENT COMPLETE WHEEL XML\n${sourceXml}`
+      }
+    ];
+    const result = await complete(messages, { maxTokens: 14000, temperature: 0, timeoutMs: 300000 });
+    return extractXml(result.text);
+  }
+
+  async function editUsingXml(text, strictRetry = false) {
+    const before = currentConfig();
+    const beforeSpin = clone(S?.load?.() || {});
+    const sourceXml = currentXml(before, beforeSpin);
+    const snapshot = stableConfig(before);
+
+    let returnedXml;
+    try {
+      returnedXml = await requestEditedXml(text, sourceXml, strictRetry);
+    } catch (error) {
+      if (strictRetry) throw error;
+      setPhase('Automatic XML retry');
+      returnedXml = await requestEditedXml(text, sourceXml, true);
+    }
+
+    setPhase('Validating complete returned XML');
+    let parsed;
+    try {
+      parsed = parseReturnedConfig(returnedXml, beforeSpin);
+    } catch (error) {
+      restoreSidecar(before);
+      if (strictRetry) throw error;
+      setPhase('Repairing invalid XML with AI');
+      const repair = await complete([
+        { role: 'system', content: xmlSystemPrompt(true) },
+        { role: 'user', content: `The XML below failed validation with this error: ${error.message}\n\nUSER REQUEST\n${text}\n\nORIGINAL XML\n${sourceXml}\n\nBAD XML\n${returnedXml}\n\nReturn one complete corrected valid XML document only.` }
+      ], { maxTokens: 14000, temperature: 0, timeoutMs: 300000 });
+      returnedXml = extractXml(repair.text);
+      parsed = parseReturnedConfig(returnedXml, beforeSpin);
+    }
+
+    const diff = diffSummary(before, parsed.config, beforeSpin, parsed.spin);
+    if (!diff.total) {
+      restoreSidecar(before);
+      if (strictRetry) throw new Error('The AI returned valid XML but made no changes.');
+      setPhase('AI returned unchanged XML — retrying');
+      returnedXml = await requestEditedXml(text, sourceXml, true);
+      parsed = parseReturnedConfig(returnedXml, beforeSpin);
+      const retryDiff = diffSummary(before, parsed.config, beforeSpin, parsed.spin);
+      if (!retryDiff.total) {
+        restoreSidecar(before);
+        throw new Error('The AI returned the complete XML but still made no changes.');
+      }
+      return applyXmlResult(before, beforeSpin, snapshot, parsed.config, parsed.spin, retryDiff);
+    }
+
+    return applyXmlResult(before, beforeSpin, snapshot, parsed.config, parsed.spin, diff);
+  }
+
+  function applyXmlResult(before, beforeSpin, snapshot, nextConfig, nextSpin, diff) {
+    const liveDraft = currentConfig();
+    if (stableConfig(liveDraft) !== snapshot) {
+      restoreSidecar(liveDraft);
+      throw new Error('The wheel was manually changed while the AI was working. Nothing was overwritten. Retry the request to use the newest editor state.');
+    }
+
+    setPhase('Applying complete corrected XML');
+    state.undo = { config: before, spin: beforeSpin };
+    D.replace(nextConfig);
+    const saved = M.saveConfig(nextConfig);
+    M.resetSession(saved);
+    if (S?.save) S.save(nextSpin);
+    if ($('undoAiBtn')) $('undoAiBtn').disabled = false;
+    refreshStats();
+    window.dispatchEvent(new CustomEvent('fortune-ai-applied', { detail: { count: diff.total, xml: true } }));
+    return diff;
+  }
+
+  async function analyzeUsingXml(text) {
+    const xml = currentXml();
+    setPhase('Analyzing complete wheel XML');
+    const result = await complete([
+      {
+        role: 'system',
+        content: `${ENGINE_GUIDE}\n\nANALYSIS MODE: Do not modify anything and do not return XML. Answer the user's question clearly and concretely based only on the supplied complete wheel XML. Mention exact forfeit/group names when useful.`
+      },
+      ...state.history.slice(-4),
+      { role: 'user', content: `USER QUESTION\n${text}\n\nCURRENT COMPLETE WHEEL XML\n${xml}` }
+    ], { maxTokens: 3500, temperature: 0.1, timeoutMs: 240000 });
+    return result.text.trim();
+  }
+
+  function refreshStats() {
+    const c = M.loadConfig();
+    if ($('chatGroupCount')) $('chatGroupCount').textContent = c.levels.length;
+    if ($('chatForfeitCount')) $('chatForfeitCount').textContent = c.forfeits.length;
+    if ($('chatRuleCount')) $('chatRuleCount').textContent = (c.rules || []).length;
+    const badge = $('logicBadge');
+    if (!badge) return;
+    try {
+      validateRawXml(currentXml(c));
+      badge.textContent = 'Logic OK';
+      badge.classList.remove('warn');
+    } catch (_) {
+      badge.textContent = 'Logic warning';
+      badge.classList.add('warn');
+    }
+  }
+
+  async function sendMessage(forced = '', options = {}) {
+    if (state.busy) return;
+    const input = $('chatInput');
+    const text = String(forced || input?.value || '').trim();
+    if (!text) return;
+    if (!selectedModel()) { setStatus('Choose a model first.', 'error'); addMessage('system', 'Choose a model before sending.'); return; }
+    if (!token()) { setStatus('Enter API token first.', 'error'); addMessage('system', 'Enter your API token before sending.'); return; }
+    if (input && !forced) input.value = '';
+
+    addMessage('user', options.retry ? `↻ Retry: ${text}` : text);
+    const pending = addMessage('system', '⏳ AI is working with the complete wheel XML…', 'Preparing XML · 0s elapsed');
+    const mode = requestMode(text);
+    startWork(mode === 'edit' ? 'Preparing complete wheel XML' : 'Preparing complete XML for analysis');
+
+    try {
+      if (mode === 'analysis') {
+        const reply = await analyzeUsingXml(text);
+        pending?.remove();
+        addMessage('assistant', reply, '✓ Checked · no wheel changes');
+        state.history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
+        state.history = state.history.slice(-6);
+        state.lastFailed = null;
+        setStatus('Check completed.', 'ok');
+      } else {
+        const diff = await editUsingXml(text, !!options.strict);
+        pending?.remove();
+        const reply = `Applied the corrected full wheel XML. ${diff.text}.`;
+        addMessage('assistant', reply, `✓ XML applied · ${diff.text}`);
+        state.history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
+        state.history = state.history.slice(-6);
+        state.lastFailed = null;
+        setStatus(`XML applied · ${diff.text}.`, 'ok');
+      }
+    } catch (error) {
+      pending?.remove();
+      state.lastFailed = text;
+      addMessage('assistant', `I could not complete that request: ${error.message}`, 'Not applied', text);
+      setStatus(`Request failed: ${error.message}`, 'error');
+    } finally {
+      stopWork();
+      input?.focus();
+    }
+  }
+
+  function undoLast() {
+    if (!state.undo) return;
+    D.replace(state.undo.config);
+    const saved = M.saveConfig(state.undo.config);
+    M.resetSession(saved);
+    S?.save?.(state.undo.spin);
+    state.undo = null;
+    if ($('undoAiBtn')) $('undoAiBtn').disabled = true;
+    refreshStats();
+    addMessage('system', 'Last AI XML edit undone.');
+    setStatus('Last AI edit undone.', 'ok');
+    window.dispatchEvent(new CustomEvent('fortune-ai-applied', { detail: { count: 0, undo: true } }));
+  }
+
+  function clearChat() {
+    state.history = [];
+    const box = $('chatMessages');
+    if (box) box.innerHTML = '';
+    addMessage('system', 'Chat cleared. Every new request still receives the complete current wheel XML.');
+  }
+
+  function install() {
+    injectStyles();
+    refreshStats();
+    $('loadModelsBtn')?.addEventListener('click', loadModels);
+    $('modelFilter')?.addEventListener('input', renderModels);
+    $('testAiBtn')?.addEventListener('click', testApi);
+    $('sendAiBtn')?.addEventListener('click', () => sendMessage());
+    $('undoAiBtn')?.addEventListener('click', undoLast);
+    $('clearChatBtn')?.addEventListener('click', clearChat);
+    $('chatInput')?.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+    $('chatMessages')?.addEventListener('click', event => {
+      const button = event.target.closest('.ai-retry-btn');
+      if (!button) return;
+      const text = button.dataset.retryText || state.lastFailed || '';
+      if (text) sendMessage(text, { retry: true, strict: true });
+    });
+    $('aiProvider')?.addEventListener('change', () => {
+      const suggested = providerDefaults(provider());
+      if (suggested && $('aiEndpoint')) $('aiEndpoint').value = suggested;
+      state.models = [];
+      renderModels();
+    });
+    $('toggleToken')?.addEventListener('click', () => {
+      const field = $('aiToken');
+      if (!field) return;
+      const show = field.type === 'password';
+      field.type = show ? 'text' : 'password';
+      $('toggleToken').textContent = show ? 'Hide' : 'Show';
+    });
+    document.querySelectorAll('[data-ai-command]').forEach(button => {
+      button.addEventListener('click', () => sendMessage(button.dataset.aiCommand || ''));
+    });
+
+    addMessage('system', 'AI XML mode ready. Edit requests send the complete current wheel XML to the model, validate the complete returned XML, then refresh the editor immediately.');
+    if ($('aiModel')?.dataset.restoreModel) setTimeout(loadModels, 120);
+    if ($('aiStatus')?.parentElement && !$('aiStatus').parentElement.querySelector('.ai-engine-note')) {
+      const note = document.createElement('div');
+      note.className = 'ai-engine-note';
+      note.textContent = 'Edit flow: full XML → AI correction → XML validation → save → immediate editor refresh. Retry sends the full XML again with stricter instructions.';
+      $('aiStatus').insertAdjacentElement('afterend', note);
+    }
+  }
+
+  window.FortuneAiEditorEngine = {
+    loadModels, testApi, sendMessage, refreshStats, requestMode,
+    engineGuide: ENGINE_GUIDE, currentXml
+  };
   install();
 })();
