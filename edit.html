@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070a12">
+  <title>Edit · Fortune Engine</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="edit">
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">✦</span>
+      <span>
+        <strong>FORTUNE ENGINE</strong>
+        <small>Wheel editor</small>
+      </span>
+    </a>
+    <nav class="top-actions">
+      <button class="btn ghost" id="editorLoadBtn" type="button">Load XML</button>
+      <button class="btn ghost" id="editorSaveBtn" type="button">Save XML</button>
+      <button class="btn primary" id="applyBtn" type="button">Apply changes</button>
+      <a class="btn ghost" href="index.html">Back to wheel</a>
+      <input id="editorFileInput" type="file" accept=".xml,text/xml,application/xml" hidden>
+    </nav>
+  </header>
+
+  <main class="editor-layout">
+    <section class="editor-intro">
+      <div>
+        <div class="section-kicker">CONFIGURATION</div>
+        <h1>Build the game behind the wheel.</h1>
+        <p>Forfeits can have weighted odds, icons, cooldowns, lifetimes, mystery reveals and unlock effects. Groups are independent and can be activated by any result.</p>
+      </div>
+      <div class="editor-summary">
+        <div><span>Forfeits</span><strong id="summaryForfeits">0</strong></div>
+        <div><span>Groups</span><strong id="summaryLevels">0</strong></div>
+        <div><span>Total weight</span><strong id="summaryWeight">0</strong></div>
+      </div>
+    </section>
+
+    <section class="editor-tabs" aria-label="Editor sections">
+      <button class="editor-tab active" data-tab="forfeits" type="button">Forfeits</button>
+      <button class="editor-tab" data-tab="levels" type="button">Unlock groups</button>
+      <button class="editor-tab" data-tab="settings" type="button">Game settings</button>
+    </section>
+
+    <section id="tab-forfeits" class="editor-pane active">
+      <div class="editor-toolbar">
+        <div>
+          <div class="section-kicker">WHEEL CONTENT</div>
+          <h2>Forfeits & events</h2>
+        </div>
+        <button id="addForfeitBtn" class="btn primary" type="button">+ Add forfeit</button>
+      </div>
+      <div id="forfeitEditorList" class="editor-card-list"></div>
+    </section>
+
+    <section id="tab-levels" class="editor-pane">
+      <div class="editor-toolbar">
+        <div>
+          <div class="section-kicker">NON-LINEAR PROGRESSION</div>
+          <h2>Unlock groups</h2>
+          <p class="muted">A group is simply a named switch. Several groups can unlock together; no fixed level order is required.</p>
+        </div>
+        <button id="addLevelBtn" class="btn primary" type="button">+ Add group</button>
+      </div>
+      <div id="levelEditorList" class="editor-card-list compact"></div>
+
+      <div class="rule-section-head">
+        <div>
+          <div class="section-kicker">AND / OR LOGIC</div>
+          <h2>Conditional unlock rules</h2>
+          <p class="muted">Unlock groups after ALL or ANY of the selected results have occurred during the session.</p>
+        </div>
+        <button id="addRuleBtn" class="btn primary" type="button">+ Add rule</button>
+      </div>
+      <div id="ruleEditorList" class="editor-card-list compact"></div>
+    </section>
+
+    <section id="tab-settings" class="editor-pane">
+      <div class="settings-grid">
+        <div class="editor-card static-card">
+          <div class="section-kicker">WHEEL</div>
+          <h3>Spin behaviour</h3>
+          <label class="field">Minimum spin seconds<input id="minSpin" type="number" min="3" max="20" step="0.5"></label>
+          <label class="field">Maximum spin seconds<input id="maxSpin" type="number" min="3" max="25" step="0.5"></label>
+          <label class="field">Minimum full rotations<input id="minTurns" type="number" min="3" max="20" step="1"></label>
+          <label class="check-line"><input id="soundEnabled" type="checkbox"> <span>Enable wheel ticks & result sound</span></label>
+        </div>
+
+        <div class="editor-card static-card">
+          <div class="section-kicker">DISPLAY</div>
+          <h3>Visual behaviour</h3>
+          <label class="check-line"><input id="showTextOnWheel" type="checkbox"> <span>Show short text with pictograms</span></label>
+          <label class="check-line"><input id="showProbabilities" type="checkbox"> <span>Show probability inspector on play page</span></label>
+          <label class="field">Game title<input id="gameTitle" type="text" maxlength="60"></label>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="editorToast" class="toast" role="status" aria-live="polite"></div>
+
+  <template id="forfeitTemplate">
+    <article class="editor-card forfeit-editor-card">
+      <div class="editor-card-head">
+        <div class="editor-icon-preview">🎯</div>
+        <div class="editor-title-block">
+          <input class="inline-title js-name" type="text" maxlength="60" aria-label="Forfeit name">
+          <span class="editor-id js-id-label"></span>
+        </div>
+        <div class="editor-head-actions">
+          <button class="icon-btn js-duplicate" type="button" title="Duplicate">⧉</button>
+          <button class="icon-btn danger js-delete" type="button" title="Delete">×</button>
+        </div>
+      </div>
+
+      <div class="editor-fields-grid">
+        <label class="field">Pictogram / emoji<input class="js-icon" type="text" maxlength="12"></label>
+        <label class="field">Color<input class="js-color" type="color"></label>
+        <label class="field">Weight<input class="js-weight" type="number" min="0.1" max="100" step="0.1"></label>
+        <label class="field">Group<select class="js-level"></select></label>
+        <label class="field">Category<input class="js-category" type="text" maxlength="30"></label>
+        <label class="field">Reveal animation
+          <select class="js-animation">
+            <option value="zoom">Zoom</option>
+            <option value="shake">Shake</option>
+            <option value="pulse">Pulse</option>
+            <option value="flash">Flash</option>
+            <option value="confetti">Confetti</option>
+          </select>
+        </label>
+        <label class="field">Lifetime
+          <select class="js-lifetime-type">
+            <option value="forever">Stay forever</option>
+            <option value="once">Remove after selected</option>
+            <option value="spins">Stay for X spins after activation</option>
+          </select>
+        </label>
+        <label class="field js-lifetime-count-wrap">Lifetime spins<input class="js-lifetime-count" type="number" min="1" max="999" step="1"></label>
+        <label class="field">Cooldown after hit<input class="js-cooldown" type="number" min="0" max="99" step="1"></label>
+        <label class="field">Special event
+          <select class="js-event-type">
+            <option value="normal">Normal</option>
+            <option value="spinAgain">Spin again</option>
+            <option value="unlock">Unlock event</option>
+            <option value="doubleSpin">Double-spin token</option>
+            <option value="immunity">Immunity token</option>
+            <option value="randomize">Randomize active weights</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="editor-bottom-grid">
+        <label class="field wide">Description<textarea class="js-description" rows="2" maxlength="240"></textarea></label>
+        <div class="check-stack">
+          <label class="check-line"><input class="js-mystery" type="checkbox"> <span>Mystery segment — show ? until selected</span></label>
+          <label class="check-line"><input class="js-enabled" type="checkbox"> <span>Enabled</span></label>
+        </div>
+      </div>
+
+      <div class="unlock-box">
+        <div>
+          <strong>Unlock when selected</strong>
+          <span>Choose any number of independent groups.</span>
+        </div>
+        <div class="js-unlock-checks unlock-checks"></div>
+      </div>
+    </article>
+  </template>
+
+  <template id="ruleTemplate">
+    <article class="editor-card rule-editor-card">
+      <div class="rule-card-head">
+        <label class="field rule-name">Rule name<input class="js-rule-name" type="text" maxlength="60"></label>
+        <label class="field">Condition mode
+          <select class="js-rule-mode">
+            <option value="all">ALL selected results (AND)</option>
+            <option value="any">ANY selected result (OR)</option>
+          </select>
+        </label>
+        <label class="check-line"><input class="js-rule-enabled" type="checkbox"> <span>Enabled</span></label>
+        <button class="icon-btn danger js-rule-delete" type="button" title="Delete rule">×</button>
+      </div>
+      <div class="rule-columns">
+        <div>
+          <strong class="mini-heading">When these results have occurred</strong>
+          <div class="js-rule-conditions unlock-checks"></div>
+        </div>
+        <div>
+          <strong class="mini-heading">Unlock these groups</strong>
+          <div class="js-rule-unlocks unlock-checks"></div>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <template id="levelTemplate">
+    <article class="editor-card level-editor-card">
+      <div class="level-edit-main">
+        <label class="field">Name<input class="js-level-name" type="text" maxlength="40"></label>
+        <label class="field">Pictogram<input class="js-level-icon" type="text" maxlength="10"></label>
+        <label class="field">Color<input class="js-level-color" type="color"></label>
+        <label class="check-line"><input class="js-level-start" type="checkbox"> <span>Active at start</span></label>
+      </div>
+      <button class="icon-btn danger js-level-delete" type="button" title="Delete group">×</button>
+    </article>
+  </template>
+
+  <script src="model.js"></script>
+  <script src="editor.js"></script>
+</body>
+</html>
