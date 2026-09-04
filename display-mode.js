@@ -30,4 +30,19 @@
   const scan = () => list.querySelectorAll('.forfeit-editor-card').forEach(enhance);
   new MutationObserver(scan).observe(list,{childList:true,subtree:true});
   scan();
+
+  // Load the per-group quick-add controls and clearer left-aligned tree headers.
+  if (!document.querySelector('link[data-group-quick-add]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'group-quick-add.css';
+    link.dataset.groupQuickAdd = '1';
+    document.head.appendChild(link);
+  }
+  if (!document.querySelector('script[data-group-quick-add]')) {
+    const script = document.createElement('script');
+    script.src = 'group-quick-add.js';
+    script.dataset.groupQuickAdd = '1';
+    document.body.appendChild(script);
+  }
 })();
