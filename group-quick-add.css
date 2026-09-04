@@ -1,0 +1,141 @@
+/* Per-group add controls and clearer left-aligned forfeit headers. */
+body[data-page="edit"] .forfeit-group {
+  position: relative;
+}
+
+body[data-page="edit"] .group-quick-add {
+  position: absolute;
+  top: 11px;
+  right: 46px;
+  z-index: 5;
+  min-height: 36px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb,var(--group-color) 38%,var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb,var(--group-color) 10%,#0d1220);
+  color: var(--text);
+  cursor: pointer;
+  font-size: .68rem;
+  font-weight: 850;
+  white-space: nowrap;
+  transition: .15s ease;
+}
+
+body[data-page="edit"] .group-quick-add span {
+  color: color-mix(in srgb,var(--group-color) 76%,white);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+body[data-page="edit"] .group-quick-add:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb,var(--group-color) 62%,var(--border));
+  background: color-mix(in srgb,var(--group-color) 17%,#0d1220);
+}
+
+body[data-page="edit"] .group-quick-add:disabled {
+  opacity: .45;
+  cursor: wait;
+}
+
+body[data-page="edit"] .forfeit-group-head {
+  padding-right: 164px;
+}
+
+body[data-page="edit"] .forfeit-editor-card > .editor-card-head {
+  display: grid;
+  grid-template-columns: 28px 46px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+}
+
+body[data-page="edit"] .forfeit-editor-card .tree-order-badge {
+  grid-column: 1;
+  justify-self: start;
+}
+
+body[data-page="edit"] .forfeit-editor-card .editor-icon-preview {
+  grid-column: 2;
+  justify-self: start;
+  margin: 0;
+}
+
+body[data-page="edit"] .forfeit-editor-card .editor-title-block {
+  grid-column: 3;
+  min-width: 0;
+  width: 100%;
+  justify-self: stretch;
+  text-align: left;
+}
+
+body[data-page="edit"] .forfeit-editor-card .inline-title {
+  width: 100%;
+  max-width: none;
+  text-align: left;
+  padding-left: 2px;
+  font-size: .98rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+body[data-page="edit"] .forfeit-editor-card .editor-id {
+  display: block;
+  margin-top: 2px;
+  padding-left: 2px;
+  text-align: left;
+  opacity: .72;
+}
+
+body[data-page="edit"] .forfeit-editor-card .forfeit-compact-meta {
+  justify-content: flex-start;
+  text-align: left;
+  padding-left: 2px;
+}
+
+body[data-page="edit"] .forfeit-editor-card .editor-head-actions {
+  grid-column: 4;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+}
+
+@media(max-width:900px) {
+  body[data-page="edit"] .forfeit-group-head {
+    padding-right: 130px;
+  }
+  body[data-page="edit"] .group-quick-add {
+    right: 42px;
+  }
+  body[data-page="edit"] .group-quick-add strong {
+    display: none;
+  }
+  body[data-page="edit"] .group-quick-add {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+@media(max-width:620px) {
+  body[data-page="edit"] .forfeit-group-head {
+    padding-right: 92px;
+  }
+  body[data-page="edit"] .forfeit-editor-card > .editor-card-head {
+    grid-template-columns: 24px 40px minmax(0,1fr);
+  }
+  body[data-page="edit"] .forfeit-editor-card .editor-head-actions {
+    grid-column: 2 / -1;
+    justify-self: start;
+    margin: 7px 0 0;
+    padding-left: 0;
+  }
+  body[data-page="edit"] .forfeit-editor-card .inline-title {
+    font-size: .92rem;
+  }
+}
