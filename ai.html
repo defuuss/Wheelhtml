@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#070a12">
-  <title>AI Setup · Fortune Engine</title>
+  <title>AI Chat · Fortune Engine</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="ai.css">
+  <link rel="stylesheet" href="ai-chat.css">
 </head>
 <body data-page="ai">
   <div class="ambient ambient-a"></div>
@@ -15,123 +15,85 @@
   <header class="topbar">
     <a class="brand" href="index.html">
       <span class="brand-mark">✦</span>
-      <span><strong>FORTUNE ENGINE</strong><small>AI setup wizard</small></span>
+      <span><strong>FORTUNE ENGINE</strong><small>AI configuration chat</small></span>
     </a>
     <nav class="top-actions">
-      <a class="btn ghost" href="edit.html">Back to editor</a>
+      <a class="btn ghost" href="edit.html">Open editor</a>
       <a class="btn ghost" href="index.html">Wheel</a>
     </nav>
   </header>
 
-  <main class="ai-layout">
-    <section class="ai-hero">
-      <div>
-        <div class="section-kicker">AI CONFIGURATOR</div>
-        <h1>Describe the game. Let the AI build the wheel.</h1>
-        <p>The AI receives the exact Fortune Engine data model, your current wheel when requested, and your natural-language instructions. It proposes a configuration first; nothing is applied until you approve it.</p>
+  <main class="ai-chat-layout">
+    <aside class="ai-connect-panel">
+      <div class="ai-connect-head">
+        <div><div class="section-kicker">CONNECTION</div><h2>AI provider</h2></div>
+        <span class="tiny-pill">BYOK</span>
       </div>
-      <div class="ai-security-note">
-        <strong>🔐 API token</strong>
-        <span>The token is kept only in this open page and sent to the endpoint you choose. It is not written to GitHub, localStorage, or the XML file.</span>
+
+      <div class="ai-connect-form">
+        <label class="field">Provider
+          <select id="aiProvider">
+            <option value="openrouter">OpenRouter</option>
+            <option value="custom">Custom OpenAI-compatible API</option>
+          </select>
+        </label>
+        <label class="field">Chat endpoint
+          <input id="aiEndpoint" type="url" value="https://openrouter.ai/api/v1/chat/completions" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field">API token
+          <div class="token-field"><input id="aiToken" type="password" placeholder="Token for this open page only" autocomplete="off"><button id="toggleToken" type="button">Show</button></div>
+        </label>
+        <label class="field">Filter models
+          <input id="modelFilter" type="search" placeholder="Search GPT, Claude, Gemini, GLM…" autocomplete="off">
+        </label>
+        <label class="field">Model
+          <div class="model-row"><select id="aiModel"><option value="">Load models first</option></select><button id="loadModelsBtn" class="btn ghost" type="button">↻ Load models</button></div>
+        </label>
       </div>
-    </section>
 
-    <section class="ai-grid">
-      <div class="ai-panel ai-form-panel">
-        <div class="panel-heading">
-          <div><div class="section-kicker">CONNECTION</div><h2>AI provider</h2></div>
-          <span class="ai-pill">BYOK</span>
+      <div class="ai-connect-actions">
+        <button id="testAiBtn" class="btn primary" type="button">✓ Test AI</button>
+        <button id="undoAiBtn" class="btn ghost" type="button" disabled>Undo AI edit</button>
+      </div>
+      <div id="aiStatus" class="ai-status" role="status" aria-live="polite">Loading model catalog…</div>
+      <div class="ai-token-note">🔐 The API token is not saved to GitHub, XML or localStorage. It stays in this page's password field and is sent only to the provider endpoint you selected.</div>
+
+      <div class="ai-wheel-summary">
+        <div class="section-kicker">CURRENT WHEEL</div>
+        <div class="ai-summary-grid">
+          <div><span>GROUPS</span><strong id="chatGroupCount">0</strong></div>
+          <div><span>FORFEITS</span><strong id="chatForfeitCount">0</strong></div>
+          <div><span>RULES</span><strong id="chatRuleCount">0</strong></div>
         </div>
+        <span id="logicBadge" class="logic-badge">Logic OK</span>
+      </div>
+    </aside>
 
-        <div class="ai-form-grid">
-          <label class="field">Provider
-            <select id="aiProvider">
-              <option value="openrouter">OpenRouter</option>
-              <option value="custom">Custom OpenAI-compatible endpoint</option>
-            </select>
-          </label>
-          <label class="field wide">API endpoint
-            <input id="aiEndpoint" type="url" value="https://openrouter.ai/api/v1/chat/completions" autocomplete="off" spellcheck="false">
-          </label>
-          <label class="field">Model
-            <input id="aiModel" type="text" placeholder="e.g. openai/gpt-5.5" autocomplete="off" spellcheck="false">
-          </label>
-          <label class="field">API token
-            <div class="token-field"><input id="aiToken" type="password" placeholder="Paste token for this session" autocomplete="off"><button id="toggleToken" type="button" aria-label="Show or hide token">Show</button></div>
-          </label>
-          <label class="field wide">Setup mode
-            <select id="aiMode">
-              <option value="modify">Modify my current wheel</option>
-              <option value="new">Create a new wheel from scratch</option>
-            </select>
-          </label>
+    <section class="ai-chat-panel">
+      <div class="ai-chat-head">
+        <div>
+          <div class="section-kicker">CONFIGURATION CHAT</div>
+          <h1>Tell the AI exactly what to change or check.</h1>
         </div>
-
-        <div class="ai-instructions-block">
-          <div class="section-kicker">YOUR IDEA</div>
-          <label class="field wide">Describe what you want
-            <textarea id="aiPrompt" rows="10" maxlength="12000" placeholder="Example: Keep my current Start group. Add independent Cleaning and Humiliation groups. Shoes Off should unlock Clothing. Socks Off should unlock Tickling. Add about 8 forfeits per group with varied weights and cooldowns. Make 20% of the forfeits mystery results. Use dramatic but short descriptions..."></textarea>
-          </label>
-          <div class="ai-prompt-hints">
-            <button class="prompt-chip" type="button" data-prompt="Organize the wheel into several independent unlock groups. Keep the progression non-linear and use AND/OR rules only where they make the logic clearer.">Non-linear groups</button>
-            <button class="prompt-chip" type="button" data-prompt="Add mystery forfeits. For every mystery forfeit, the real hidden result must be stored in its name, pictogram and description; only its wheel display should be hidden.">Mystery results</button>
-            <button class="prompt-chip" type="button" data-prompt="Use varied weights, reasonable cooldowns and a mixture of one-time and permanent forfeits so the wheel changes as the session progresses.">Weights & cooldowns</button>
-            <button class="prompt-chip" type="button" data-prompt="Configure dramatic spinning with a random rotation range, occasional second wind, and the live slow-down pictogram enabled.">Spin drama</button>
-          </div>
-        </div>
-
-        <details class="ai-knowledge">
-          <summary>What the AI is told about Fortune Engine</summary>
-          <div class="ai-knowledge-body">
-            <p>It receives the valid schema for groups, forfeits, weights, cooldowns, lifetimes, mystery display, animations, special events, direct unlocks, AND/OR rules and spin-drama settings.</p>
-            <p>When modifying an existing wheel it is instructed to preserve IDs and existing content unless your request says otherwise.</p>
-          </div>
-        </details>
-
-        <div class="ai-actions">
-          <button id="generateAiBtn" class="btn primary large" type="button">✦ Generate proposal</button>
-          <span id="aiStatus" class="ai-status" role="status" aria-live="polite">Ready.</span>
+        <div class="ai-chat-actions">
+          <button id="clearChatBtn" class="btn ghost" type="button">Clear chat</button>
         </div>
       </div>
 
-      <aside class="ai-panel ai-preview-panel">
-        <div class="panel-heading">
-          <div><div class="section-kicker">PREVIEW</div><h2>Proposed wheel</h2></div>
-          <span id="proposalState" class="ai-pill muted-pill">Waiting</span>
-        </div>
+      <div id="chatMessages" class="ai-chat-messages" aria-live="polite"></div>
 
-        <div id="proposalEmpty" class="proposal-empty">
-          <div>✦</div>
-          <strong>No AI proposal yet</strong>
-          <span>Describe your setup and generate one. The proposal will appear here before anything changes.</span>
-        </div>
+      <div class="ai-quick-commands">
+        <button type="button" data-ai-command="Check my complete wheel logic. Do not change anything. Tell me about unreachable groups, impossible unlocks, placeholder mysteries, empty groups and suspicious configuration.">Check all logic</button>
+        <button type="button" data-ai-command="Inspect all mystery forfeits. Do not change anything. Tell me which ones do not contain a meaningful real hidden result and what is missing.">Check mysteries</button>
+        <button type="button" data-ai-command="Review the current weights and cooldowns. Do not change anything. Tell me if any entries dominate too much or can repeat too often.">Check odds</button>
+        <button type="button" data-ai-command="Explain the current unlock progression in a concise way. Do not change anything.">Explain progression</button>
+      </div>
 
-        <div id="proposalPreview" class="proposal-preview" hidden>
-          <p id="proposalSummary" class="proposal-summary"></p>
-          <div class="proposal-stats">
-            <div><span>GROUPS</span><strong id="proposalGroups">0</strong></div>
-            <div><span>FORFEITS</span><strong id="proposalForfeits">0</strong></div>
-            <div><span>RULES</span><strong id="proposalRules">0</strong></div>
-          </div>
-          <div class="proposal-section">
-            <div class="section-kicker">GROUPS</div>
-            <div id="proposalGroupList" class="proposal-list"></div>
-          </div>
-          <div class="proposal-section">
-            <div class="section-kicker">SAMPLE FORFEITS</div>
-            <div id="proposalForfeitList" class="proposal-list"></div>
-          </div>
-          <div class="proposal-section">
-            <div class="section-kicker">SPIN STYLE</div>
-            <div id="proposalSpinStyle" class="proposal-spin"></div>
-          </div>
-          <div class="proposal-actions">
-            <button id="applyProposalBtn" class="btn primary" type="button">Apply to my wheel</button>
-            <button id="downloadProposalBtn" class="btn ghost" type="button">Download XML</button>
-            <a class="btn ghost" href="edit.html">Open editor</a>
-          </div>
-        </div>
-      </aside>
+      <div class="ai-composer">
+        <textarea id="chatInput" maxlength="12000" placeholder="Examples: Add 5 Cleaning forfeits. Remove Chaos Shuffle. Make Shaving Challenge a mystery. Let Socks Off unlock Tickling. Check whether Cleaning can ever unlock…"></textarea>
+        <button id="sendAiBtn" class="btn primary large" type="button">Send</button>
+        <div class="ai-chat-hint">Enter sends · Shift+Enter adds a new line. Edit requests are applied directly to the saved wheel after the returned configuration passes local validation; analysis/check requests do not modify it.</div>
+      </div>
     </section>
   </main>
 
@@ -139,6 +101,6 @@
 
   <script src="model.js"></script>
   <script src="spin-settings.js"></script>
-  <script src="ai-setup.js"></script>
+  <script src="ai-chat.js"></script>
 </body>
 </html>
