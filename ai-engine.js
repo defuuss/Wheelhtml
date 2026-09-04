@@ -11,7 +11,7 @@
   const clone = value => M.deepClone ? M.deepClone(value) : JSON.parse(JSON.stringify(value));
   const state = {
     models: [], history: [], busy: false, timer: null, started: 0,
-    phase: 'Ready', undo: null, lastFailed: null
+    phase: 'Ready', undo: null, lastFailed: null, lastBudget: ''
   };
 
   const provider = () => $('aiProvider')?.value || 'custom';
@@ -78,18 +78,27 @@
     if (!state.busy) return;
     const seconds = Math.floor((performance.now() - state.started) / 1000);
     if ($('sendAiBtn')) $('sendAiBtn').textContent = `⏳ Working… ${seconds}s`;
-    setStatus(`${state.phase}… ${seconds}s`, 'working');
+    const budget = state.lastBudget ? ` · ${state.lastBudget}` : '';
+    setStatus(`${state.phase}… ${seconds}s${budget}`, 'working');
     const pending = $('chatMessages')?.querySelector('.ai-chat-message.system:last-child .ai-chat-meta');
-    if (pending) pending.textContent = `${state.phase} · ${seconds}s elapsed`;
+    if (pending) pending.textContent = `${state.phase} · ${seconds}s elapsed${budget}`;
   }
   function startWork(phase) {
-    state.busy = true; state.started = performance.now(); state.phase = phase;
+    state.busy = true;
+    state.started = performance.now();
+    state.phase = phase;
+    state.lastBudget = '';
     ['sendAiBtn', 'testAiBtn', 'loadModelsBtn'].forEach(id => { const node = $(id); if (node) node.disabled = true; });
     if ($('chatInput')) $('chatInput').disabled = true;
-    clearInterval(state.timer); updateHeartbeat(); state.timer = setInterval(updateHeartbeat, 1000);
+    clearInterval(state.timer);
+    updateHeartbeat();
+    state.timer = setInterval(updateHeartbeat, 1000);
   }
   function stopWork() {
-    state.busy = false; clearInterval(state.timer); state.timer = null;
+    state.busy = false;
+    state.lastBudget = '';
+    clearInterval(state.timer);
+    state.timer = null;
     if ($('sendAiBtn')) { $('sendAiBtn').disabled = false; $('sendAiBtn').textContent = 'Send'; }
     if ($('testAiBtn')) { $('testAiBtn').disabled = false; $('testAiBtn').textContent = '✓ Test AI'; }
     if ($('loadModelsBtn')) { $('loadModelsBtn').disabled = false; $('loadModelsBtn').textContent = '↻ Load models'; }
@@ -104,7 +113,8 @@
   function modelsUrl() {
     if (provider() === 'nanogpt') return 'https://nano-gpt.com/api/v1/models?detailed=true';
     if (provider() === 'openrouter') return 'https://openrouter.ai/api/v1/models';
-    const raw = endpoint(); if (!raw) return '';
+    const raw = endpoint();
+    if (!raw) return '';
     try {
       const url = new URL(raw);
       let path = url.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '').replace(/\/models$/i, '');
@@ -113,7 +123,8 @@
     } catch (_) { return `${raw}/models`; }
   }
   function chatUrl() {
-    const raw = endpoint(); if (!raw) return '';
+    const raw = endpoint();
+    if (!raw) return '';
     try {
       const url = new URL(raw);
       let path = url.pathname.replace(/\/+$/, '');
@@ -154,7 +165,7 @@
   }
 
   function normalizeModels(data) {
-    let list = Array.isArray(data) ? data
+    const list = Array.isArray(data) ? data
       : Array.isArray(data?.data) ? data.data
       : Array.isArray(data?.models) ? data.models
       : data?.data && typeof data.data === 'object' ? Object.values(data.data)
@@ -167,18 +178,22 @@
     }).filter(item => item?.id && !/embedding|rerank|tts|speech|transcri|image|video/i.test(item.id));
   }
   function renderModels() {
-    const select = $('aiModel'); if (!select) return;
+    const select = $('aiModel');
+    if (!select) return;
     const old = select.value || select.dataset.restoreModel || '';
     const query = ($('modelFilter')?.value || '').trim().toLowerCase();
     const visible = state.models.filter(item => !query || `${item.id} ${item.name || ''} ${item.description || ''}`.toLowerCase().includes(query));
     select.innerHTML = '';
     if (!visible.length) {
-      const option = document.createElement('option'); option.value = '';
+      const option = document.createElement('option');
+      option.value = '';
       option.textContent = state.models.length ? 'No models match search' : 'Load models first';
-      select.appendChild(option); return;
+      select.appendChild(option);
+      return;
     }
     visible.forEach(item => {
-      const option = document.createElement('option'); option.value = item.id;
+      const option = document.createElement('option');
+      option.value = item.id;
       option.textContent = item.name && item.name !== item.id ? `${item.name} · ${item.id}` : item.id;
       select.appendChild(option);
     });
@@ -187,9 +202,11 @@
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
   async function loadModels() {
-    if (state.busy) return; startWork('Loading models');
+    if (state.busy) return;
+    startWork('Loading models');
     try {
-      const url = modelsUrl(); if (!/^https:\/\//i.test(url)) throw new Error('Enter a valid HTTPS API base URL.');
+      const url = modelsUrl();
+      if (!/^https:\/\//i.test(url)) throw new Error('Enter a valid HTTPS API base URL.');
       let data;
       if (provider() === 'nanogpt' || provider() === 'openrouter') data = await fetchJson(url, { method: 'GET' }, 45000);
       else {
@@ -197,9 +214,41 @@
         catch (_) { data = await fetchJson(url, { method: 'GET' }, 45000); }
       }
       state.models = normalizeModels(data).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id), undefined, { sensitivity: 'base' }));
-      renderModels(); setStatus(`Loaded ${state.models.length} models.`, 'ok');
-    } catch (error) { setStatus(`Could not load models: ${error.message}`, 'error'); }
-    finally { stopWork(); }
+      renderModels();
+      setStatus(`Loaded ${state.models.length} models.`, 'ok');
+    } catch (error) {
+      setStatus(`Could not load models: ${error.message}`, 'error');
+    } finally { stopWork(); }
+  }
+
+  function selectedModelInfo() {
+    const id = selectedModel();
+    return state.models.find(item => item.id === id) || null;
+  }
+  function contextLimit(info = selectedModelInfo()) {
+    if (!info) return 0;
+    const candidates = [
+      info.context_length, info.context_window, info.max_context_length, info.max_context_tokens,
+      info.context, info.limits?.context, info.limits?.context_length, info.architecture?.context_length
+    ];
+    for (const value of candidates) {
+      const n = Number(value);
+      if (Number.isFinite(n) && n >= 2048) return n;
+    }
+    return 0;
+  }
+  const estimateTokens = text => Math.max(1, Math.ceil(String(text || '').length / 3.5));
+  function outputBudgetForXml(xml) {
+    const xmlTokens = estimateTokens(xml);
+    return Math.min(24000, Math.max(7000, Math.ceil(xmlTokens * 1.45) + 1800));
+  }
+  function contextCheck(systemText, userText, maxOutput) {
+    const estimatedInput = estimateTokens(systemText) + estimateTokens(userText) + 200;
+    const limit = contextLimit();
+    if (limit && estimatedInput + maxOutput > limit * 0.92) {
+      throw new Error(`Selected model context looks too small for a full-XML edit. Estimated input ${estimatedInput.toLocaleString()} tokens + output budget ${maxOutput.toLocaleString()} exceeds its advertised ${limit.toLocaleString()} token context. Choose a larger-context model.`);
+    }
+    return { estimatedInput, limit };
   }
 
   function extractText(data) {
@@ -220,22 +269,26 @@
     const timeoutMs = options.timeoutMs ?? 300000;
     if (!selectedModel()) throw new Error('Choose a model first.');
     if (!token()) throw new Error('Enter the API token first.');
-    const url = chatUrl(); if (!/^https:\/\//i.test(url)) throw new Error('Invalid chat endpoint.');
+    const url = chatUrl();
+    if (!/^https:\/\//i.test(url)) throw new Error('Invalid chat endpoint.');
     const data = await fetchJson(url, {
-      method: 'POST', headers: headers(true, true),
+      method: 'POST',
+      headers: headers(true, true),
       body: JSON.stringify({ model: selectedModel(), messages, temperature, max_tokens: maxTokens })
     }, timeoutMs);
     return { data, text: extractText(data) };
   }
   async function testApi() {
-    if (state.busy) return; startWork('Testing API');
+    if (state.busy) return;
+    startWork('Testing API');
     try {
       const started = performance.now();
       const result = await complete([{ role: 'user', content: 'Reply with exactly OK and nothing else.' }], { maxTokens: 64, timeoutMs: 60000 });
       const seconds = ((performance.now() - started) / 1000).toFixed(1);
       const used = result.data?.model || selectedModel();
-      setStatus(`Connected · ${used} · ${seconds}s · ${result.text.trim().slice(0, 50)}`, 'ok');
-      addMessage('system', `✓ API test passed in ${seconds}s with ${used}.`);
+      const limit = contextLimit();
+      setStatus(`Connected · ${used} · ${seconds}s${limit ? ` · context ${limit.toLocaleString()}` : ''}`, 'ok');
+      addMessage('system', `✓ API test passed in ${seconds}s with ${used}${limit ? ` · advertised context ${limit.toLocaleString()} tokens` : ''}.`);
     } catch (error) {
       setStatus(`Test failed: ${error.message}`, 'error');
       addMessage('system', `✕ API test failed: ${error.message}`);
@@ -256,7 +309,8 @@
   function addSpinToXml(xmlText, spin = S?.load?.() || {}) {
     const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
     if (doc.querySelector('parsererror')) return String(xmlText);
-    const node = doc.querySelector('settings'); if (!node) return String(xmlText);
+    const node = doc.querySelector('settings');
+    if (!node) return String(xmlText);
     const attrs = {
       maxTurns: spin.maxTurns, spinUpMinSeconds: spin.spinUpMinSeconds, spinUpMaxSeconds: spin.spinUpMaxSeconds,
       spinDownMinSeconds: spin.spinDownMinSeconds, spinDownMaxSeconds: spin.spinDownMaxSeconds,
@@ -270,7 +324,8 @@
   function currentXml(config = currentConfig(), spin = S?.load?.() || {}) { return addSpinToXml(M.configToXml(config), spin); }
   function readSpinFromXml(xmlText, fallback = S?.load?.() || {}) {
     const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
-    const node = doc.querySelector('settings'); if (!node) return clone(fallback);
+    const node = doc.querySelector('settings');
+    if (!node) return clone(fallback);
     const number = (name, old) => node.hasAttribute(name) ? Number(node.getAttribute(name)) : old;
     const bool = (name, old) => node.hasAttribute(name) ? node.getAttribute(name) === 'true' : old;
     return {
@@ -283,54 +338,18 @@
     };
   }
 
-  const ENGINE_GUIDE = `FORTUNE ENGINE — COMPLETE XML EDITING MODEL
+  const ENGINE_GUIDE = `FORTUNE ENGINE XML EDITOR
+The supplied <fortuneEngine> XML is the complete wheel configuration. For EDIT requests, return the complete corrected XML and nothing else.
 
-The XML document is the complete source of truth for the wheel configuration. For EDIT requests you receive the whole current XML and must return the whole corrected XML.
+GROUPS: <group> is a broad thematic/game-state container. A forfeit belongs to the group named by its group="GROUP_ID" attribute. Category text is not group membership. If the user says something belongs under another group, change group="..." to the exact target group id. For plural requests, inspect every semantically matching forfeit.
 
-1. ELIGIBILITY
-A forfeit can appear only when its group is active, enabled=true, its <requires> condition is satisfied, it has not been removed by lifetime behavior, cooldown is zero, and any spin lifetime is still active. Weight is relative only among currently eligible entries.
+DEPENDENCIES: <requires mode="all|any"><forfeit ref="ID"/></requires> controls individual availability. A -> B means B requires A. If Shoes Off must happen before both Socks Off and Pants Off, but Socks and Pants can otherwise happen in either order, then BOTH Socks Off and Pants Off require Shoes Off; they do not require each other. For a chain A -> B -> C, B normally requires A and C requires B. Never create self/circular dependencies. Omit <requires> when none is needed.
 
-2. GROUPS
-<group> is a broad thematic/game-state container such as Start, Clothing, Humiliation, Disgusting, Cleaning, Haare or Strip Show. A forfeit's group="..." attribute assigns it to one broad group. Category text does NOT control group membership. If the user says an item is under the wrong group and should be under another group, you MUST change the forfeit's group attribute to the target group's exact id. Changing only category, name or description does not satisfy a group-move request.
-If the user refers to a set with plural language such as "them", "the shaving forfeits", "all clothes removal", etc., inspect all semantically matching entries, not just one item.
+GROUP UNLOCKS: <unlocks><group ref="ID"/></unlocks> and <rules> activate broad groups. Do not use groups merely to sequence ordinary individual forfeits.
 
-3. AVAILABILITY / DEPENDENCIES
-Inside a <forfeit>, <requires mode="all|any"> contains <forfeit ref="ID"/> prerequisites. Those referenced results must have happened earlier in the current play session before this forfeit can appear.
-- A -> B means B requires A.
-- If A must happen before BOTH B and C, but B and C may happen in either order or independently, B requires A and C requires A. Do NOT make B require C or C require B.
-- For a simple sequence A -> B -> C, B requires A and C normally requires B only.
-- mode="all" means all listed prerequisites; mode="any" means at least one.
-- Never create self or circular dependencies. If no prerequisite is needed, omit <requires> entirely.
+LIFETIME/COOLDOWN: preserve lifetime, lifetimeSpins and cooldown unless the request requires changing them. MYSTERY: mystery="true" hides the real result until selected; preserve the real name/icon/description. SPECIAL EVENTS: preserve eventType unless requested. SPIN SETTINGS: preserve all <settings> values unless requested.
 
-4. LIFETIME / COOLDOWN
-lifetime="once" removes a result after it is selected once. lifetime="forever" keeps it. lifetime="spins" uses lifetimeSpins. cooldown temporarily suppresses an item for N completed spins. Preserve these unless requested or needed for the intended progression.
-
-5. GROUP UNLOCKS
-<unlocks><group ref="ID"/></unlocks> activates broad groups when a result is selected. <rules> are for broad group activation after ALL/ANY result conditions, not ordinary item-to-item ordering.
-
-6. MYSTERY
-mystery="true" only hides the real item on the wheel. The real hidden result remains in name, icon and description and is revealed after selection.
-
-7. SPECIAL EVENTS
-Preserve eventType unless the user asks to change it. Valid values include normal, spinAgain, unlock, doubleSpin, immunity and randomize.
-
-8. SPIN SETTINGS
-Preserve spin settings unless explicitly asked to change them.
-
-9. EDITING RULES
-- Read the entire XML and recent conversation context before editing.
-- Preserve every unrelated group, forfeit, rule, attribute and description.
-- Reuse exact existing IDs for existing objects.
-- You MAY add missing forfeits when the user says body parts/items are missing. Give them unique lowercase ASCII ids.
-- Put added items in the semantically requested broad group.
-- For requests like "these shaving forfeits should be under Haare", move ALL matching shaving/hair-removal entries that are currently misplaced, unless the user explicitly limits the scope.
-- For requests like "missing eyebrows and head", add separate meaningful forfeits if they do not already exist; do not claim they were added unless they appear in the returned XML.
-- When the user says "check and fix/adapt/make right", this is an EDIT request.
-- Never merely describe what should change. The returned XML itself must contain the changes.
-- Do not omit unchanged XML. Do not return a partial fragment.
-
-10. OUTPUT FOR EDIT MODE
-Return ONLY one complete XML document beginning with <fortuneEngine or an XML declaration and ending with </fortuneEngine>. No markdown fences and no explanation outside it.`;
+EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse existing IDs; add missing forfeits when explicitly or clearly requested; use unique lowercase ASCII IDs for new items; prefer existing appropriate groups; fix all items in a requested semantic set, not just one; do not merely describe changes; do not return a fragment or markdown fence.`;
 
   function extractXml(text) {
     let raw = String(text || '').trim().replace(/^```(?:xml)?\s*/i, '').replace(/\s*```$/i, '');
@@ -339,13 +358,13 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
     const from = declaration >= 0 && declaration < start ? declaration : start;
     const endTag = '</fortuneEngine>';
     const end = raw.lastIndexOf(endTag);
-    if (start < 0 || end < 0 || end < start) throw new Error('The AI did not return a complete Fortune Engine XML document.');
+    if (start < 0 || end < 0 || end < start) throw new Error('The model did not return one complete Fortune Engine XML document.');
     return raw.slice(from >= 0 ? from : start, end + endTag.length).trim();
   }
 
   function validateRawXml(xmlText) {
     const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
-    if (doc.querySelector('parsererror')) throw new Error('The AI returned malformed XML.');
+    if (doc.querySelector('parsererror')) throw new Error('The model returned malformed XML.');
     if (doc.documentElement?.tagName !== 'fortuneEngine') throw new Error('Returned XML root must be <fortuneEngine>.');
     if (!doc.querySelector('fortuneEngine > settings')) throw new Error('Returned XML has no <settings> element.');
     const groups = [...doc.querySelectorAll('groups > group')];
@@ -360,7 +379,10 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
     forfeits.forEach(node => {
       const id = node.getAttribute('id'), group = node.getAttribute('group');
       if (!groupSet.has(group)) throw new Error(`Forfeit ${id} references missing group ${group || '(empty)'}.`);
-      [...node.querySelectorAll(':scope > unlocks > group')].forEach(x => { const ref = x.getAttribute('ref'); if (!groupSet.has(ref)) throw new Error(`Forfeit ${id} unlocks missing group ${ref}.`); });
+      [...node.querySelectorAll(':scope > unlocks > group')].forEach(x => {
+        const ref = x.getAttribute('ref');
+        if (!groupSet.has(ref)) throw new Error(`Forfeit ${id} unlocks missing group ${ref}.`);
+      });
       const req = node.querySelector(':scope > requires');
       if (req && !['all', 'any'].includes(req.getAttribute('mode') || 'all')) throw new Error(`Forfeit ${id} has invalid requires mode.`);
       [...(req?.querySelectorAll(':scope > forfeit') || [])].forEach(x => {
@@ -372,22 +394,39 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
     });
     [...doc.querySelectorAll('rules > rule')].forEach(rule => {
       const id = rule.getAttribute('id') || '(unnamed rule)';
-      [...rule.querySelectorAll(':scope > conditions > forfeit')].forEach(x => { const ref = x.getAttribute('ref'); if (!forfeitSet.has(ref)) throw new Error(`Rule ${id} references missing forfeit ${ref}.`); });
-      [...rule.querySelectorAll(':scope > unlocks > group')].forEach(x => { const ref = x.getAttribute('ref'); if (!groupSet.has(ref)) throw new Error(`Rule ${id} references missing group ${ref}.`); });
+      [...rule.querySelectorAll(':scope > conditions > forfeit')].forEach(x => {
+        const ref = x.getAttribute('ref'); if (!forfeitSet.has(ref)) throw new Error(`Rule ${id} references missing forfeit ${ref}.`);
+      });
+      [...rule.querySelectorAll(':scope > unlocks > group')].forEach(x => {
+        const ref = x.getAttribute('ref'); if (!groupSet.has(ref)) throw new Error(`Rule ${id} references missing group ${ref}.`);
+      });
     });
     const visiting = new Set(), visited = new Set();
     function walk(id, trail = []) {
       if (visiting.has(id)) throw new Error(`Circular dependency detected: ${[...trail, id].join(' → ')}`);
       if (visited.has(id)) return;
-      visiting.add(id); (graph.get(id) || []).forEach(next => walk(next, [...trail, id])); visiting.delete(id); visited.add(id);
+      visiting.add(id);
+      (graph.get(id) || []).forEach(next => walk(next, [...trail, id]));
+      visiting.delete(id);
+      visited.add(id);
     }
     forfeitIds.forEach(id => walk(id));
     return doc;
   }
 
   function stableConfig(config) { return JSON.stringify(M.sanitizeConfig(clone(config))); }
-  function groupNameMap(config) { return new Map(config.levels.map(g => [g.id, g.name])); }
+  function restoreSidecar(config) { try { D.replace(config); } catch (_) {} }
+  function parseReturnedConfig(xmlText, fallbackSpin, restoreConfig) {
+    validateRawXml(xmlText);
+    let config;
+    try { config = clone(M.xmlToConfig(xmlText)); }
+    catch (error) { restoreSidecar(restoreConfig); throw new Error(`Could not import returned XML: ${error.message}`); }
+    const spin = readSpinFromXml(xmlText, fallbackSpin);
+    restoreSidecar(restoreConfig);
+    return { config, spin };
+  }
 
+  function groupNameMap(config) { return new Map(config.levels.map(g => [g.id, g.name])); }
   function diffSummary(before, after, beforeSpin, afterSpin) {
     const oldF = new Map(before.forfeits.map(x => [x.id, x])), newF = new Map(after.forfeits.map(x => [x.id, x]));
     const oldG = new Map(before.levels.map(x => [x.id, x])), newG = new Map(after.levels.map(x => [x.id, x]));
@@ -423,39 +462,62 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
     return { total, text: parts.join(' · ') || 'no configuration differences', details };
   }
 
-  function restoreSidecar(config) { try { D.replace(config); } catch (_) {} }
-  function parseReturnedConfig(xmlText, fallbackSpin) {
-    validateRawXml(xmlText);
-    let config;
-    try { config = M.xmlToConfig(xmlText); }
-    catch (error) { throw new Error(`Could not import returned XML: ${error.message}`); }
-    return { config, spin: readSpinFromXml(xmlText, fallbackSpin) };
+  function xmlSystemPrompt(strict = false, failures = []) {
+    const extra = failures.length
+      ? `\nCORRECTION REQUIREMENTS:\n${failures.map((x, i) => `${i + 1}. ${x}`).join('\n')}\nFix every listed requirement in the XML.`
+      : '';
+    return `${ENGINE_GUIDE}\n${strict ? '\nSTRICT MODE: The previous attempt was unchanged or incomplete. Make concrete edits that satisfy every part of the user request.' : ''}${extra}\nReturn only the complete corrected XML.`;
   }
 
-  function xmlSystemPrompt(strict = false) {
-    return `${ENGINE_GUIDE}\n\n${strict ? 'STRICT RETRY: The previous attempt was invalid, incomplete, unchanged, or failed semantic verification. You MUST actually perform EVERY requested edit in the returned full XML.\n' : ''}Preserve the complete XML schema. Return only the full corrected XML.`;
-  }
-  async function requestEditedXml(text, sourceXml, strict = false) {
-    setPhase(strict ? 'Retrying full XML edit' : 'Sending complete XML to AI');
+  async function requestEditedXml(text, sourceXml, { strict = false, failures = [] } = {}) {
+    const system = xmlSystemPrompt(strict, failures);
+    const user = `USER REQUEST\n${text}\n\nCURRENT COMPLETE WHEEL XML\n${sourceXml}`;
+    const maxTokens = outputBudgetForXml(sourceXml);
+    const budget = contextCheck(system, user, maxTokens);
+    state.lastBudget = `XML ~${estimateTokens(sourceXml).toLocaleString()} tok${budget.limit ? ` / context ${budget.limit.toLocaleString()}` : ''}`;
+    setPhase(failures.length ? 'Correcting failed requirements' : strict ? 'Retrying full XML edit' : 'Editing complete XML');
     const result = await complete([
-      { role: 'system', content: xmlSystemPrompt(strict) },
-      ...state.history.slice(-6),
-      { role: 'user', content: `USER REQUEST\n${text}\n\nCURRENT COMPLETE WHEEL XML\n${sourceXml}` }
-    ], { maxTokens: 16000, temperature: 0, timeoutMs: 300000 });
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ], { maxTokens, temperature: 0, timeoutMs: 300000 });
     return extractXml(result.text);
   }
 
-  async function semanticVerify(text, originalXml, candidateXml) {
-    setPhase('Verifying requested changes');
-    const verifyPrompt = `You are the strict QA verifier for Fortune Engine edits.\n\n${ENGINE_GUIDE}\n\nYour task is NOT to praise the previous edit. Compare the USER REQUEST against ORIGINAL XML and CANDIDATE XML. Check every requested operation semantically. Pay special attention to group moves: a group move is satisfied only if the target forfeit's group attribute is the target group ID. Changing only category/name/description is NOT enough. If plural items or a semantic class is requested, inspect all matching forfeits. If missing items were requested, verify they were actually added. If dependencies were requested, inspect <requires>.\n\nIf the candidate fully satisfies the request, return exactly: PASS\nIf anything is missing/wrong, return ONE complete corrected <fortuneEngine> XML document only. Do not explain.`;
+  function parseAuditJson(text) {
+    let raw = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    const first = raw.indexOf('{'), last = raw.lastIndexOf('}');
+    if (first >= 0 && last > first) raw = raw.slice(first, last + 1);
+    const parsed = JSON.parse(raw);
+    return {
+      pass: parsed?.pass === true,
+      problems: Array.isArray(parsed?.problems) ? parsed.problems.map(x => String(x)).filter(Boolean).slice(0, 12) : []
+    };
+  }
+
+  async function auditCandidate(text, candidateXml) {
+    setPhase('Checking requested result');
+    const system = `You are a strict QA checker for Fortune Engine. Check whether the CANDIDATE XML satisfies the USER REQUEST. Do not edit XML.\nRules: group membership is the forfeit group attribute, not category. For plural semantic requests inspect all matching items. For missing-item requests verify each requested item exists. For dependency/order requests inspect <requires> and apply the user's stated logic literally. Do not invent extra requirements.\nReturn ONLY JSON: {"pass":true,"problems":[]} or {"pass":false,"problems":["specific failed requirement", ...]}.`;
+    const user = `USER REQUEST\n${text}\n\nCANDIDATE COMPLETE WHEEL XML\n${candidateXml}`;
+    const budget = contextCheck(system, user, 1200);
+    state.lastBudget = `audit ~${budget.estimatedInput.toLocaleString()} tok${budget.limit ? ` / context ${budget.limit.toLocaleString()}` : ''}`;
     const result = await complete([
-      { role: 'system', content: verifyPrompt },
-      ...state.history.slice(-4),
-      { role: 'user', content: `USER REQUEST\n${text}\n\nORIGINAL XML\n${originalXml}\n\nCANDIDATE XML\n${candidateXml}` }
-    ], { maxTokens: 16000, temperature: 0, timeoutMs: 300000 });
-    const raw = result.text.trim();
-    if (/^PASS[.!]?$/i.test(raw)) return candidateXml;
-    return extractXml(raw);
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ], { maxTokens: 1200, temperature: 0, timeoutMs: 180000 });
+    try { return parseAuditJson(result.text); }
+    catch (_) { return { pass: false, problems: ['The QA response was unreadable; verify the requested edit again.'] }; }
+  }
+
+  async function getValidCandidate(text, sourceXml, before, beforeSpin, strict = false, failures = []) {
+    let xml = await requestEditedXml(text, sourceXml, { strict, failures });
+    try {
+      return { xml, parsed: parseReturnedConfig(xml, beforeSpin, before) };
+    } catch (error) {
+      if (strict) throw error;
+      setPhase('Repairing XML structure');
+      xml = await requestEditedXml(text, xml, { strict: true, failures: [`Returned XML was structurally invalid: ${error.message}`] });
+      return { xml, parsed: parseReturnedConfig(xml, beforeSpin, before) };
+    }
   }
 
   async function editUsingXml(text, strictRetry = false) {
@@ -464,59 +526,28 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
     const sourceXml = currentXml(before, beforeSpin);
     const snapshot = stableConfig(before);
 
-    let returnedXml;
-    try { returnedXml = await requestEditedXml(text, sourceXml, strictRetry); }
-    catch (error) {
-      if (strictRetry) throw error;
-      setPhase('Automatic XML retry'); returnedXml = await requestEditedXml(text, sourceXml, true);
-    }
+    let candidate = await getValidCandidate(text, sourceXml, before, beforeSpin, strictRetry);
+    let diff = diffSummary(before, candidate.parsed.config, beforeSpin, candidate.parsed.spin);
 
-    setPhase('Validating complete returned XML');
-    let parsed;
-    try { parsed = parseReturnedConfig(returnedXml, beforeSpin); }
-    catch (error) {
-      restoreSidecar(before);
-      if (strictRetry) throw error;
-      setPhase('Repairing invalid XML with AI');
-      const repair = await complete([
-        { role: 'system', content: xmlSystemPrompt(true) },
-        { role: 'user', content: `The XML below failed structural validation with this error: ${error.message}\n\nUSER REQUEST\n${text}\n\nORIGINAL XML\n${sourceXml}\n\nBAD XML\n${returnedXml}\n\nReturn one complete corrected valid XML document only.` }
-      ], { maxTokens: 16000, temperature: 0, timeoutMs: 300000 });
-      returnedXml = extractXml(repair.text); parsed = parseReturnedConfig(returnedXml, beforeSpin);
-    }
-
-    let verifiedXml = await semanticVerify(text, sourceXml, returnedXml);
-    if (verifiedXml !== returnedXml) {
-      setPhase('Validating verifier correction');
-      try { parsed = parseReturnedConfig(verifiedXml, beforeSpin); returnedXml = verifiedXml; }
-      catch (error) {
-        restoreSidecar(before);
-        throw new Error(`Semantic verifier returned an invalid correction: ${error.message}`);
-      }
-      setPhase('Re-checking corrected request');
-      const second = await semanticVerify(text, sourceXml, returnedXml);
-      if (second !== returnedXml) {
-        parsed = parseReturnedConfig(second, beforeSpin);
-        returnedXml = second;
-      }
-    }
-
-    let diff = diffSummary(before, parsed.config, beforeSpin, parsed.spin);
     if (!diff.total) {
-      restoreSidecar(before);
-      if (strictRetry) throw new Error('The AI returned valid XML but made no changes that satisfy the request.');
-      setPhase('No effective change — strict retry');
-      returnedXml = await requestEditedXml(text, sourceXml, true);
-      parsed = parseReturnedConfig(returnedXml, beforeSpin);
-      returnedXml = await semanticVerify(text, sourceXml, returnedXml);
-      parsed = parseReturnedConfig(returnedXml, beforeSpin);
-      diff = diffSummary(before, parsed.config, beforeSpin, parsed.spin);
-      if (!diff.total) {
-        restoreSidecar(before);
-        throw new Error('The AI still made no effective changes after semantic verification.');
+      if (strictRetry) throw new Error('The selected model returned the same XML again. No configuration change was produced.');
+      candidate = await getValidCandidate(text, sourceXml, before, beforeSpin, true, ['The previous response was effectively identical to the input XML. Make the concrete requested edits now.']);
+      diff = diffSummary(before, candidate.parsed.config, beforeSpin, candidate.parsed.spin);
+      if (!diff.total) throw new Error('The selected model returned unchanged XML twice. This is a model-following problem, not an XML parser problem. Try Retry once or choose a stronger instruction-following model.');
+    }
+
+    let audit = await auditCandidate(text, candidate.xml);
+    if (!audit.pass) {
+      candidate = await getValidCandidate(text, candidate.xml, before, beforeSpin, true, audit.problems);
+      diff = diffSummary(before, candidate.parsed.config, beforeSpin, candidate.parsed.spin);
+      if (!diff.total) throw new Error(`The correction did not change the wheel. Failed requirements: ${audit.problems.join('; ')}`);
+      audit = await auditCandidate(text, candidate.xml);
+      if (!audit.pass) {
+        throw new Error(`The XML changed, but these requested requirements are still not satisfied: ${audit.problems.join('; ')}`);
       }
     }
-    return applyXmlResult(before, beforeSpin, snapshot, parsed.config, parsed.spin, diff);
+
+    return applyXmlResult(before, beforeSpin, snapshot, candidate.parsed.config, candidate.parsed.spin, diff);
   }
 
   function applyXmlResult(before, beforeSpin, snapshot, nextConfig, nextSpin, diff) {
@@ -528,7 +559,9 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
     setPhase('Applying verified XML');
     state.undo = { config: before, spin: beforeSpin };
     D.replace(nextConfig);
-    const saved = M.saveConfig(nextConfig); M.resetSession(saved); S?.save?.(nextSpin);
+    const saved = M.saveConfig(nextConfig);
+    M.resetSession(saved);
+    S?.save?.(nextSpin);
     if ($('undoAiBtn')) $('undoAiBtn').disabled = false;
     refreshStats();
     window.dispatchEvent(new CustomEvent('fortune-ai-applied', { detail: { count: diff.total, xml: true } }));
@@ -536,11 +569,15 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
   }
 
   async function analyzeUsingXml(text) {
-    const xml = currentXml(); setPhase('Analyzing complete wheel XML');
+    const xml = currentXml();
+    setPhase('Analyzing complete wheel XML');
+    const system = `${ENGINE_GUIDE}\nANALYSIS MODE: do not modify anything and do not return XML. Answer the user clearly from the supplied current XML.`;
+    const user = `USER QUESTION\n${text}\n\nCURRENT COMPLETE WHEEL XML\n${xml}`;
+    const budget = contextCheck(system, user, 4000);
+    state.lastBudget = `XML ~${estimateTokens(xml).toLocaleString()} tok${budget.limit ? ` / context ${budget.limit.toLocaleString()}` : ''}`;
     const result = await complete([
-      { role: 'system', content: `${ENGINE_GUIDE}\n\nANALYSIS MODE: Do not modify anything and do not return XML. Answer clearly based only on the complete wheel XML. Mention exact names/groups when useful.` },
-      ...state.history.slice(-6),
-      { role: 'user', content: `USER QUESTION\n${text}\n\nCURRENT COMPLETE WHEEL XML\n${xml}` }
+      { role: 'system', content: system },
+      { role: 'user', content: user }
     ], { maxTokens: 4000, temperature: 0.1, timeoutMs: 240000 });
     return result.text.trim();
   }
@@ -550,85 +587,122 @@ Return ONLY one complete XML document beginning with <fortuneEngine or an XML de
     if ($('chatGroupCount')) $('chatGroupCount').textContent = c.levels.length;
     if ($('chatForfeitCount')) $('chatForfeitCount').textContent = c.forfeits.length;
     if ($('chatRuleCount')) $('chatRuleCount').textContent = (c.rules || []).length;
-    const badge = $('logicBadge'); if (!badge) return;
+    const badge = $('logicBadge');
+    if (!badge) return;
     try { validateRawXml(currentXml(c)); badge.textContent = 'Logic OK'; badge.classList.remove('warn'); }
     catch (_) { badge.textContent = 'Logic warning'; badge.classList.add('warn'); }
   }
 
   async function sendMessage(forced = '', options = {}) {
     if (state.busy) return;
-    const input = $('chatInput'); const text = String(forced || input?.value || '').trim();
+    const input = $('chatInput');
+    const text = String(forced || input?.value || '').trim();
     if (!text) return;
     if (!selectedModel()) { setStatus('Choose a model first.', 'error'); addMessage('system', 'Choose a model before sending.'); return; }
     if (!token()) { setStatus('Enter API token first.', 'error'); addMessage('system', 'Enter your API token before sending.'); return; }
     if (input && !forced) input.value = '';
+
     addMessage('user', options.retry ? `↻ Retry: ${text}` : text);
-    const pending = addMessage('system', '⏳ AI is working with the complete wheel XML…', 'Preparing XML · 0s elapsed');
+    const pending = addMessage('system', '⏳ AI is editing the complete wheel XML…', 'Preparing XML · 0s elapsed');
     const mode = requestMode(text);
     startWork(mode === 'edit' ? 'Preparing complete wheel XML' : 'Preparing complete XML for analysis');
     try {
       if (mode === 'analysis') {
-        const reply = await analyzeUsingXml(text); pending?.remove();
+        const reply = await analyzeUsingXml(text);
+        pending?.remove();
         addMessage('assistant', reply, '✓ Checked · no wheel changes');
         state.history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
-        state.history = state.history.slice(-8); state.lastFailed = null; setStatus('Check completed.', 'ok');
+        state.history = state.history.slice(-8);
+        state.lastFailed = null;
+        setStatus('Check completed.', 'ok');
       } else {
-        const diff = await editUsingXml(text, !!options.strict); pending?.remove();
-        const detail = diff.details?.length ? diff.details.slice(0, 8).join(' · ') : diff.text;
-        const reply = `Applied and verified the corrected wheel XML. ${detail}.`;
-        addMessage('assistant', reply, `✓ Verified XML applied · ${diff.text}`);
+        const diff = await editUsingXml(text, !!options.strict);
+        pending?.remove();
+        const detail = diff.details?.length ? diff.details.slice(0, 12).join(' · ') : diff.text;
+        const reply = `Applied the corrected wheel XML. ${detail}.`;
+        addMessage('assistant', reply, `✓ XML applied · ${diff.text}`);
         state.history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
-        state.history = state.history.slice(-8); state.lastFailed = null; setStatus(`Verified XML applied · ${diff.text}.`, 'ok');
+        state.history = state.history.slice(-8);
+        state.lastFailed = null;
+        setStatus(`XML applied · ${diff.text}.`, 'ok');
       }
     } catch (error) {
-      pending?.remove(); state.lastFailed = text;
+      pending?.remove();
+      state.lastFailed = text;
       addMessage('assistant', `I could not complete that request: ${error.message}`, 'Not applied', text);
       setStatus(`Request failed: ${error.message}`, 'error');
-    } finally { stopWork(); input?.focus(); }
+    } finally {
+      stopWork();
+      input?.focus();
+    }
   }
 
   function undoLast() {
     if (!state.undo) return;
-    D.replace(state.undo.config); const saved = M.saveConfig(state.undo.config); M.resetSession(saved); S?.save?.(state.undo.spin);
-    state.undo = null; if ($('undoAiBtn')) $('undoAiBtn').disabled = true; refreshStats();
-    addMessage('system', 'Last AI XML edit undone.'); setStatus('Last AI edit undone.', 'ok');
+    D.replace(state.undo.config);
+    const saved = M.saveConfig(state.undo.config);
+    M.resetSession(saved);
+    S?.save?.(state.undo.spin);
+    state.undo = null;
+    if ($('undoAiBtn')) $('undoAiBtn').disabled = true;
+    refreshStats();
+    addMessage('system', 'Last AI XML edit undone.');
+    setStatus('Last AI edit undone.', 'ok');
     window.dispatchEvent(new CustomEvent('fortune-ai-applied', { detail: { count: 0, undo: true } }));
   }
   function clearChat() {
-    state.history = []; const box = $('chatMessages'); if (box) box.innerHTML = '';
-    addMessage('system', 'Chat cleared. Every new request still receives the complete current wheel XML.');
+    state.history = [];
+    const box = $('chatMessages');
+    if (box) box.innerHTML = '';
+    addMessage('system', 'Chat cleared. Every edit still receives the complete current wheel XML.');
   }
+
   function install() {
-    injectStyles(); refreshStats();
+    injectStyles();
+    refreshStats();
     $('loadModelsBtn')?.addEventListener('click', loadModels);
     $('modelFilter')?.addEventListener('input', renderModels);
     $('testAiBtn')?.addEventListener('click', testApi);
     $('sendAiBtn')?.addEventListener('click', () => sendMessage());
     $('undoAiBtn')?.addEventListener('click', undoLast);
     $('clearChatBtn')?.addEventListener('click', clearChat);
-    $('chatInput')?.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } });
+    $('chatInput')?.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }
+    });
     $('chatMessages')?.addEventListener('click', event => {
-      const button = event.target.closest('.ai-retry-btn'); if (!button) return;
-      const text = button.dataset.retryText || state.lastFailed || ''; if (text) sendMessage(text, { retry: true, strict: true });
+      const button = event.target.closest('.ai-retry-btn');
+      if (!button) return;
+      const text = button.dataset.retryText || state.lastFailed || '';
+      if (text) sendMessage(text, { retry: true, strict: true });
     });
     $('aiProvider')?.addEventListener('change', () => {
-      const suggested = providerDefaults(provider()); if (suggested && $('aiEndpoint')) $('aiEndpoint').value = suggested;
-      state.models = []; renderModels();
+      const suggested = providerDefaults(provider());
+      if (suggested && $('aiEndpoint')) $('aiEndpoint').value = suggested;
+      state.models = [];
+      renderModels();
     });
     $('toggleToken')?.addEventListener('click', () => {
-      const field = $('aiToken'); if (!field) return;
-      const show = field.type === 'password'; field.type = show ? 'text' : 'password'; $('toggleToken').textContent = show ? 'Hide' : 'Show';
+      const field = $('aiToken');
+      if (!field) return;
+      const show = field.type === 'password';
+      field.type = show ? 'text' : 'password';
+      $('toggleToken').textContent = show ? 'Hide' : 'Show';
     });
     document.querySelectorAll('[data-ai-command]').forEach(button => button.addEventListener('click', () => sendMessage(button.dataset.aiCommand || '')));
-    addMessage('system', 'AI XML mode ready. Every edit sends the complete wheel XML, then a second semantic verification checks that your exact request was really carried out before anything is saved.');
+
+    addMessage('system', 'AI XML mode ready. Edit requests now use one full-XML edit, a small JSON QA check, and only one targeted XML correction if something is missing. Previous full-XML-vs-full-XML verification has been removed.');
     if ($('aiModel')?.dataset.restoreModel) setTimeout(loadModels, 120);
     if ($('aiStatus')?.parentElement && !$('aiStatus').parentElement.querySelector('.ai-engine-note')) {
-      const note = document.createElement('div'); note.className = 'ai-engine-note';
-      note.textContent = 'Edit flow: full XML → AI edit → structural validation → semantic verification → exact change summary → save. Green success now means the requested change was verified.';
+      const note = document.createElement('div');
+      note.className = 'ai-engine-note';
+      note.textContent = 'Edit flow: full XML → edit → local structural validation → compact QA → optional targeted correction → save. The status also shows an estimated XML/context token budget when available.';
       $('aiStatus').insertAdjacentElement('afterend', note);
     }
   }
 
-  window.FortuneAiEditorEngine = { loadModels, testApi, sendMessage, refreshStats, requestMode, engineGuide: ENGINE_GUIDE, currentXml };
+  window.FortuneAiEditorEngine = {
+    loadModels, testApi, sendMessage, refreshStats, requestMode,
+    engineGuide: ENGINE_GUIDE, currentXml, estimateTokens, contextLimit
+  };
   install();
 })();
