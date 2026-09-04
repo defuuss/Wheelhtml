@@ -39,7 +39,7 @@
       <div>
         <div class="section-kicker">CONFIGURATION</div>
         <h1>Build the game behind the wheel.</h1>
-        <p>Forfeits can have weighted odds, icons, cooldowns, lifetimes, mystery reveals and unlock effects. Groups are independent and can be activated by any result.</p>
+        <p>Groups are broad game states. Individual forfeits can also depend on other forfeits, so one result can disappear and reveal the next result in a chain without creating another group.</p>
       </div>
       <div class="editor-summary">
         <div><span>Forfeits</span><strong id="summaryForfeits">0</strong></div>
@@ -59,7 +59,7 @@
         <div>
           <div class="section-kicker">WHEEL CONTENT</div>
           <h2>Forfeits & events</h2>
-          <p class="muted">Entries are grouped by unlock group. Open a forfeit only when you need its detailed settings.</p>
+          <p class="muted">Entries are grouped by broad unlock group. Use Availability dependency inside a forfeit to create chains such as Shoes → Socks → Trousers.</p>
         </div>
         <button id="addForfeitBtn" class="btn primary" type="button">+ Add forfeit</button>
       </div>
@@ -69,9 +69,9 @@
     <section id="tab-levels" class="editor-pane">
       <div class="editor-toolbar">
         <div>
-          <div class="section-kicker">NON-LINEAR PROGRESSION</div>
+          <div class="section-kicker">BROAD GAME STATES</div>
           <h2>Unlock groups</h2>
-          <p class="muted">A group is simply a named switch. Several groups can unlock together; no fixed level order is required.</p>
+          <p class="muted">Use groups for major states such as Humiliation, Disgusting or Cleaning. Do not use them only to sequence two individual forfeits.</p>
         </div>
         <button id="addLevelBtn" class="btn primary" type="button">+ Add group</button>
       </div>
@@ -79,9 +79,9 @@
 
       <div class="rule-section-head">
         <div>
-          <div class="section-kicker">AND / OR LOGIC</div>
-          <h2>Conditional unlock rules</h2>
-          <p class="muted">Unlock groups after ALL or ANY of the selected results have occurred during the session.</p>
+          <div class="section-kicker">EVENT / COUNT LOGIC</div>
+          <h2>Conditional group unlock rules</h2>
+          <p class="muted">Unlock broad groups after ALL or ANY selected results. Required occurrences lets a result need to happen several times, for example Skip Turn ×3.</p>
         </div>
         <button id="addRuleBtn" class="btn primary" type="button">+ Add rule</button>
       </div>
@@ -172,8 +172,8 @@
 
       <div class="unlock-box">
         <div>
-          <strong>Unlock when selected</strong>
-          <span>Choose any number of independent groups.</span>
+          <strong>Unlock broad group when selected</strong>
+          <span>Use this for major game-state groups, not for simple forfeit order.</span>
         </div>
         <div class="js-unlock-checks unlock-checks"></div>
       </div>
@@ -219,6 +219,7 @@
   </template>
 
   <script src="model.js"></script>
+  <script src="dependency-model.js?v=1"></script>
   <script src="spin-settings.js"></script>
   <script src="editor.js"></script>
   <script src="editor-enhancements.js"></script>
@@ -227,5 +228,8 @@
   <script src="mystery-editor.js"></script>
   <script src="tree-editor.js"></script>
   <script src="group-quick-add.js"></script>
+  <script src="dependency-editor.js?v=1"></script>
+  <script src="editor-ai-integrated.js?v=2"></script>
+  <script src="ai-dependency-v4.js?v=1"></script>
 </body>
 </html>
