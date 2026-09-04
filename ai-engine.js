@@ -144,14 +144,15 @@
     }
     return h;
   }
+
   async function fetchJson(url, init = {}, timeoutMs = 120000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, { ...init, signal: controller.signal });
-      const text = await response.text();
+      const raw = await response.text();
       let data = {};
-      try { data = text ? JSON.parse(text) : {}; }
+      try { data = raw ? JSON.parse(raw) : {}; }
       catch (_) { throw new Error(`Provider returned non-JSON data (HTTP ${response.status}).`); }
       if (!response.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${response.status}`);
       return data;
@@ -177,6 +178,7 @@
       return id ? { ...value, id, name: value.name || value.display_name || value.displayName || id } : null;
     }).filter(item => item?.id && !/embedding|rerank|tts|speech|transcri|image|video/i.test(item.id));
   }
+
   function renderModels() {
     const select = $('aiModel');
     if (!select) return;
@@ -201,6 +203,7 @@
     if (select.dataset.restoreModel && select.value === select.dataset.restoreModel) delete select.dataset.restoreModel;
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
+
   async function loadModels() {
     if (state.busy) return;
     startWork('Loading models');
@@ -251,39 +254,95 @@
     return { estimatedInput, limit };
   }
 
-  function extractText(data) {
-    const message = data?.choices?.[0]?.message;
-    const content = message?.content;
-    if (typeof content === 'string' && content.trim()) return content;
-    if (Array.isArray(content)) {
-      const text = content.map(item => item?.text || item?.content || '').join('');
-      if (text.trim()) return text;
-    }
-    if (typeof data?.output_text === 'string' && data.output_text.trim()) return data.output_text;
-    if (typeof message?.reasoning_content === 'string' && message.reasoning_content.trim()) return message.reasoning_content;
-    throw new Error('Provider returned no readable assistant text.');
+  function partText(value) {
+    if (typeof value === 'string') return value;
+    if (!value || typeof value !== 'object') return '';
+    if (typeof value.text === 'string') return value.text;
+    if (typeof value.content === 'string') return value.content;
+    if (typeof value.value === 'string') return value.value;
+    return '';
   }
+
+  function reasoningText(message) {
+    if (!message) return '';
+    if (typeof message.reasoning === 'string') return message.reasoning;
+    if (typeof message.reasoning_content === 'string') return message.reasoning_content;
+    if (Array.isArray(message.reasoning_details)) return message.reasoning_details.map(partText).join('');
+    if (Array.isArray(message.reasoning)) return message.reasoning.map(partText).join('');
+    return '';
+  }
+
+  function extractResponseText(data, expected = 'text') {
+    const choice = data?.choices?.[0] || {};
+    const message = choice?.message || {};
+    const content = message?.content;
+    let visible = '';
+
+    if (typeof content === 'string') visible = content;
+    else if (Array.isArray(content)) visible = content.map(partText).join('');
+    if (!visible.trim() && typeof choice?.text === 'string') visible = choice.text;
+    if (!visible.trim() && typeof data?.output_text === 'string') visible = data.output_text;
+    if (!visible.trim() && Array.isArray(data?.output)) {
+      visible = data.output.flatMap(item => Array.isArray(item?.content) ? item.content : [item]).map(partText).join('');
+    }
+    if (!visible.trim() && typeof data?.response === 'string') visible = data.response;
+
+    if (visible.trim()) return visible;
+
+    const reasoning = reasoningText(message).trim();
+    if (expected === 'xml' && reasoning.includes('<fortuneEngine')) return reasoning;
+
+    const finish = String(choice?.finish_reason || data?.finish_reason || '').toLowerCase();
+    if (/length|max[_ -]?tokens|token[_ -]?limit/.test(finish)) {
+      throw new Error('The model exhausted its output-token budget before producing the final answer. Retry, use a non-thinking model, or choose a model with a larger max output.');
+    }
+    if (reasoning) {
+      throw new Error('The model returned reasoning but no final answer. For NanoGPT the editor now disables reasoning automatically; if this still happens, retry or choose a non-thinking/instruction model.');
+    }
+
+    const keys = Object.keys(message || {}).filter(Boolean).join(', ');
+    throw new Error(`Provider returned no final assistant text${keys ? ` (message fields: ${keys})` : ''}.`);
+  }
+
   async function complete(messages, options = {}) {
     const maxTokens = options.maxTokens ?? 7000;
-    const temperature = options.temperature ?? 0;
     const timeoutMs = options.timeoutMs ?? 300000;
+    const expected = options.expected || 'text';
     if (!selectedModel()) throw new Error('Choose a model first.');
     if (!token()) throw new Error('Enter the API token first.');
     const url = chatUrl();
     if (!/^https:\/\//i.test(url)) throw new Error('Invalid chat endpoint.');
+
+    const body = {
+      model: selectedModel(),
+      messages,
+      max_tokens: maxTokens
+    };
+
+    if (options.temperature != null) body.temperature = options.temperature;
+
+    // NanoGPT's modern Chat Completions API returns model thoughts in message.reasoning.
+    // XML editing does not need those thoughts. Disabling reasoning leaves the output budget
+    // for the actual final XML and avoids empty-content responses from reasoning-heavy models.
+    if (provider() === 'nanogpt' && options.allowReasoning !== true) {
+      body.reasoning_effort = 'none';
+      body.reasoning = { exclude: true, effort: 'none' };
+    }
+
     const data = await fetchJson(url, {
       method: 'POST',
       headers: headers(true, true),
-      body: JSON.stringify({ model: selectedModel(), messages, temperature, max_tokens: maxTokens })
+      body: JSON.stringify(body)
     }, timeoutMs);
-    return { data, text: extractText(data) };
+    return { data, text: extractResponseText(data, expected) };
   }
+
   async function testApi() {
     if (state.busy) return;
     startWork('Testing API');
     try {
       const started = performance.now();
-      const result = await complete([{ role: 'user', content: 'Reply with exactly OK and nothing else.' }], { maxTokens: 64, timeoutMs: 60000 });
+      const result = await complete([{ role: 'user', content: 'Reply with exactly OK and nothing else.' }], { maxTokens: 64, expected: 'text', timeoutMs: 60000 });
       const seconds = ((performance.now() - started) / 1000).toFixed(1);
       const used = result.data?.model || selectedModel();
       const limit = contextLimit();
@@ -297,7 +356,7 @@
 
   function requestMode(text) {
     const value = String(text || '');
-    const edit = /\b(add|create|insert|remove|delete|rename|change|modify|update|make|set|move|put|place|assign|adapt|fix|correct|organize|organise|sort|reorder|restructure|ensure|enable|disable|attach|depend|require|unlock|hinzuf|ergänz|lösch|entfern|änder|umbenenn|verschieb|zuord|anpass|korrig|sortier|abhäng|freischalt|ajout|cré|supprim|modifi|renomm|déplac|adapt|corrig|organis|tri|dépend|déverrou)\w*/i.test(value);
+    const edit = /\b(add|create|insert|remove|delete|rename|change|modify|update|make|set|move|put|place|assign|adapt|fix|correct|organize|organise|sort|reorder|restructure|ensure|enable|disable|attach|depend|require|unlock|translate|german|deutsch|humiliat|hinzuf|ergänz|lösch|entfern|änder|umbenenn|verschieb|zuord|anpass|korrig|sortier|abhäng|freischalt|übersetz|deutsch|ajout|cré|supprim|modifi|renomm|déplac|adapt|corrig|organis|tri|dépend|déverrou|tradui)\w*/i.test(value);
     const analysisOnly = /\b(do not change|don't change|without changing|no changes|only check|just check|check only|only review|only explain|nur prüfen|nichts ändern|ohne zu ändern|ne rien modifier|sans modifier)\b/i.test(value);
     if (analysisOnly) return 'analysis';
     if (edit) return 'edit';
@@ -306,6 +365,7 @@
   }
 
   function currentConfig() { return clone(window.FortuneEditor?.getDraft?.() || M.loadConfig()); }
+
   function addSpinToXml(xmlText, spin = S?.load?.() || {}) {
     const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
     if (doc.querySelector('parsererror')) return String(xmlText);
@@ -322,6 +382,7 @@
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc.documentElement);
   }
   function currentXml(config = currentConfig(), spin = S?.load?.() || {}) { return addSpinToXml(M.configToXml(config), spin); }
+
   function readSpinFromXml(xmlText, fallback = S?.load?.() || {}) {
     const doc = new DOMParser().parseFromString(String(xmlText), 'application/xml');
     const node = doc.querySelector('settings');
@@ -348,6 +409,8 @@ DEPENDENCIES: <requires mode="all|any"><forfeit ref="ID"/></requires> controls i
 GROUP UNLOCKS: <unlocks><group ref="ID"/></unlocks> and <rules> activate broad groups. Do not use groups merely to sequence ordinary individual forfeits.
 
 LIFETIME/COOLDOWN: preserve lifetime, lifetimeSpins and cooldown unless the request requires changing them. MYSTERY: mystery="true" hides the real result until selected; preserve the real name/icon/description. SPECIAL EVENTS: preserve eventType unless requested. SPIN SETTINGS: preserve all <settings> values unless requested.
+
+LANGUAGE/TONE: if the user asks for German, translate the relevant names and descriptions to German. If the user asks for a teasing, embarrassing or humiliating description, change only the requested descriptive text while preserving the game mechanics unless the request also asks to alter mechanics.
 
 EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse existing IDs; add missing forfeits when explicitly or clearly requested; use unique lowercase ASCII IDs for new items; prefer existing appropriate groups; fix all items in a requested semantic set, not just one; do not merely describe changes; do not return a fragment or markdown fence.`;
 
@@ -479,7 +542,7 @@ EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse exist
     const result = await complete([
       { role: 'system', content: system },
       { role: 'user', content: user }
-    ], { maxTokens, temperature: 0, timeoutMs: 300000 });
+    ], { maxTokens, expected: 'xml', timeoutMs: 300000 });
     return extractXml(result.text);
   }
 
@@ -496,14 +559,14 @@ EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse exist
 
   async function auditCandidate(text, candidateXml) {
     setPhase('Checking requested result');
-    const system = `You are a strict QA checker for Fortune Engine. Check whether the CANDIDATE XML satisfies the USER REQUEST. Do not edit XML.\nRules: group membership is the forfeit group attribute, not category. For plural semantic requests inspect all matching items. For missing-item requests verify each requested item exists. For dependency/order requests inspect <requires> and apply the user's stated logic literally. Do not invent extra requirements.\nReturn ONLY JSON: {"pass":true,"problems":[]} or {"pass":false,"problems":["specific failed requirement", ...]}.`;
+    const system = `You are a strict QA checker for Fortune Engine. Check whether the CANDIDATE XML satisfies the USER REQUEST. Do not edit XML.\nRules: group membership is the forfeit group attribute, not category. For plural semantic requests inspect all matching items. For missing-item requests verify each requested item exists. For dependency/order requests inspect <requires> and apply the user's stated logic literally. For translation/tone requests verify relevant names/descriptions were actually changed. Do not invent extra requirements.\nReturn ONLY JSON: {"pass":true,"problems":[]} or {"pass":false,"problems":["specific failed requirement", ...]}.`;
     const user = `USER REQUEST\n${text}\n\nCANDIDATE COMPLETE WHEEL XML\n${candidateXml}`;
     const budget = contextCheck(system, user, 1200);
     state.lastBudget = `audit ~${budget.estimatedInput.toLocaleString()} tok${budget.limit ? ` / context ${budget.limit.toLocaleString()}` : ''}`;
     const result = await complete([
       { role: 'system', content: system },
       { role: 'user', content: user }
-    ], { maxTokens: 1200, temperature: 0, timeoutMs: 180000 });
+    ], { maxTokens: 1200, expected: 'json', timeoutMs: 180000 });
     try { return parseAuditJson(result.text); }
     catch (_) { return { pass: false, problems: ['The QA response was unreadable; verify the requested edit again.'] }; }
   }
@@ -515,7 +578,7 @@ EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse exist
     } catch (error) {
       if (strict) throw error;
       setPhase('Repairing XML structure');
-      xml = await requestEditedXml(text, xml, { strict: true, failures: [`Returned XML was structurally invalid: ${error.message}`] });
+      xml = await requestEditedXml(text, sourceXml, { strict: true, failures: [`The previous XML was structurally invalid: ${error.message}`] });
       return { xml, parsed: parseReturnedConfig(xml, beforeSpin, before) };
     }
   }
@@ -542,9 +605,7 @@ EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse exist
       diff = diffSummary(before, candidate.parsed.config, beforeSpin, candidate.parsed.spin);
       if (!diff.total) throw new Error(`The correction did not change the wheel. Failed requirements: ${audit.problems.join('; ')}`);
       audit = await auditCandidate(text, candidate.xml);
-      if (!audit.pass) {
-        throw new Error(`The XML changed, but these requested requirements are still not satisfied: ${audit.problems.join('; ')}`);
-      }
+      if (!audit.pass) throw new Error(`The XML changed, but these requested requirements are still not satisfied: ${audit.problems.join('; ')}`);
     }
 
     return applyXmlResult(before, beforeSpin, snapshot, candidate.parsed.config, candidate.parsed.spin, diff);
@@ -578,7 +639,7 @@ EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse exist
     const result = await complete([
       { role: 'system', content: system },
       { role: 'user', content: user }
-    ], { maxTokens: 4000, temperature: 0.1, timeoutMs: 240000 });
+    ], { maxTokens: 4000, expected: 'text', timeoutMs: 240000 });
     return result.text.trim();
   }
 
@@ -650,6 +711,7 @@ EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse exist
     setStatus('Last AI edit undone.', 'ok');
     window.dispatchEvent(new CustomEvent('fortune-ai-applied', { detail: { count: 0, undo: true } }));
   }
+
   function clearChat() {
     state.history = [];
     const box = $('chatMessages');
@@ -690,12 +752,12 @@ EDITING RULES: read the entire XML; preserve unrelated data exactly; reuse exist
     });
     document.querySelectorAll('[data-ai-command]').forEach(button => button.addEventListener('click', () => sendMessage(button.dataset.aiCommand || '')));
 
-    addMessage('system', 'AI XML mode ready. Edit requests now use one full-XML edit, a small JSON QA check, and only one targeted XML correction if something is missing. Previous full-XML-vs-full-XML verification has been removed.');
+    addMessage('system', 'AI XML mode ready. NanoGPT edit requests now disable reasoning output so the model spends its budget on the final XML. Modern reasoning response fields are also recognized for diagnostics.');
     if ($('aiModel')?.dataset.restoreModel) setTimeout(loadModels, 120);
     if ($('aiStatus')?.parentElement && !$('aiStatus').parentElement.querySelector('.ai-engine-note')) {
       const note = document.createElement('div');
       note.className = 'ai-engine-note';
-      note.textContent = 'Edit flow: full XML → edit → local structural validation → compact QA → optional targeted correction → save. The status also shows an estimated XML/context token budget when available.';
+      note.textContent = 'Edit flow: full XML → final-answer mode → local XML validation → compact QA → optional targeted correction → save. NanoGPT reasoning is disabled for editor requests.';
       $('aiStatus').insertAdjacentElement('afterend', note);
     }
   }
