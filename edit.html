@@ -236,7 +236,7 @@
       if (window.__fortuneAvailabilityLanguageBridge) return;
       window.__fortuneAvailabilityLanguageBridge = true;
       const originalFetch = window.fetch.bind(window);
-      const rules = `\n\nAVAILABILITY LANGUAGE RULES — APPLY LITERALLY:\n- \"same as X\", \"same stage as X\", \"can happen with X\", or \"can come off the same as X\" means the target must have the SAME prerequisite set as X. It does NOT mean the target requires X. If X has no <requires>, the target must also have no <requires>.\n- \"can happen before X\" means the target must NOT require X.\n- \"after X\" means the target requires X, unless the user explicitly says otherwise.\n- Example: if Schuhe has no prerequisites and the user says \"Hemd can be removed same as the shoes\", Hemd must have NO <requires>. Do not connect Hemd to Schuhe or Socken.\n- A wording-only request such as \"remove aus\" changes the visible name/description only; it does not preserve an old dependency that the same request explicitly asks to remove.\n- During QA, never reinterpret the user's request into its opposite. Report the actual mismatch, e.g. \"strip-shirt still requires strip-shoes, but the request says Hemd should be at the same stage as Schuhe\".\n`;
+      const rules = `\n\nFORTUNE USER-INTENT + QA RULES — APPLY LITERALLY:\nDEPENDENCY MEANING:\n- \"same as X\", \"same stage as X\", \"can happen with X\", or \"can come off the same as X\" means the target must have the SAME prerequisite set as X. It does NOT mean the target requires X. If X has no <requires>, the target must also have no <requires>.\n- \"can happen before X\" means the target must NOT require X.\n- \"after X\" or \"can be done after X\" normally means X is sufficient to make the target available. The target should require X, but should NOT also require unrelated sibling items unless the user explicitly asks for those extra prerequisites.\n- Example: if Schuhe has no prerequisites and the user says \"Hemd can be removed same as the shoes\", Hemd must have NO <requires>. Do not connect Hemd to Schuhe or Socken.\n- Example: if the user says \"Hose can be done after Schuhe\", Hose should become available once Schuhe happened; do not additionally require Hemd or Socken unless explicitly requested.\n\nWORDING / SCOPE:\n- \"remove aus\" means remove a trailing word \"aus\" from the relevant forfeit NAMES in the requested scope, e.g. \"Hose aus\" -> \"Hose\". Do not remove normal occurrences of the letters a-u-s inside other words.\n- If a relevant name already has no trailing \"aus\", that requirement is ALREADY SATISFIED. Do not treat it as a failure and do not invent a change merely to make a diff.\n- Keep edits inside the user's stated group/scope unless another group must be touched to satisfy an explicit dependency/unlock request.\n\nQA HARD RULES:\n- QA problems may contain ONLY explicit requested conditions that are demonstrably false in the candidate XML, or objective structural/logic defects such as missing refs, cycles, unreachable dependencies, or contradictions with an explicit order.\n- A condition that is already true is PASS, even if the candidate did not need to change it during this turn. QA verifies the resulting STATE, not whether every sentence caused a new diff.\n- Never fail with language such as \"may or may not be intended\", \"could be\", \"unclear\", or other subjective speculation. Uncertainty is not a failed requirement.\n- Broad wording such as \"review/check the other items logically\" is advisory. It may justify fixing an obvious cycle/impossibility, but it is NOT by itself a QA failure criterion.\n- If the user asked to remove \"aus\" and the candidate has no relevant names ending in \" aus\", that requirement PASSES. Never report \"no evidence of removing aus because none contain aus\" as a problem.\n- If the candidate satisfies every explicit hard requirement, return pass=true with an empty problems list.\n- During QA, never reinterpret the user's request into its opposite. Report only the actual mismatch, for example: \"strip-shirt still requires strip-shoes, but the user says Hemd should be at the same stage as Schuhe\".\n`;
 
       window.fetch = async (input, init = {}) => {
         try {
@@ -247,21 +247,21 @@
               body.messages = body.messages.map(message => {
                 if (message?.role !== 'system' || typeof message.content !== 'string') return message;
                 if (!/Fortune Engine/i.test(message.content)) return message;
-                if (message.content.includes('AVAILABILITY LANGUAGE RULES')) return message;
+                if (message.content.includes('FORTUNE USER-INTENT + QA RULES')) return message;
                 return { ...message, content: message.content + rules };
               });
               init = { ...init, body: JSON.stringify(body) };
             }
           }
         } catch (error) {
-          console.warn('Could not append Fortune availability semantics:', error);
+          console.warn('Could not append Fortune intent semantics:', error);
         }
         return originalFetch(input, init);
       };
     })();
   </script>
 
-  <script src="ai-engine.js?v=6"></script>
+  <script src="ai-engine.js?v=7"></script>
   <script>
     (() => {
       const showVersion = () => {
@@ -270,7 +270,7 @@
         const badge = document.createElement('div');
         badge.id = 'aiEngineVersionBadge';
         badge.className = 'ai-engine-note';
-        badge.textContent = 'AI engine v6 · same-stage availability semantics enabled';
+        badge.textContent = 'AI engine v7 · strict state-based QA + availability semantics';
         status.insertAdjacentElement('afterend', badge);
       };
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showVersion);
