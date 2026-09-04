@@ -230,7 +230,38 @@
   <script src="group-quick-add.js"></script>
   <script src="dependency-editor.js?v=2"></script>
   <script src="editor-ai-integrated.js?v=4"></script>
-  <script src="ai-engine.js?v=5"></script>
+
+  <script>
+    (() => {
+      if (window.__fortuneAvailabilityLanguageBridge) return;
+      window.__fortuneAvailabilityLanguageBridge = true;
+      const originalFetch = window.fetch.bind(window);
+      const rules = `\n\nAVAILABILITY LANGUAGE RULES — APPLY LITERALLY:\n- \"same as X\", \"same stage as X\", \"can happen with X\", or \"can come off the same as X\" means the target must have the SAME prerequisite set as X. It does NOT mean the target requires X. If X has no <requires>, the target must also have no <requires>.\n- \"can happen before X\" means the target must NOT require X.\n- \"after X\" means the target requires X, unless the user explicitly says otherwise.\n- Example: if Schuhe has no prerequisites and the user says \"Hemd can be removed same as the shoes\", Hemd must have NO <requires>. Do not connect Hemd to Schuhe or Socken.\n- A wording-only request such as \"remove aus\" changes the visible name/description only; it does not preserve an old dependency that the same request explicitly asks to remove.\n- During QA, never reinterpret the user's request into its opposite. Report the actual mismatch, e.g. \"strip-shirt still requires strip-shoes, but the request says Hemd should be at the same stage as Schuhe\".\n`;
+
+      window.fetch = async (input, init = {}) => {
+        try {
+          const url = typeof input === 'string' ? input : (input && input.url) || '';
+          if (/\/chat\/completions(?:\?|$)/i.test(url) && typeof init.body === 'string') {
+            const body = JSON.parse(init.body);
+            if (Array.isArray(body.messages)) {
+              body.messages = body.messages.map(message => {
+                if (message?.role !== 'system' || typeof message.content !== 'string') return message;
+                if (!/Fortune Engine/i.test(message.content)) return message;
+                if (message.content.includes('AVAILABILITY LANGUAGE RULES')) return message;
+                return { ...message, content: message.content + rules };
+              });
+              init = { ...init, body: JSON.stringify(body) };
+            }
+          }
+        } catch (error) {
+          console.warn('Could not append Fortune availability semantics:', error);
+        }
+        return originalFetch(input, init);
+      };
+    })();
+  </script>
+
+  <script src="ai-engine.js?v=6"></script>
   <script>
     (() => {
       const showVersion = () => {
@@ -239,7 +270,7 @@
         const badge = document.createElement('div');
         badge.id = 'aiEngineVersionBadge';
         badge.className = 'ai-engine-note';
-        badge.textContent = 'AI engine v5 · final-answer parser + NanoGPT reasoning disabled';
+        badge.textContent = 'AI engine v6 · same-stage availability semantics enabled';
         status.insertAdjacentElement('afterend', badge);
       };
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showVersion);
