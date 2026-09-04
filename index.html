@@ -66,7 +66,7 @@
       <div class="now-card">
         <div class="section-kicker">CURRENT STATE</div>
         <h2 id="stateTitle">Ready to spin</h2>
-        <p id="stateText">The wheel is loaded. Results can unlock new groups, trigger cooldowns and change the next spin.</p>
+        <p id="stateText">The wheel is loaded. Results can unlock new groups, trigger cooldowns, reveal dependent forfeits and change the next spin.</p>
         <div class="state-actions">
           <button id="undoBtn" class="btn ghost" type="button" disabled>Undo last spin</button>
           <button id="resetBtn" class="btn danger-soft" type="button">Reset session</button>
@@ -116,6 +116,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="model.js"></script>
+  <script src="dependency-model.js?v=1"></script>
   <script src="spin-settings.js"></script>
   <script src="app-v2.js"></script>
   <script src="mystery-reveal.js"></script>
