@@ -26,7 +26,8 @@
   if (!document.getElementById(style.id)) document.head.appendChild(style);
 
   let scheduled = false;
-  const nameOf = card => card.querySelector('.js-name')?.value?.trim() || card.dataset.id || 'Forfeit';
+  let suppressObserverUntil = 0;
+  const nameOf = card => card?.querySelector?.('.js-name')?.value?.trim() || card?.dataset?.id || 'Forfeit';
   const cards = () => [...list.querySelectorAll('.forfeit-editor-card[data-id]')];
   const cardMap = () => new Map(cards().map(card => [card.dataset.id, card]));
 
@@ -210,6 +211,7 @@
 
   function run() {
     scheduled = false;
+    suppressObserverUntil = performance.now() + 80;
     const byId = cardMap();
     byId.forEach(card => {
       renderDependencyBox(card, byId);
@@ -225,8 +227,9 @@
     requestAnimationFrame(run);
   }
 
-  new MutationObserver(schedule).observe(list, { childList: true, subtree: true });
-  if (ruleList) new MutationObserver(schedule).observe(ruleList, { childList: true, subtree: true });
+  const mutationSchedule = () => { if (performance.now() >= suppressObserverUntil) schedule(); };
+  new MutationObserver(mutationSchedule).observe(list, { childList: true, subtree: true });
+  if (ruleList) new MutationObserver(mutationSchedule).observe(ruleList, { childList: true, subtree: true });
   document.addEventListener('input', event => {
     if (event.target.matches('.js-name,.js-icon,.js-level')) schedule();
   });
