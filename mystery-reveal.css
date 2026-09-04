@@ -1,0 +1,25 @@
+/* Dramatic mystery result reveal */
+.mystery-curtain{--mystery-color:#65d8ff;position:absolute;inset:0;z-index:30;display:grid;place-items:center;overflow:hidden;border-radius:inherit;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--mystery-color) 16%,#111827),#090d17 58%,#05070c);opacity:0;transition:opacity .2s ease}
+.mystery-curtain.active{opacity:1}
+.mystery-curtain-inner{position:relative;z-index:2;display:grid;justify-items:center;text-align:center;padding:28px;min-width:min(340px,90%)}
+.mystery-orbit{position:relative;width:150px;aspect-ratio:1;display:grid;place-items:center;margin-bottom:18px}
+.mystery-orbit::before,.mystery-orbit::after{content:"";position:absolute;border-radius:50%;border:1px solid color-mix(in srgb,var(--mystery-color) 42%,transparent)}
+.mystery-orbit::before{inset:0;border-style:dashed;animation:mysteryOrbit 4.5s linear infinite}
+.mystery-orbit::after{inset:15px;border-width:2px;box-shadow:0 0 34px color-mix(in srgb,var(--mystery-color) 18%,transparent);animation:mysteryOrbitReverse 3.2s linear infinite}
+.mystery-question{width:96px;aspect-ratio:1;display:grid;place-items:center;border-radius:28px;border:1px solid color-mix(in srgb,var(--mystery-color) 42%,rgba(255,255,255,.12));background:linear-gradient(145deg,color-mix(in srgb,var(--mystery-color) 13%,#161c2b),#090d16);box-shadow:0 18px 55px rgba(0,0,0,.42),0 0 36px color-mix(in srgb,var(--mystery-color) 18%,transparent);font-size:3.6rem;font-weight:950;color:#fff;text-shadow:0 0 24px color-mix(in srgb,var(--mystery-color) 52%,transparent);animation:mysteryFloat 1.5s ease-in-out infinite alternate}
+.mystery-curtain .section-kicker{margin-top:2px}
+.mystery-curtain h3{margin:7px 0 5px;font-size:1.35rem;letter-spacing:.04em}
+.mystery-curtain p{margin:0;color:var(--muted);font-size:.82rem}
+.mystery-countdown{height:34px;margin-top:15px;font-size:1.5rem;font-weight:950;color:#fff;letter-spacing:.1em;text-shadow:0 0 18px color-mix(in srgb,var(--mystery-color) 45%,transparent)}
+.mystery-reveal-now{margin-top:12px;min-height:38px;padding:0 14px;border:1px solid color-mix(in srgb,var(--mystery-color) 34%,rgba(255,255,255,.12));border-radius:10px;background:color-mix(in srgb,var(--mystery-color) 9%,rgba(255,255,255,.03));color:#fff;cursor:pointer;font-size:.72rem;font-weight:850}
+.mystery-reveal-now:hover{background:color-mix(in srgb,var(--mystery-color) 15%,rgba(255,255,255,.04))}
+.mystery-curtain.revealing{animation:mysteryCurtainReveal .72s cubic-bezier(.22,.9,.24,1) forwards}
+.mystery-curtain.revealing .mystery-question{animation:mysteryQuestionBurst .65s cubic-bezier(.2,.9,.3,1) forwards}
+.mystery-curtain.revealing .mystery-orbit::before,.mystery-curtain.revealing .mystery-orbit::after{animation-duration:.4s}
+.mystery-config-warning{margin:10px auto 0;max-width:390px;padding:9px 11px;border:1px solid rgba(255,184,91,.25);border-radius:10px;background:rgba(255,184,91,.07);color:#ffd8a5;font-size:.7rem;line-height:1.45}
+@keyframes mysteryOrbit{to{transform:rotate(360deg)}}
+@keyframes mysteryOrbitReverse{to{transform:rotate(-360deg)}}
+@keyframes mysteryFloat{from{transform:translateY(3px) scale(.97)}to{transform:translateY(-4px) scale(1.03)}}
+@keyframes mysteryQuestionBurst{0%{transform:scale(1);filter:brightness(1)}55%{transform:scale(1.35) rotate(8deg);filter:brightness(2.2)}100%{transform:scale(.2) rotate(-20deg);opacity:0;filter:brightness(3)}}
+@keyframes mysteryCurtainReveal{0%{opacity:1;clip-path:inset(0 0 0 0 round 24px)}65%{opacity:1;clip-path:inset(0 0 0 0 round 24px)}100%{opacity:0;clip-path:inset(50% 0 50% 0 round 24px)}}
+@media(prefers-reduced-motion:reduce){.mystery-orbit::before,.mystery-orbit::after,.mystery-question{animation:none}.mystery-curtain.revealing{animation:mysteryFade .25s ease forwards}@keyframes mysteryFade{to{opacity:0}}}
