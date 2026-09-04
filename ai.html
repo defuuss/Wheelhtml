@@ -45,8 +45,8 @@
             <option value="custom">Custom OpenAI-compatible API</option>
           </select>
         </label>
-        <label class="field">Chat endpoint
-          <input id="aiEndpoint" type="url" value="https://openrouter.ai/api/v1/chat/completions" autocomplete="off" spellcheck="false">
+        <label class="field">API base URL or chat endpoint
+          <input id="aiEndpoint" type="url" value="https://openrouter.ai/api/v1" autocomplete="off" spellcheck="false">
         </label>
         <label class="field">API token
           <div class="token-field"><input id="aiToken" type="password" placeholder="Token for this open page only" autocomplete="off"><button id="toggleToken" type="button">Show</button></div>
@@ -68,7 +68,7 @@
         <button id="testAiBtn" class="btn primary" type="button">✓ Test AI</button>
         <button id="undoAiBtn" class="btn ghost" type="button" disabled>Undo AI edit</button>
       </div>
-      <div id="aiStatus" class="ai-status" role="status" aria-live="polite">Loading model catalog…</div>
+      <div id="aiStatus" class="ai-status" role="status" aria-live="polite">Ready.</div>
       <div class="ai-token-note">🔐 The API token is never written to GitHub, XML, localStorage or sessionStorage. It exists only in this open page and is sent to the provider endpoint you selected.</div>
 
       <div class="ai-wheel-summary">
@@ -114,8 +114,6 @@
 
   <script src="model.js"></script>
   <script src="spin-settings.js"></script>
-  <script src="ai-chat-v2.js"></script>
-  <script src="ai-provider-fixes.js"></script>
-  <script src="model-loader-fix.js"></script>
+  <script src="ai-core.js?v=1"></script>
 </body>
 </html>
