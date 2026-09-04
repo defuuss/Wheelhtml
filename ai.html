@@ -104,7 +104,7 @@
       <div class="ai-composer">
         <textarea id="chatInput" maxlength="12000" placeholder="Examples: Add 5 Cleaning forfeits. Remove Chaos Shuffle. Make Shaving Challenge a mystery. Let Socks Off unlock Tickling. Check whether Cleaning can ever unlock…"></textarea>
         <button id="sendAiBtn" class="btn primary large" type="button">Send</button>
-        <div class="ai-chat-hint">Enter sends · Shift+Enter adds a new line. Edit requests are applied directly to the saved wheel after local validation; analysis/check requests do not modify it.</div>
+        <div class="ai-chat-hint">Enter sends · Shift+Enter adds a new line. AI edits use compact patch actions and are locally validated before being saved; analysis/check requests do not modify the wheel.</div>
       </div>
     </section>
   </main>
@@ -113,7 +113,7 @@
 
   <script src="model.js"></script>
   <script src="spin-settings.js"></script>
-  <script src="ai-chat.js"></script>
+  <script src="ai-chat-v2.js"></script>
   <script src="ai-provider-fixes.js"></script>
 </body>
 </html>
