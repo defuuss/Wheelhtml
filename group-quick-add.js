@@ -103,4 +103,13 @@
 
   new MutationObserver(schedule).observe(list, { childList: true, subtree: true });
   schedule();
+
+  // The AI editor now lives directly inside edit.html as a drawer.
+  if (!window.__fortuneEditorAiLoaderAdded) {
+    window.__fortuneEditorAiLoaderAdded = true;
+    const script = document.createElement('script');
+    script.src = 'editor-ai-integrated.js?v=1';
+    script.async = false;
+    document.body.appendChild(script);
+  }
 })();
