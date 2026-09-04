@@ -7,6 +7,13 @@
   <title>AI Chat · Fortune Engine</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="ai-chat.css">
+  <style>
+    .model-catalog-box{margin-top:3px;padding:12px;border:1px solid rgba(101,216,255,.16);border-radius:14px;background:rgba(101,216,255,.035);display:grid;gap:10px}
+    .model-catalog-head{display:flex;align-items:end;justify-content:space-between;gap:10px}.model-catalog-head strong{font-size:.76rem}.model-catalog-head small{color:var(--muted2);font-size:.61rem}
+    .model-search-field{position:relative}.model-search-field input{padding-left:34px!important}.model-search-field:before{content:'⌕';position:absolute;left:11px;bottom:9px;z-index:2;color:var(--accent);font-size:1rem;pointer-events:none}
+    .model-catalog-box .model-row{margin-top:1px}
+    .token-persistence-note{margin-top:6px;color:#8ff4cf;font-size:.62rem;font-weight:750}
+  </style>
 </head>
 <body data-page="ai">
   <div class="ambient ambient-a"></div>
@@ -42,13 +49,18 @@
         </label>
         <label class="field">API token
           <div class="token-field"><input id="aiToken" type="password" placeholder="Token for this open page only" autocomplete="off"><button id="toggleToken" type="button">Show</button></div>
+          <span class="token-persistence-note">Not saved — refresh/close this page and the token is gone.</span>
         </label>
-        <label class="field">Filter models
-          <input id="modelFilter" type="search" placeholder="Search GPT, Claude, Gemini, GLM…" autocomplete="off">
-        </label>
-        <label class="field">Model
-          <div class="model-row"><select id="aiModel"><option value="">Load models first</option></select><button id="loadModelsBtn" class="btn ghost" type="button">↻ Load models</button></div>
-        </label>
+
+        <div class="model-catalog-box">
+          <div class="model-catalog-head"><strong>MODEL CATALOG</strong><small>Search the loaded provider models</small></div>
+          <label class="field model-search-field">Search models
+            <input id="modelFilter" type="search" placeholder="Type GPT, Claude, Gemini, GLM, free…" autocomplete="off">
+          </label>
+          <label class="field">Choose model
+            <div class="model-row"><select id="aiModel"><option value="">Load models first</option></select><button id="loadModelsBtn" class="btn ghost" type="button">↻ Load models</button></div>
+          </label>
+        </div>
       </div>
 
       <div class="ai-connect-actions">
@@ -56,7 +68,7 @@
         <button id="undoAiBtn" class="btn ghost" type="button" disabled>Undo AI edit</button>
       </div>
       <div id="aiStatus" class="ai-status" role="status" aria-live="polite">Loading model catalog…</div>
-      <div class="ai-token-note">🔐 The API token is not saved to GitHub, XML or localStorage. It stays in this page's password field and is sent only to the provider endpoint you selected.</div>
+      <div class="ai-token-note">🔐 The API token is never written to GitHub, XML, localStorage or sessionStorage. It exists only in this open page and is sent to the provider endpoint you selected.</div>
 
       <div class="ai-wheel-summary">
         <div class="section-kicker">CURRENT WHEEL</div>
@@ -92,7 +104,7 @@
       <div class="ai-composer">
         <textarea id="chatInput" maxlength="12000" placeholder="Examples: Add 5 Cleaning forfeits. Remove Chaos Shuffle. Make Shaving Challenge a mystery. Let Socks Off unlock Tickling. Check whether Cleaning can ever unlock…"></textarea>
         <button id="sendAiBtn" class="btn primary large" type="button">Send</button>
-        <div class="ai-chat-hint">Enter sends · Shift+Enter adds a new line. Edit requests are applied directly to the saved wheel after the returned configuration passes local validation; analysis/check requests do not modify it.</div>
+        <div class="ai-chat-hint">Enter sends · Shift+Enter adds a new line. Edit requests are applied directly to the saved wheel after local validation; analysis/check requests do not modify it.</div>
       </div>
     </section>
   </main>
