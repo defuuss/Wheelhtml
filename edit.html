@@ -219,9 +219,10 @@
     </article>
   </template>
 
-  <script src="model.js"></script>
+  <script src="model.js?v=2"></script>
   <script src="dependency-model.js?v=1"></script>
   <script src="spin-settings.js?v=3"></script>
+  <script src="game-editor.js?v=2"></script>
   <script src="editor.js?v=3"></script>
   <script src="editor-enhancements.js"></script>
   <script src="icon-expansion.js"></script>
@@ -272,7 +273,7 @@
         const badge = document.createElement('div');
         badge.id = 'aiEngineVersionBadge';
         badge.className = 'ai-engine-note';
-        badge.textContent = 'AI engine v7 · strict state-based QA + availability semantics';
+        badge.textContent = 'AI engine v7 · strict QA + card/timer schema';
         status.insertAdjacentElement('afterend', badge);
       };
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showVersion);
