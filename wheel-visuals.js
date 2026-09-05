@@ -312,7 +312,8 @@
 
   function finishVisualSpin() {
     if (!visualSpinning) return;
-    updateCurrentHighlight(true);
+    /* Keep the last pre-render snapshot. renderAll() can remove a one-time winner or add unlocked entries. */
+    if (!lastSnapshot) updateCurrentHighlight(true);
     visualSpinning = false;
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
@@ -322,7 +323,11 @@
     queueDecorate();
   }
 
-  const rotorObserver = new MutationObserver(() => queueDecorate());
+  const rotorObserver = new MutationObserver(() => {
+    /* The rotor is rebuilt only after a result/session change, so this also catches spins ending with zero entries. */
+    if (visualSpinning) finishVisualSpin();
+    queueDecorate();
+  });
   rotorObserver.observe(rotor, { childList: true });
 
   let previousDisabled = spinBtn.disabled;
