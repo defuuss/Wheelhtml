@@ -1,0 +1,77 @@
+/* Enhanced play-wheel visuals: live selection, group ring, mystery texture, winner lock and drama focus. */
+.wheel-shell{--current-color:#65d8ff;--winner-color:#65d8ff}
+
+/* 1. Segment currently under the pointer. */
+.wheel-segment{
+  transition:filter .13s ease,opacity .13s ease,stroke-width .13s ease,stroke .13s ease;
+  transform-box:view-box;
+  transform-origin:300px 300px;
+}
+.wheel-shell.wheel-spinning .wheel-segment.current-under-pointer{
+  filter:brightness(1.25) saturate(1.14) drop-shadow(0 0 8px color-mix(in srgb,var(--current-color) 62%,transparent));
+  stroke:rgba(255,255,255,.76);
+  stroke-width:5.5;
+}
+.wheel-shell.wheel-spinning .wheel-segment:not(.current-under-pointer){filter:brightness(.9) saturate(.92)}
+
+/* 4. Mystery wedges get a subtle diagonal texture and breathing sheen. */
+.wheel-mystery-overlay{pointer-events:none;opacity:.12;animation:mysteryWheelShimmer 2.8s ease-in-out infinite}
+.wheel-segment.is-mystery-segment{filter:saturate(.92) brightness(.96)}
+@keyframes mysteryWheelShimmer{0%,100%{opacity:.08;filter:brightness(.9)}50%{opacity:.24;filter:brightness(1.35)}}
+
+/* 5. Thin ring shows the group colour carried by every active segment. */
+.wheel-group-ring-layer{pointer-events:none}
+.wheel-group-ring-segment{fill:none;stroke-linecap:butt;stroke-width:7;opacity:.88;filter:drop-shadow(0 0 3px rgba(0,0,0,.34))}
+.wheel-group-ring-separator{fill:none;stroke:rgba(7,9,18,.8);stroke-width:1.4;pointer-events:none}
+
+/* 6. Narrow wedges still get a visible identity marker. */
+.wheel-tiny-marker-layer{pointer-events:none}
+.wheel-tiny-marker{fill:#fff;stroke-width:3;filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
+.wheel-tiny-marker.mystery{fill:#f8edff}
+
+/* 7. Hub states. */
+.wheel-shell.wheel-ready .wheel-hub{animation:hubReadyBreath 2.6s ease-in-out infinite}
+.wheel-shell.wheel-ready .hub-ring{animation:hubRingBreath 2.6s ease-in-out infinite}
+.wheel-shell.wheel-spinning .wheel-hub{transform:scale(.96);border-color:color-mix(in srgb,var(--current-color) 42%,rgba(255,255,255,.2));box-shadow:0 12px 32px rgba(0,0,0,.45),0 0 30px color-mix(in srgb,var(--current-color) 18%,transparent),inset 0 0 26px rgba(255,255,255,.04)}
+.wheel-shell.wheel-spinning .hub-core{animation:hubCoreSpin .9s linear infinite,hubCorePulse .7s ease-in-out infinite alternate;color:color-mix(in srgb,var(--current-color) 78%,white)}
+.wheel-shell.wheel-winner-lock .wheel-hub{animation:hubWinnerPop .62s cubic-bezier(.16,.82,.28,1);border-color:color-mix(in srgb,var(--winner-color) 66%,white);box-shadow:0 12px 32px rgba(0,0,0,.46),0 0 46px color-mix(in srgb,var(--winner-color) 36%,transparent),inset 0 0 30px color-mix(in srgb,var(--winner-color) 12%,transparent)}
+.wheel-shell.wheel-winner-lock .hub-core{color:color-mix(in srgb,var(--winner-color) 72%,white);text-shadow:0 0 28px color-mix(in srgb,var(--winner-color) 60%,transparent)}
+@keyframes hubReadyBreath{0%,100%{box-shadow:0 12px 30px rgba(0,0,0,.42),0 0 0 rgba(101,216,255,0),inset 0 0 26px rgba(255,255,255,.04)}50%{box-shadow:0 12px 30px rgba(0,0,0,.42),0 0 28px rgba(101,216,255,.16),inset 0 0 28px rgba(101,216,255,.05)}}
+@keyframes hubRingBreath{0%,100%{opacity:.55;transform:scale(.94)}50%{opacity:1;transform:scale(1.03)}}
+@keyframes hubCoreSpin{to{transform:rotate(360deg)}}
+@keyframes hubCorePulse{from{filter:brightness(.9);text-shadow:0 0 12px color-mix(in srgb,var(--current-color) 18%,transparent)}to{filter:brightness(1.4);text-shadow:0 0 28px color-mix(in srgb,var(--current-color) 52%,transparent)}}
+@keyframes hubWinnerPop{0%{transform:scale(.9)}45%{transform:scale(1.14)}100%{transform:scale(1)}}
+
+/* 2. Winner-lock phase before the result dialog appears. */
+.wheel-shell.wheel-winner-lock .wheel-svg{filter:brightness(.57) saturate(.72);transition:filter .16s ease}
+.winner-lock-svg{position:absolute;inset:6%;width:88%;height:88%;z-index:8;overflow:visible;pointer-events:none}
+.winner-lock-path{stroke:rgba(255,255,255,.92);stroke-width:5;filter:brightness(1.35) saturate(1.2) drop-shadow(0 0 10px var(--winner-color)) drop-shadow(0 0 24px color-mix(in srgb,var(--winner-color) 58%,transparent));animation:winnerWedgeLock .62s cubic-bezier(.16,.82,.28,1)}
+.winner-lock-badge{position:absolute;z-index:15;left:50%;top:12%;transform:translate(-50%,-50%) scale(.82);min-width:130px;max-width:240px;padding:9px 15px;border:1px solid color-mix(in srgb,var(--winner-color) 48%,rgba(255,255,255,.18));border-radius:18px;background:rgba(8,12,22,.94);box-shadow:0 14px 38px rgba(0,0,0,.44),0 0 32px color-mix(in srgb,var(--winner-color) 22%,transparent);backdrop-filter:blur(12px);text-align:center;pointer-events:none;animation:winnerBadgePop .62s cubic-bezier(.16,.82,.28,1) forwards}
+.winner-lock-icon{display:block;font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:2.55rem;line-height:1;text-shadow:0 0 20px color-mix(in srgb,var(--winner-color) 45%,transparent)}
+.winner-lock-name{display:block;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:.72rem;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+.pointer.winner-pop{animation:pointerWinnerPop .55s cubic-bezier(.16,.82,.28,1)}
+@keyframes winnerWedgeLock{0%{opacity:.1;stroke-width:2}45%{opacity:1;stroke-width:8}100%{opacity:.95;stroke-width:5}}
+@keyframes winnerBadgePop{0%{opacity:0;transform:translate(-50%,-50%) scale(.68)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes pointerWinnerPop{0%,100%{transform:translateX(-50%) rotate(0)}30%{transform:translateX(-50%) rotate(-12deg) scale(1.08)}55%{transform:translateX(-50%) rotate(7deg) scale(1.04)}}
+
+/* 8. Drama mode focuses attention on the wheel during the fake-stop/creep phase. */
+body.wheel-drama-active .side-panel,
+body.wheel-drama-active .history-panel,
+body.wheel-drama-active .level-strip-wrap,
+body.wheel-drama-active .spin-row,
+body.wheel-drama-active .wheel-stats{opacity:.38;filter:saturate(.55);transition:opacity .28s ease,filter .28s ease}
+.wheel-shell.wheel-drama .wheel-glow{opacity:1;background:radial-gradient(circle,color-mix(in srgb,var(--current-color) 24%,transparent),transparent 68%);filter:blur(13px);animation:dramaGlow 1s ease-in-out infinite alternate}
+.wheel-shell.wheel-drama .wheel-svg{filter:brightness(.88) contrast(1.06)}
+.wheel-shell.wheel-drama .pointer{filter:drop-shadow(0 0 13px color-mix(in srgb,var(--current-color) 72%,white)) drop-shadow(0 6px 9px rgba(0,0,0,.45))}
+.wheel-shell.wheel-drama .wheel-hub{box-shadow:0 12px 32px rgba(0,0,0,.46),0 0 44px color-mix(in srgb,var(--current-color) 34%,transparent),inset 0 0 30px rgba(255,255,255,.04)}
+@keyframes dramaGlow{from{transform:scale(.97);opacity:.7}to{transform:scale(1.05);opacity:1}}
+
+@media(max-width:620px){
+  .winner-lock-badge{top:10%;min-width:112px;padding:7px 11px}.winner-lock-icon{font-size:2.15rem}.winner-lock-name{font-size:.64rem}
+  .wheel-group-ring-segment{stroke-width:6}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .wheel-mystery-overlay,.wheel-shell.wheel-ready .wheel-hub,.wheel-shell.wheel-ready .hub-ring,.wheel-shell.wheel-spinning .hub-core,.winner-lock-path,.winner-lock-badge,.pointer.winner-pop,.wheel-shell.wheel-drama .wheel-glow{animation:none!important}
+  .wheel-segment{transition:none}
+}
