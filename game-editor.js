@@ -62,7 +62,7 @@
 
   function configTimer(id) {
     try {
-      const draft = window.FortuneEditor?.getDraft?.();
+      const draft = window.FortuneEditor?.__gameRawGetDraft?.() || window.FortuneEditor?.getDraft?.();
       const item = draft?.forfeits?.find(entry => entry.id === id);
       if (item) return Math.max(0, Math.round(Number(item.timerSeconds) || 0));
     } catch (_) {}
@@ -105,10 +105,6 @@
       [['goodCard','Good card draw'],['badCard','Bad card draw'],['doubleOrNothing','Double or Nothing']].forEach(([value,label]) => {
         const option = document.createElement('option'); option.value = value; option.textContent = label; event.appendChild(option);
       });
-      try {
-        const saved = M.loadConfig().forfeits.find(entry => entry.id === id);
-        if (saved?.eventType && [...event.options].some(option => option.value === saved.eventType)) event.value = saved.eventType;
-      } catch (_) {}
     }
   }
 
@@ -128,6 +124,7 @@
     if (!editor || editor.__gameTimerWrapped) return false;
     const originalGetDraft = editor.getDraft?.bind(editor);
     if (originalGetDraft) {
+      editor.__gameRawGetDraft = originalGetDraft;
       editor.getDraft = () => {
         const draft = originalGetDraft();
         draft?.forfeits?.forEach(item => {
@@ -139,6 +136,60 @@
     }
     editor.__gameTimerWrapped = true;
     return true;
+  }
+
+  function mergedDraft() {
+    const editor = window.FortuneEditor;
+    const draft = editor?.getDraft?.();
+    if (!draft) return null;
+    draft.forfeits?.forEach(item => {
+      if (timerDraft.has(item.id)) item.timerSeconds = timerDraft.get(item.id);
+    });
+    return draft;
+  }
+
+  function installApplyAndSaveBridge() {
+    const apply = document.getElementById('applyBtn');
+    if (apply && apply.dataset.gameTimerBridge !== '1') {
+      apply.dataset.gameTimerBridge = '1';
+      apply.addEventListener('click', event => {
+        const draft = mergedDraft();
+        if (!draft) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const saved = M.saveConfig(draft);
+        M.resetSession(saved);
+        document.body.classList.remove('dirty');
+        window.FortuneEditor?.refreshFromSaved?.('Saved. A fresh play session will use these settings.');
+      }, true);
+    }
+    const save = document.getElementById('editorSaveBtn');
+    if (save && save.dataset.gameTimerBridge !== '1') {
+      save.dataset.gameTimerBridge = '1';
+      save.addEventListener('click', event => {
+        const draft = mergedDraft();
+        if (!draft) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        M.downloadXml(draft);
+      }, true);
+    }
+    const file = document.getElementById('editorFileInput');
+    if (file && file.dataset.gameTimerBridge !== '1') {
+      file.dataset.gameTimerBridge = '1';
+      file.addEventListener('change', () => {
+        setTimeout(() => {
+          try {
+            const raw = window.FortuneEditor?.__gameRawGetDraft?.();
+            if (raw?.forfeits) {
+              timerDraft.clear();
+              raw.forfeits.forEach(item => timerDraft.set(item.id, Math.max(0, Math.round(Number(item.timerSeconds) || 0))));
+              schedule();
+            }
+          } catch (_) {}
+        }, 500);
+      });
+    }
   }
 
   installAiSchemaBridge();
@@ -153,7 +204,7 @@
 
   let tries = 0;
   const waitForEditor = () => {
-    if (wrapEditorApi()) { schedule(); return; }
+    if (wrapEditorApi()) { installApplyAndSaveBridge(); schedule(); return; }
     if (++tries < 40) setTimeout(waitForEditor, 25);
   };
   setTimeout(waitForEditor, 0);
