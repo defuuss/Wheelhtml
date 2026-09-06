@@ -56,3 +56,21 @@
   new MutationObserver(scan).observe(list, { childList: true, subtree: true });
   scan();
 })();
+
+/* Load the simplified editor presentation as a non-destructive UI layer. */
+(() => {
+  if (document.body?.dataset?.page !== 'edit') return;
+  if (!document.querySelector('link[data-simple-editor-ui]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'editor-simple-ui.css?v=1';
+    link.dataset.simpleEditorUi = '1';
+    document.head.appendChild(link);
+  }
+  if (!document.querySelector('script[data-simple-editor-ui]')) {
+    const script = document.createElement('script');
+    script.src = 'editor-simple-ui.js?v=1';
+    script.dataset.simpleEditorUi = '1';
+    document.body.appendChild(script);
+  }
+})();
