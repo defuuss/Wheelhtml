@@ -57,20 +57,21 @@
   scan();
 })();
 
-/* Load the simplified editor presentation as a non-destructive UI layer. */
+/* Load the stable simplified editor presentation. It deliberately avoids rewriting
+   dependency/progression text on every mutation, so the UI does not flicker. */
 (() => {
   if (document.body?.dataset?.page !== 'edit') return;
-  if (!document.querySelector('link[data-simple-editor-ui]')) {
+  if (!document.querySelector('link[data-simple-editor-ui-v2]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'editor-simple-ui.css?v=1';
-    link.dataset.simpleEditorUi = '1';
+    link.href = 'editor-simple-ui-v2.css?v=1';
+    link.dataset.simpleEditorUiV2 = '1';
     document.head.appendChild(link);
   }
-  if (!document.querySelector('script[data-simple-editor-ui]')) {
+  if (!document.querySelector('script[data-simple-editor-ui-v2]')) {
     const script = document.createElement('script');
-    script.src = 'editor-simple-ui.js?v=1';
-    script.dataset.simpleEditorUi = '1';
+    script.src = 'editor-simple-ui-v2.js?v=1';
+    script.dataset.simpleEditorUiV2 = '1';
     document.body.appendChild(script);
   }
 })();
