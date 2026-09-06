@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="wheel-visuals.css?v=1">
   <link rel="stylesheet" href="game-cards.css?v=1">
   <link rel="stylesheet" href="show-stage.css?v=1">
+  <link rel="stylesheet" href="result-stage.css?v=1">
 </head>
 <body data-page="play">
   <div class="ambient ambient-a"></div>
@@ -110,8 +111,8 @@
       <p id="resultDescription"></p>
       <div id="unlockNotice" class="unlock-notice" hidden></div>
       <div class="result-actions">
-        <button id="resultCloseBtn" class="btn primary large" type="button">Continue</button>
-        <button id="resultSpinBtn" class="btn ghost large" type="button">Spin again</button>
+        <button id="resultCloseBtn" class="btn primary large" type="button">Back to wheel</button>
+        <button id="resultSpinBtn" class="btn ghost large" type="button" hidden>Spin again</button>
       </div>
     </section>
   </div>
@@ -127,5 +128,6 @@
   <script src="wheel-visuals.js?v=2"></script>
   <script src="progression-play.js?v=1"></script>
   <script src="show-stage.js?v=1"></script>
+  <script src="result-flow-fix.js?v=1"></script>
 </body>
 </html>
