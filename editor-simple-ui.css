@@ -1,0 +1,116 @@
+/* A simpler default editor. No capability is removed: Advanced view exposes every original control. */
+body[data-page="edit"]{--simple-accent:#65d8ff}
+body[data-page="edit"] .editor-layout{max-width:1280px}
+body[data-page="edit"] .editor-intro{padding:18px 20px;margin-bottom:14px;align-items:center;background:linear-gradient(120deg,rgba(101,216,255,.045),rgba(255,255,255,.018))}
+body[data-page="edit"] .editor-intro h1{font-size:clamp(1.4rem,2.6vw,2.15rem);margin:4px 0 5px}
+body[data-page="edit"] .editor-intro p{max-width:760px;margin:0;font-size:.78rem;line-height:1.5}
+body[data-page="edit"] .editor-summary{gap:7px}
+body[data-page="edit"] .editor-summary>div{min-width:84px;padding:8px 10px;border-radius:12px}
+body[data-page="edit"] .editor-summary span{font-size:.55rem}
+body[data-page="edit"] .editor-summary strong{font-size:1rem}
+
+body[data-page="edit"] .top-actions{gap:7px}
+body[data-page="edit"] .editor-save-status{align-self:center;padding:5px 8px;border-radius:999px;color:#8ff4cf;background:rgba(69,224,168,.06);border:1px solid rgba(69,224,168,.15);font-size:.61rem;font-weight:900;white-space:nowrap}
+body[data-page="edit"] .editor-save-status.dirty{color:#ffd995;background:rgba(255,190,88,.06);border-color:rgba(255,190,88,.18)}
+body[data-page="edit"] .editor-more-menu{position:relative}
+body[data-page="edit"] .editor-more-popover{position:absolute;right:0;top:calc(100% + 7px);z-index:900;min-width:170px;padding:6px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#0e1421;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+body[data-page="edit"] .editor-more-popover[hidden]{display:none}
+body[data-page="edit"] .editor-more-popover .btn{display:flex;width:100%;justify-content:flex-start;border-color:transparent;background:transparent}
+body[data-page="edit"] .editor-more-popover .btn:hover{background:rgba(255,255,255,.05)}
+
+body[data-page="edit"] .editor-tabs{position:sticky;top:8px;z-index:80;display:flex;align-items:center;gap:6px;padding:6px;margin-bottom:18px;border:1px solid rgba(255,255,255,.08);border-radius:15px;background:rgba(8,12,20,.9);backdrop-filter:blur(16px)}
+body[data-page="edit"] .editor-tab{display:flex;align-items:center;gap:7px;min-height:40px;padding:0 12px;border-radius:10px}
+body[data-page="edit"] .editor-tab b{width:20px;height:20px;display:grid;place-items:center;border-radius:7px;background:rgba(255,255,255,.05);font-size:.6rem}
+body[data-page="edit"] .editor-tab.active b{background:rgba(101,216,255,.13);color:#c8f4ff}
+body[data-page="edit"] .editor-mode-toggle{margin-left:auto;display:flex;align-items:center;gap:3px;padding:3px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.02)}
+body[data-page="edit"] .editor-mode-toggle>span{padding:0 5px;color:var(--muted2);font-size:.52rem;font-weight:900;letter-spacing:.1em}
+body[data-page="edit"] .editor-mode-toggle button{min-height:30px;padding:0 9px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:.62rem;font-weight:850;cursor:pointer}
+body[data-page="edit"] .editor-mode-toggle button.active{background:rgba(101,216,255,.1);color:#ddf8ff}
+
+body[data-page="edit"] .editor-toolbar{margin-bottom:12px;padding:0 2px}
+body[data-page="edit"] .editor-toolbar h2{font-size:1.15rem;margin:3px 0 4px}
+body[data-page="edit"] .editor-toolbar p{font-size:.72rem;max-width:720px}
+body[data-page="edit"] .simple-settings-heading{margin:0 0 12px}
+body[data-page="edit"] #addForfeitBtn,body[data-page="edit"] #addLevelBtn{min-width:122px}
+
+body[data-page="edit"] .forfeit-tools{padding:8px 9px;margin-bottom:12px;border-radius:13px}
+body[data-page="edit"] .forfeit-search input{min-height:38px}
+body[data-page="edit"] .forfeit-group{border-radius:15px}
+body[data-page="edit"] .forfeit-group-head{min-height:54px;padding:8px 11px}
+body[data-page="edit"] .forfeit-group-body{padding:8px;gap:7px}
+body[data-page="edit"] .forfeit-editor-card{border-radius:12px!important}
+body[data-page="edit"] .forfeit-editor-card .editor-card-head{padding:10px 11px!important;gap:9px}
+body[data-page="edit"] .forfeit-editor-card:not(.is-expanded) .editor-card-head{padding-bottom:10px!important}
+body[data-page="edit"] .forfeit-editor-card .inline-title{font-size:.84rem}
+body[data-page="edit"] .forfeit-editor-card .editor-id{font-size:.54rem;opacity:.55}
+body[data-page="edit"] .detail-toggle{min-width:48px!important;padding-inline:8px!important}
+body[data-page="edit"] .dep-head-btn{font-size:.58rem!important}
+body[data-page="edit"] .simple-basic-label{grid-column:1/-1;order:-20;margin:0 0 -2px;color:#8de8ff;font-size:.57rem;font-weight:950;letter-spacing:.12em}
+body[data-page="edit"] .forfeit-editor-card.is-expanded .editor-fields-grid{padding:12px 12px 0;gap:9px}
+body[data-page="edit"] .forfeit-editor-card.is-expanded .editor-bottom-grid{padding:10px 12px 0;gap:10px}
+body[data-page="edit"] .forfeit-editor-card.is-expanded .unlock-box{margin:11px 12px 12px;padding:11px;border-radius:11px}
+body[data-page="edit"] .forfeit-editor-card .field{font-size:.62rem}
+body[data-page="edit"] .forfeit-editor-card input,body[data-page="edit"] .forfeit-editor-card select,body[data-page="edit"] .forfeit-editor-card textarea{min-height:38px}
+body[data-page="edit"] .forfeit-editor-card textarea{min-height:74px}
+body[data-page="edit"] .forfeit-editor-card .check-stack{gap:7px}
+body[data-page="edit"] .unlock-box strong{font-size:.72rem}
+body[data-page="edit"] .unlock-box>div>span{font-size:.61rem;line-height:1.4}
+body[data-page="edit"] .visual-status-row{margin-top:5px}
+
+body[data-page="edit"].editor-simple-mode .simple-advanced-field{display:none!important}
+body[data-page="edit"].editor-simple-mode .settings-advanced-card{display:none!important}
+body[data-page="edit"].editor-simple-mode .global-advanced-feature{display:none!important}
+body[data-page="edit"].editor-simple-mode #expandAllGroups,
+body[data-page="edit"].editor-simple-mode #collapseAllGroups{display:none!important}
+body[data-page="edit"].editor-simple-mode .level-color-advanced{display:none!important}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .editor-fields-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded label:has(.js-level){order:-15}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded label:has(.js-weight){order:-14}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded label:has(.js-lifetime-type){order:-13}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded label:has(.js-lifetime-count){order:-12}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded label:has(.js-event-type){order:-11}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded label:has(.js-timer-seconds){order:-10}
+
+body[data-page="edit"].editor-advanced-mode .simple-basic-label::after{content:' · all controls visible';color:var(--muted2);font-weight:700;letter-spacing:0}
+body[data-page="edit"].editor-advanced-mode #expandAllGroups,
+body[data-page="edit"].editor-advanced-mode #collapseAllGroups{display:inline-flex}
+
+body[data-page="edit"] .level-editor-card{position:relative;border-radius:13px;padding:12px}
+body[data-page="edit"] .level-edit-main{gap:9px}
+body[data-page="edit"] .progression-box{margin-top:9px!important}
+body[data-page="edit"] .progression-guide{padding:10px 12px;margin-bottom:12px}
+body[data-page="edit"] .advanced-progression-rules{margin-top:14px}
+
+body[data-page="edit"] .simple-spin-style{margin:0 0 12px;padding:14px;display:grid;grid-template-columns:minmax(180px,.8fr) minmax(360px,1.6fr);gap:14px;align-items:center}
+body[data-page="edit"] .simple-spin-style h3{margin:3px 0 3px}
+body[data-page="edit"] .simple-spin-style p{font-size:.68rem;margin:0}
+body[data-page="edit"] .simple-spin-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+body[data-page="edit"] .simple-spin-preset{min-height:58px;padding:9px;border:1px solid rgba(255,255,255,.075);border-radius:11px;background:rgba(255,255,255,.025);color:var(--text);text-align:left;cursor:pointer}
+body[data-page="edit"] .simple-spin-preset strong,body[data-page="edit"] .simple-spin-preset span{display:block}
+body[data-page="edit"] .simple-spin-preset strong{font-size:.72rem}
+body[data-page="edit"] .simple-spin-preset span{margin-top:2px;color:var(--muted2);font-size:.58rem}
+body[data-page="edit"] .simple-spin-preset:hover,body[data-page="edit"] .simple-spin-preset.active{border-color:rgba(101,216,255,.26);background:rgba(101,216,255,.07)}
+body[data-page="edit"] .simple-drama-toggle{grid-column:2;margin:0}
+body[data-page="edit"].editor-simple-mode #tab-settings .settings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+body[data-page="edit"].editor-simple-mode #tab-settings .static-card{min-height:0}
+
+@media(max-width:900px){
+  body[data-page="edit"] .editor-tabs{overflow-x:auto}
+  body[data-page="edit"] .editor-mode-toggle{position:sticky;right:0;background:#0c111c}
+  body[data-page="edit"] .simple-spin-style{grid-template-columns:1fr}
+  body[data-page="edit"] .simple-drama-toggle{grid-column:auto}
+  body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .editor-fields-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  body[data-page="edit"] .editor-intro{display:grid;gap:12px}
+  body[data-page="edit"] .editor-summary{justify-content:stretch}
+  body[data-page="edit"] .editor-summary>div{flex:1}
+  body[data-page="edit"] .editor-tabs{top:4px}
+  body[data-page="edit"] .editor-tab{padding:0 9px}
+  body[data-page="edit"] .editor-tab span{white-space:nowrap}
+  body[data-page="edit"] .editor-mode-toggle>span{display:none}
+  body[data-page="edit"] .editor-save-status{display:none}
+  body[data-page="edit"] .simple-spin-presets{grid-template-columns:1fr}
+  body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .editor-fields-grid{grid-template-columns:1fr}
+  body[data-page="edit"].editor-simple-mode #tab-settings .settings-grid{grid-template-columns:1fr}
+}
