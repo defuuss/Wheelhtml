@@ -1,0 +1,127 @@
+/* Stable simplified editor. Advanced mode keeps the original controls and tree tooling. */
+body[data-page="edit"]{--simple-accent:#65d8ff}
+body[data-page="edit"] .editor-layout{max-width:1320px}
+body[data-page="edit"] .editor-intro{padding:18px 20px;margin-bottom:14px;align-items:center;background:linear-gradient(120deg,rgba(101,216,255,.045),rgba(255,255,255,.015))}
+body[data-page="edit"] .editor-intro h1{font-size:clamp(1.45rem,2.6vw,2.15rem);margin:4px 0 5px}
+body[data-page="edit"] .editor-intro p{max-width:760px;margin:0;font-size:.78rem;line-height:1.5}
+body[data-page="edit"] .editor-summary{gap:7px}
+body[data-page="edit"] .editor-summary>div{min-width:86px;padding:8px 10px;border-radius:12px}
+body[data-page="edit"] .editor-summary span{font-size:.55rem}
+body[data-page="edit"] .editor-summary strong{font-size:1rem}
+
+body[data-page="edit"] .top-actions{gap:7px}
+body[data-page="edit"] .editor-save-status-v2{align-self:center;padding:5px 8px;border-radius:999px;color:#8ff4cf;background:rgba(69,224,168,.06);border:1px solid rgba(69,224,168,.15);font-size:.61rem;font-weight:900;white-space:nowrap}
+body[data-page="edit"] .editor-save-status-v2.dirty{color:#ffd995;background:rgba(255,190,88,.06);border-color:rgba(255,190,88,.18)}
+body[data-page="edit"] .editor-more-menu-v2{position:relative}
+body[data-page="edit"] .editor-more-popover-v2{position:absolute;right:0;top:calc(100% + 7px);z-index:900;min-width:170px;padding:6px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#0e1421;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+body[data-page="edit"] .editor-more-popover-v2[hidden]{display:none}
+body[data-page="edit"] .editor-more-popover-v2 .btn{display:flex;width:100%;justify-content:flex-start;border-color:transparent;background:transparent}
+body[data-page="edit"] .editor-more-popover-v2 .btn:hover{background:rgba(255,255,255,.05)}
+
+body[data-page="edit"] .editor-tabs{position:sticky;top:8px;z-index:80;display:flex;align-items:center;gap:6px;padding:6px;margin-bottom:18px;border:1px solid rgba(255,255,255,.08);border-radius:15px;background:rgba(8,12,20,.92);backdrop-filter:blur(16px)}
+body[data-page="edit"] .editor-tab{min-height:40px;padding:0 14px;border-radius:10px}
+body[data-page="edit"] .editor-tab[data-tab="forfeits"]::before{content:'1';margin-right:7px}
+body[data-page="edit"] .editor-tab[data-tab="levels"]::before{content:'2';margin-right:7px}
+body[data-page="edit"] .editor-tab[data-tab="settings"]::before{content:'3';margin-right:7px}
+body[data-page="edit"] .editor-tab::before{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:7px;background:rgba(255,255,255,.05);font-size:.58rem;font-weight:900;color:var(--muted2)}
+body[data-page="edit"] .editor-tab.active::before{background:rgba(101,216,255,.13);color:#d7f7ff}
+body[data-page="edit"] .editor-mode-toggle-v2{margin-left:auto;display:flex;align-items:center;gap:3px;padding:3px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.02)}
+body[data-page="edit"] .editor-mode-toggle-v2>span{padding:0 5px;color:var(--muted2);font-size:.52rem;font-weight:900;letter-spacing:.1em}
+body[data-page="edit"] .editor-mode-toggle-v2 button{min-height:30px;padding:0 9px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:.62rem;font-weight:850;cursor:pointer}
+body[data-page="edit"] .editor-mode-toggle-v2 button.active{background:rgba(101,216,255,.1);color:#ddf8ff}
+
+body[data-page="edit"] .editor-toolbar{margin-bottom:12px;padding:0 2px}
+body[data-page="edit"] .editor-toolbar h2{font-size:1.15rem;margin:3px 0 4px}
+body[data-page="edit"] .editor-toolbar p{font-size:.72rem;max-width:720px}
+body[data-page="edit"] .simple-settings-heading-v2{margin:0 0 12px}
+
+/* Simple mode: remove the diagram chrome, not the dependency functionality. */
+body[data-page="edit"].editor-simple-mode #dependencyViewToggle,
+body[data-page="edit"].editor-simple-mode .forfeit-tree-help,
+body[data-page="edit"].editor-simple-mode .tree-order-badge,
+body[data-page="edit"].editor-simple-mode .forfeit-compact-meta,
+body[data-page="edit"].editor-simple-mode .group-quick-add,
+body[data-page="edit"].editor-simple-mode #expandAllGroups,
+body[data-page="edit"].editor-simple-mode #collapseAllGroups{display:none!important}
+body[data-page="edit"].editor-simple-mode .forfeit-group-body{margin:0!important;padding:8px!important;gap:8px!important}
+body[data-page="edit"].editor-simple-mode .forfeit-group-body::before,
+body[data-page="edit"].editor-simple-mode .forfeit-group .forfeit-editor-card::before,
+body[data-page="edit"].editor-simple-mode .forfeit-group .forfeit-editor-card::after{display:none!important}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.dep-child{margin-left:0!important;width:100%!important}
+body[data-page="edit"].editor-simple-mode .forfeit-group-head{min-height:56px;padding:9px 12px;grid-template-columns:40px minmax(0,1fr) auto auto}
+body[data-page="edit"].editor-simple-mode .forfeit-group-badges .group-badge:not(.start){display:none}
+body[data-page="edit"].editor-simple-mode .forfeit-group-title small{font-size:.64rem}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card{border-radius:13px!important;background:rgba(12,16,27,.76)!important;border-color:rgba(255,255,255,.075)!important}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card:hover{border-color:rgba(101,216,255,.18)!important}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card .editor-card-head{padding:10px 11px!important;gap:9px}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card:not(.is-expanded) .editor-card-head{padding-bottom:10px!important}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card .inline-title{font-size:.86rem}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card .editor-id{font-size:.53rem;opacity:.5}
+body[data-page="edit"].editor-simple-mode .visual-status-row{margin-top:5px;gap:5px}
+
+/* Stable simple labels without rewriting DOM text (prevents dependency/progression ping-pong). */
+body[data-page="edit"].editor-simple-mode .dep-edit-action,
+body[data-page="edit"].editor-simple-mode .dep-after-action,
+body[data-page="edit"].editor-simple-mode .detail-toggle{font-size:0!important;min-width:auto!important;padding-inline:9px!important}
+body[data-page="edit"].editor-simple-mode .dep-edit-action::after{content:'When available';font-size:.62rem}
+body[data-page="edit"].editor-simple-mode .dep-after-action::after{content:'Unlocks';font-size:.62rem}
+body[data-page="edit"].editor-simple-mode .detail-toggle::after{content:'Edit';font-size:.62rem}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .detail-toggle::after{content:'Close'}
+body[data-page="edit"].editor-simple-mode .dep-edit-action{color:#c6f3ff!important;border-color:rgba(101,216,255,.18)!important}
+body[data-page="edit"].editor-simple-mode .dep-after-action{color:#b8c6d9!important}
+
+/* Expanded entry: show only the fields most people need. */
+body[data-page="edit"].editor-simple-mode .simple-v2-advanced-field{display:none!important}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .editor-fields-grid{grid-template-columns:repeat(3,minmax(0,1fr));padding:12px 12px 0;gap:9px}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .editor-bottom-grid{padding:10px 12px 0;gap:10px}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .unlock-box{margin:11px 12px 12px;padding:11px;border-radius:11px}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card .field{font-size:.62rem}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card input,
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card select,
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card textarea{min-height:38px}
+body[data-page="edit"].editor-simple-mode .forfeit-editor-card textarea{min-height:76px}
+body[data-page="edit"].editor-simple-mode .simple-v2-primary-field:has(.js-level){order:-20}
+body[data-page="edit"].editor-simple-mode .simple-v2-primary-field:has(.js-weight){order:-19}
+body[data-page="edit"].editor-simple-mode .simple-v2-primary-field:has(.js-lifetime-type){order:-18}
+body[data-page="edit"].editor-simple-mode .simple-v2-primary-field:has(.js-lifetime-count){order:-17}
+body[data-page="edit"].editor-simple-mode .simple-v2-primary-field:has(.js-event-type){order:-16}
+body[data-page="edit"].editor-simple-mode .simple-v2-primary-field:has(.js-timer-seconds){order:-15}
+
+/* Level page: make progression look like part of the level instead of a second competing UI. */
+body[data-page="edit"].editor-simple-mode .progression-guide{padding:9px 11px;margin-bottom:10px;border-radius:11px;font-size:.66rem}
+body[data-page="edit"].editor-simple-mode #levelEditorList{gap:10px}
+body[data-page="edit"].editor-simple-mode .level-editor-card{padding:12px;border-radius:13px;background:rgba(12,16,27,.72)}
+body[data-page="edit"].editor-simple-mode .level-edit-main{grid-template-columns:minmax(180px,1.3fr) minmax(100px,.55fr) auto;gap:9px;align-items:end}
+body[data-page="edit"].editor-simple-mode .progression-box{margin:10px 0 0!important;border-radius:11px;background:rgba(255,255,255,.012)}
+body[data-page="edit"].editor-simple-mode .progression-box>summary{padding:9px 11px}
+body[data-page="edit"].editor-simple-mode .progression-content{padding:0 11px 11px}
+body[data-page="edit"].editor-simple-mode .advanced-progression-rules{display:none!important}
+body[data-page="edit"].editor-simple-mode #levelEditorList.tree-sorted-levels .level-editor-card{padding-left:12px}
+body[data-page="edit"].editor-simple-mode #levelEditorList.tree-sorted-levels .level-editor-card::before{display:none}
+
+/* Settings: retain functionality, hide only fine tuning in Simple mode. */
+body[data-page="edit"].editor-simple-mode #spinMotionCard,
+body[data-page="edit"].editor-simple-mode #spinDramaCard,
+body[data-page="edit"].editor-simple-mode label:has(#minSpin),
+body[data-page="edit"].editor-simple-mode label:has(#maxSpin),
+body[data-page="edit"].editor-simple-mode label:has(#minTurns){display:none!important}
+body[data-page="edit"].editor-simple-mode #tab-settings .settings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* Advanced returns the richer dependency tree and every original field. */
+body[data-page="edit"].editor-advanced-mode .simple-v2-advanced-field{display:block}
+
+@media(max-width:900px){
+  body[data-page="edit"] .editor-tabs{overflow-x:auto}
+  body[data-page="edit"] .editor-mode-toggle-v2{position:sticky;right:0;background:#0c111c}
+  body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .editor-fields-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body[data-page="edit"].editor-simple-mode .level-edit-main{grid-template-columns:1fr 110px}
+}
+@media(max-width:650px){
+  body[data-page="edit"] .editor-intro{display:grid;gap:12px}
+  body[data-page="edit"] .editor-summary>div{flex:1}
+  body[data-page="edit"] .editor-mode-toggle-v2>span{display:none}
+  body[data-page="edit"] .editor-save-status-v2{display:none}
+  body[data-page="edit"].editor-simple-mode .forfeit-editor-card.is-expanded .editor-fields-grid{grid-template-columns:1fr}
+  body[data-page="edit"].editor-simple-mode .level-edit-main{grid-template-columns:1fr}
+  body[data-page="edit"].editor-simple-mode #tab-settings .settings-grid{grid-template-columns:1fr}
+}
