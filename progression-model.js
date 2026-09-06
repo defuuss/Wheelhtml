@@ -306,6 +306,7 @@
   }
 
   function downloadXml(config, filename = 'fortune-wheel.xml') {
+    if (typeof base.downloadXml === 'function') return base.downloadXml(config, filename);
     const blob = new Blob([configToXml(config)], { type: 'application/xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -318,6 +319,7 @@
   }
 
   async function readXmlFile(file) {
+    if (typeof base.readXmlFile === 'function') return base.readXmlFile(file);
     if (!file) throw new Error('No XML file selected.');
     if (file.size > 2_000_000) throw new Error('XML file is too large.');
     return xmlToConfig(await file.text());
@@ -330,6 +332,8 @@
     },
     setLevel(id, value) {
       const ids = new Set(loadConfig().levels.map(level => level.id));
+      sidecar.levels.forEach((_value, key) => ids.add(key));
+      try { (window.FortuneEditor?.getDraft?.().levels || []).forEach(level => ids.add(level.id)); } catch (_) {}
       sidecar.levels.set(id, levelExtra(value, ids, id));
     },
     getForfeit(id) {
