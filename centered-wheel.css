@@ -1,0 +1,38 @@
+/* Centered play layout after removing the decorative hostess. */
+body[data-page="play"] .gameshow-host{display:none!important}
+
+/* Undo the desktop space that was reserved for the hostess. */
+@media(min-width:1181px){
+  body[data-page="play"] .stage-panel{
+    padding-left:initial!important;
+  }
+  body[data-page="play"] .wheel-zone{
+    min-height:0!important;
+  }
+}
+
+/* Keep the game-show marquee and center the wheel stack cleanly. */
+body[data-page="play"] .wheel-zone{
+  display:flex!important;
+  flex-direction:column;
+  align-items:center!important;
+  justify-content:flex-start;
+  width:100%;
+  margin-inline:auto;
+}
+body[data-page="play"] .wheel-shell{
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+body[data-page="play"] .spin-row,
+body[data-page="play"] .wheel-stats,
+body[data-page="play"] .fate-deck-v4-panel{
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+
+/* The old hostess plaque is no longer needed. */
+body[data-page="play"] .stage-panel .wheel-zone::after{
+  display:none!important;
+  content:none!important;
+}
