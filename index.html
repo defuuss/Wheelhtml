@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="show-stage.css?v=1">
   <link rel="stylesheet" href="gameshow-wheel-theme.css?v=3">
   <link rel="stylesheet" href="centered-wheel.css?v=1">
+  <link rel="stylesheet" href="active-levels-panel.css?v=1">
 </head>
 <body data-page="play">
   <div class="ambient ambient-a"></div>
@@ -39,11 +40,6 @@
 
   <main class="play-layout">
     <section class="stage-panel" aria-label="Wheel">
-      <div class="level-strip-wrap">
-        <div class="section-kicker">ACTIVE GROUPS</div>
-        <div id="levelLights" class="level-lights" aria-live="polite"></div>
-      </div>
-
       <div class="wheel-zone">
         <div class="wheel-shell" id="wheelShell">
           <div class="pointer" id="pointer" aria-hidden="true"><span></span></div>
@@ -71,6 +67,11 @@
     </section>
 
     <aside class="side-panel">
+      <div class="level-strip-wrap levels-side-panel">
+        <div class="section-kicker">ACTIVE LEVELS</div>
+        <div id="levelLights" class="level-lights" aria-live="polite"></div>
+      </div>
+
       <div class="now-card">
         <div class="section-kicker">CURRENT STATE</div>
         <h2 id="stateTitle">Ready to spin</h2>
@@ -81,14 +82,7 @@
         </div>
       </div>
 
-      <div class="probability-card">
-        <div class="card-heading">
-          <div>
-            <div class="section-kicker">ODDS</div>
-            <h3>Probability inspector</h3>
-          </div>
-          <span class="tiny-pill">live</span>
-        </div>
+      <div class="probability-card" hidden aria-hidden="true">
         <div id="probabilityList" class="probability-list"></div>
       </div>
     </aside>
