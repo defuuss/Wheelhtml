@@ -1,4 +1,4 @@
-/* Visual dependency paths + compact semantic status chips. */
+/* Stable semantic status chips for the editor. Dynamic hover-path effects were removed because they caused visible card flicker/reflow in Advanced mode. */
 body[data-page="edit"] .visual-status-row{
   display:flex;
   align-items:center;
@@ -23,81 +23,44 @@ body[data-page="edit"] .visual-status-chip{
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
-  transition:border-color .14s ease,background .14s ease,color .14s ease,opacity .14s ease;
 }
 body[data-page="edit"] .visual-status-chip.weight{color:#b8c4d6}
 body[data-page="edit"] .visual-status-chip.ready{border-color:rgba(145,162,187,.11);color:#8492a8;background:rgba(145,162,187,.035)}
 body[data-page="edit"] .visual-status-chip.requires{border-color:rgba(101,216,255,.22);color:#c5f3ff;background:rgba(101,216,255,.07)}
 body[data-page="edit"] .visual-status-chip.enables{border-color:rgba(69,224,168,.2);color:#a8f5d8;background:rgba(69,224,168,.065)}
 body[data-page="edit"] .visual-status-chip.once{border-color:rgba(255,184,91,.2);color:#ffd7a0;background:rgba(255,184,91,.06)}
-body[data-page="edit"] .visual-status-chip.timed,body[data-page="edit"] .visual-status-chip.cooldown{border-color:rgba(166,139,255,.19);color:#d6caff;background:rgba(166,139,255,.055)}
+body[data-page="edit"] .visual-status-chip.timed,
+body[data-page="edit"] .visual-status-chip.cooldown{border-color:rgba(166,139,255,.19);color:#d6caff;background:rgba(166,139,255,.055)}
 body[data-page="edit"] .visual-status-chip.mystery{border-color:rgba(236,112,255,.22);color:#f0c0ff;background:rgba(236,112,255,.065)}
 body[data-page="edit"] .visual-status-chip.event{border-color:rgba(255,215,92,.19);color:#ffe8a0;background:rgba(255,215,92,.055)}
 body[data-page="edit"] .visual-status-chip.unlock{border-color:rgba(69,224,168,.22);color:#9bf2d3;background:rgba(69,224,168,.07)}
 body[data-page="edit"] .visual-status-chip.disabled{border-color:rgba(255,100,124,.22);color:#ffb0bd;background:rgba(255,100,124,.06)}
 
-/* The older generic compact metadata stays useful as fallback, but the semantic row is primary. */
 body[data-page="edit"] .forfeit-compact-meta{opacity:.48;font-size:.57rem;margin-top:3px}
 body[data-page="edit"] .forfeit-compact-meta span{padding:1px 5px}
 body[data-page="edit"] .visual-disabled{opacity:.66}
 
-/* Dependency-path inspection. Hover/focus a card to reveal its complete local chain. */
-body[data-page="edit"] .forfeit-group.dep-path-active .forfeit-editor-card{
-  transition:opacity .14s ease,border-color .14s ease,background .14s ease,box-shadow .14s ease,transform .14s ease;
+/* Hard stability guard for cached older JS versions: even if they add legacy hover-path classes,
+   those classes must never change layout, opacity, filters, transforms, or insert extra status chips. */
+body[data-page="edit"] .forfeit-group.dep-path-active .forfeit-editor-card,
+body[data-page="edit"] .forfeit-editor-card.dep-visual-focus,
+body[data-page="edit"] .forfeit-editor-card.dep-visual-prereq,
+body[data-page="edit"] .forfeit-editor-card.dep-visual-dependent,
+body[data-page="edit"] .forfeit-editor-card.dep-visual-dim{
+  transform:none!important;
+  filter:none!important;
+  transition:none!important;
 }
 body[data-page="edit"] .forfeit-group.dep-path-active .forfeit-editor-card.dep-visual-dim{
-  opacity:.32;
-  filter:saturate(.55);
-}
-body[data-page="edit"] .forfeit-editor-card.dep-visual-focus{
-  z-index:5;
   opacity:1!important;
-  border-color:rgba(101,216,255,.58)!important;
-  background:linear-gradient(90deg,rgba(101,216,255,.095),rgba(12,16,27,.86))!important;
-  box-shadow:0 0 0 1px rgba(101,216,255,.12),0 8px 26px rgba(0,0,0,.22)!important;
-}
-body[data-page="edit"] .forfeit-editor-card.dep-visual-prereq{
-  opacity:1!important;
-  border-color:rgba(255,190,88,.42)!important;
-  background:linear-gradient(90deg,rgba(255,190,88,.075),rgba(12,16,27,.82))!important;
-}
-body[data-page="edit"] .forfeit-editor-card.dep-visual-dependent{
-  opacity:1!important;
-  border-color:rgba(69,224,168,.4)!important;
-  background:linear-gradient(90deg,rgba(69,224,168,.065),rgba(12,16,27,.82))!important;
-}
-body[data-page="edit"] .forfeit-editor-card.dep-visual-focus::before{
-  height:3px!important;
-  background:linear-gradient(90deg,rgba(101,216,255,.45),rgba(101,216,255,.95))!important;
-  box-shadow:0 0 10px rgba(101,216,255,.3);
-}
-body[data-page="edit"] .forfeit-editor-card.dep-visual-prereq::before{
-  height:3px!important;
-  background:linear-gradient(90deg,rgba(255,190,88,.35),rgba(255,190,88,.86))!important;
-  box-shadow:0 0 8px rgba(255,190,88,.18);
-}
-body[data-page="edit"] .forfeit-editor-card.dep-visual-dependent::before{
-  height:3px!important;
-  background:linear-gradient(90deg,rgba(69,224,168,.35),rgba(69,224,168,.86))!important;
-  box-shadow:0 0 8px rgba(69,224,168,.18);
 }
 body[data-page="edit"] .dep-visual-focus .visual-status-row::before,
 body[data-page="edit"] .dep-visual-prereq .visual-status-row::before,
 body[data-page="edit"] .dep-visual-dependent .visual-status-row::before{
-  display:inline-flex;
-  align-items:center;
-  min-height:22px;
-  padding:2px 7px;
-  border-radius:999px;
-  font-size:.59rem;
-  font-weight:900;
-  letter-spacing:.02em;
+  display:none!important;
+  content:none!important;
 }
-body[data-page="edit"] .dep-visual-focus .visual-status-row::before{content:'● selected';color:#d9f8ff;border:1px solid rgba(101,216,255,.3);background:rgba(101,216,255,.1)}
-body[data-page="edit"] .dep-visual-prereq .visual-status-row::before{content:'↑ prerequisite';color:#ffe0ad;border:1px solid rgba(255,190,88,.28);background:rgba(255,190,88,.08)}
-body[data-page="edit"] .dep-visual-dependent .visual-status-row::before{content:'↓ available after';color:#b6f8df;border:1px solid rgba(69,224,168,.28);background:rgba(69,224,168,.075)}
 
 @media(max-width:700px){
   body[data-page="edit"] .visual-status-chip{font-size:.6rem;max-width:240px}
-  body[data-page="edit"] .forfeit-group.dep-path-active .forfeit-editor-card.dep-visual-dim{opacity:.44}
 }
