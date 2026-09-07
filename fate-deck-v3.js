@@ -125,28 +125,24 @@
     const key = resultKey();
     const cardsLeft = loadState().cards.length;
     const resultVisible = !$('resultOverlay')?.hidden;
-    const specialResult = !resultVisible || !key;
-    button.hidden = specialResult || usedResultKey === key;
+    button.hidden = !resultVisible || !key || usedResultKey === key;
     button.disabled = cardsLeft === 0;
-    button.innerHTML = cardsLeft
+    const nextHtml = cardsLeft
       ? `<span>✦</span> Take a Fate Card <small>${cardsLeft} left</small>`
       : '<span>✦</span> Fate Deck Empty';
+    if (button.innerHTML !== nextHtml) button.innerHTML = nextHtml;
     const accept = $('resultCloseBtn');
-    if (accept && resultVisible) accept.textContent = 'Accept';
-  }
-
-  function compatibleCards() {
-    return loadState().cards.map((id, index) => ({ id, index }));
+    if (accept && resultVisible && accept.textContent !== 'Accept') accept.textContent = 'Accept';
   }
 
   function takeCard() {
     const state = loadState();
-    const choices = compatibleCards();
-    if (!choices.length) return null;
-    const choice = choices[Math.floor(Math.random() * choices.length)];
-    state.cards.splice(choice.index, 1);
+    if (!state.cards.length) return null;
+    const index = Math.floor(Math.random() * state.cards.length);
+    const id = state.cards[index];
+    state.cards.splice(index, 1);
     saveState(state);
-    return choice.id;
+    return id;
   }
 
   function ensureOverlay() {
@@ -222,11 +218,8 @@
 
   function drawFromWheel() {
     const id = takeCard();
-    if (!id) {
-      closeOldCardOverlay();
-      return;
-    }
     closeOldCardOverlay();
+    if (!id) return;
     showCard(id, 'wheel');
   }
 
@@ -319,20 +312,20 @@
     }, 1150);
   }
 
+  // Watch only the overlay's hidden attribute. The previous subtree observer also
+  // watched the Fate button that it updated itself, causing an endless MutationObserver
+  // feedback loop that starved the browser event loop after the wheel stopped.
   const resultOverlay = $('resultOverlay');
   if (resultOverlay) {
     new MutationObserver(() => {
-      if (!resultOverlay.hidden) {
-        const key = resultKey();
-        if (key !== usedResultKey) updateTemptButton();
-      }
-    }).observe(resultOverlay, { attributes:true, attributeFilter:['hidden'], childList:true, subtree:true });
+      if (!resultOverlay.hidden) requestAnimationFrame(updateTemptButton);
+    }).observe(resultOverlay, { attributes:true, attributeFilter:['hidden'] });
   }
 
   const oldCardOverlay = $('specialCardOverlay');
   if (oldCardOverlay) {
     new MutationObserver(() => {
-      if (!oldCardOverlay.hidden && !$('fateDeckOverlayV3')?.matches(':not([hidden])')) {
+      if (!oldCardOverlay.hidden && $('fateDeckOverlayV3')?.hidden !== false) {
         setTimeout(drawFromWheel, 0);
       }
     }).observe(oldCardOverlay, { attributes:true, attributeFilter:['hidden'] });
