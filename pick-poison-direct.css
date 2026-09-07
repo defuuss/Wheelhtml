@@ -1,0 +1,21 @@
+/* Pick Your Poison: direct weighted reveal without spinning the main wheel again. */
+.poison-direct-reveal{width:min(620px,94vw);display:grid;justify-items:center;gap:14px;padding:8px 0 22px;animation:poisonRevealIn .55s ease-out both}
+.poison-direct-kicker{font-size:.63rem;font-weight:950;letter-spacing:.22em;color:#ffd27d;text-shadow:0 0 18px rgba(255,180,73,.34)}
+.poison-direct-sub{max-width:500px;text-align:center;color:#8f9bad;font-size:.67rem;line-height:1.45}
+.poison-direct-card{position:relative;width:min(480px,88vw);min-height:360px;padding:34px 32px 30px;display:grid;justify-items:center;align-content:center;gap:9px;border:2px solid color-mix(in srgb,var(--poison-color) 62%,#fff 12%);border-radius:30px;background:radial-gradient(circle at 50% 18%,color-mix(in srgb,var(--poison-color) 18%,transparent),rgba(12,14,25,.95) 48%,rgba(7,8,15,.98));box-shadow:0 28px 70px rgba(0,0,0,.58),0 0 38px color-mix(in srgb,var(--poison-color) 24%,transparent),inset 0 0 0 1px rgba(255,255,255,.08);overflow:hidden;text-align:center;animation:poisonCardPop .72s .15s cubic-bezier(.17,.82,.2,1) both}
+.poison-direct-card::before{content:'';position:absolute;inset:-35%;background:conic-gradient(from 0deg,transparent,color-mix(in srgb,var(--poison-color) 22%,transparent),transparent 32%,transparent 70%,color-mix(in srgb,#ffd36a 18%,transparent),transparent);animation:poisonAura 5s linear infinite;pointer-events:none}
+.poison-direct-card>*{position:relative;z-index:1}
+.poison-direct-icon{width:104px;height:104px;display:grid;place-items:center;border-radius:28px;border:1px solid color-mix(in srgb,var(--poison-color) 54%,#fff 8%);background:color-mix(in srgb,var(--poison-color) 18%,rgba(255,255,255,.03));font-size:3.4rem;box-shadow:0 0 34px color-mix(in srgb,var(--poison-color) 26%,transparent)}
+.poison-direct-category{font-size:.56rem;font-weight:950;letter-spacing:.2em;color:#c5cedd}
+.poison-direct-card h2{margin:0;font-size:2rem;line-height:1.05;color:#fff;text-wrap:balance}
+.poison-direct-card p{margin:0;max-width:390px;color:#adb7c7;font-size:.84rem;line-height:1.55}
+.poison-direct-timer{margin-top:3px;padding:7px 11px;border-radius:999px;border:1px solid rgba(255,218,127,.24);background:rgba(255,195,69,.08);color:#ffe2a4;font-size:.72rem;font-weight:900}
+.poison-direct-unlock{max-width:390px;padding:8px 11px;border-radius:11px;border:1px solid rgba(92,232,176,.2);background:rgba(60,197,145,.07);color:#adf1d7;font-size:.66rem;font-weight:850;line-height:1.4}
+.poison-direct-accept{min-width:240px;border-color:rgba(255,190,75,.34)!important;background:linear-gradient(135deg,rgba(220,129,37,.28),rgba(140,62,139,.24))!important;box-shadow:0 12px 30px rgba(0,0,0,.28)!important}
+.poison-direct-reveal.mystery-open .poison-direct-card{animation:poisonMysteryOpen .5s ease-out}
+@keyframes poisonRevealIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes poisonCardPop{0%{opacity:0;transform:scale(.72) rotate(-4deg)}65%{opacity:1;transform:scale(1.035) rotate(1deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes poisonAura{to{transform:rotate(360deg)}}
+@keyframes poisonMysteryOpen{0%{filter:brightness(.65);transform:scale(.98)}45%{filter:brightness(1.35);transform:scale(1.025)}100%{filter:none;transform:none}}
+@media(max-width:620px){.poison-direct-card{min-height:315px;padding:28px 22px 24px}.poison-direct-icon{width:88px;height:88px;font-size:2.8rem}.poison-direct-card h2{font-size:1.65rem}}
+@media(prefers-reduced-motion:reduce){.poison-direct-reveal,.poison-direct-card,.poison-direct-card::before,.poison-direct-reveal.mystery-open .poison-direct-card{animation:none!important}}
