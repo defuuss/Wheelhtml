@@ -8,12 +8,13 @@
   const img = host?.querySelector('img');
   if (!host || !img) return;
 
+  const BASE = 'assets/fate-cards/show/';
   const POSES = {
-    idle: 'assets/show/gameshow-hostess.png?v=2',
-    thinking: 'assets/show/gameshow-hostess-thinking.png?v=1',
-    pointing: 'assets/show/gameshow-hostess-pointing.png?v=1',
-    invite: 'assets/show/gameshow-hostess-invite.png?v=1',
-    card: 'assets/show/gameshow-hostess-card.png?v=1'
+    idle: `${BASE}gameshow-hostess.png?v=3`,
+    thinking: `${BASE}gameshow-hostess-thinking.png?v=2`,
+    pointing: `${BASE}gameshow-hostess-pointing.png?v=2`,
+    invite: `${BASE}gameshow-hostess-invite.png?v=2`,
+    card: `${BASE}gameshow-hostess-card.png?v=2`
   };
 
   const COPY = {
