@@ -40,6 +40,20 @@ body[data-page="edit"] .forfeit-compact-meta{opacity:.48;font-size:.57rem;margin
 body[data-page="edit"] .forfeit-compact-meta span{padding:1px 5px}
 body[data-page="edit"] .visual-disabled{opacity:.66}
 
+/* The old dependency compact row duplicated the semantic chips and was rebuilt by
+   dependency-editor.js. Hiding it removes the last visible blink without removing
+   the Availability / After controls or dependency information. */
+body[data-page="edit"] .dep-compact-row{display:none!important}
+
+/* Advanced mode should be completely stable while the pointer moves over cards. */
+body[data-page="edit"].editor-advanced-mode .forfeit-editor-card{
+  transition:none!important;
+  transform:none!important;
+}
+body[data-page="edit"].editor-advanced-mode .forfeit-editor-card:hover{
+  transform:none!important;
+}
+
 /* Hard stability guard for cached older JS versions: even if they add legacy hover-path classes,
    those classes must never change layout, opacity, filters, transforms, or insert extra status chips. */
 body[data-page="edit"] .forfeit-group.dep-path-active .forfeit-editor-card,
