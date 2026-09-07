@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="pick-poison-direct.css?v=1">
   <link rel="stylesheet" href="show-stage.css?v=1">
   <link rel="stylesheet" href="gameshow-wheel-theme.css?v=3">
+  <link rel="stylesheet" href="centered-wheel.css?v=1">
 </head>
 <body data-page="play">
   <div class="ambient ambient-a"></div>
@@ -44,15 +45,6 @@
       </div>
 
       <div class="wheel-zone">
-        <figure class="gameshow-host" id="gameShowHost" aria-hidden="true">
-          <div class="gameshow-host-glow"></div>
-          <img src="assets/fate-cards/show/gameshow-hostess.png?v=3" alt="" onerror="this.closest('.gameshow-host').classList.add('host-missing')">
-          <figcaption>
-            <strong>YOUR FATE AWAITS</strong>
-            <span>Spin • Risk • Reveal</span>
-          </figcaption>
-        </figure>
-
         <div class="wheel-shell" id="wheelShell">
           <div class="pointer" id="pointer" aria-hidden="true"><span></span></div>
           <div class="wheel-glow"></div>
@@ -143,6 +135,5 @@
   <script src="wheel-visuals-safe.js?v=1"></script>
   <script src="show-stage-safe.js?v=1"></script>
   <script src="progression-play-safe.js?v=1"></script>
-  <script src="gameshow-hostess-poses.js?v=2"></script>
 </body>
 </html>
