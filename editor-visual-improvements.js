@@ -6,6 +6,7 @@
 
   const D = window.FortuneDependencyState;
   const list = document.getElementById('forfeitEditorList');
+  const body = document.body;
   if (!list) return;
 
   let scheduled = false;
@@ -15,6 +16,7 @@
   const clean = value => String(value ?? '').trim();
   const nameOf = card => clean(card?.querySelector('.js-name')?.value) || card?.dataset?.id || 'Forfeit';
   const iconOf = card => clean(card?.querySelector('.js-icon')?.value) || '🎯';
+  const pathInspectionEnabled = () => !!body?.classList.contains('editor-advanced-mode');
 
   function cardMap() { return new Map(cards().map(card => [card.dataset.id, card])); }
 
@@ -55,6 +57,12 @@
   }
 
   function highlightPath(card) {
+    /* Path inspection is an expert feature. In Simple view it caused cards to dim,
+       status chips to grow and the whole list to visually jump under the mouse. */
+    if (!pathInspectionEnabled()) {
+      clearPathHighlight();
+      return;
+    }
     if (!card?.dataset?.id) return;
     const byId = cardMap(), reverse = reverseMap(byId), id = card.dataset.id;
     const upstream = collectUpstream(id, byId), downstream = collectDownstream(id, reverse), group = card.closest('.forfeit-group');
@@ -145,9 +153,9 @@
   function enhanceCard(card) {
     if (card.dataset.visualPathBound !== '1') {
       card.dataset.visualPathBound = '1';
-      card.addEventListener('mouseenter', () => highlightPath(card));
+      card.addEventListener('mouseenter', () => { if (pathInspectionEnabled()) highlightPath(card); });
       card.addEventListener('mouseleave', event => { if (event.relatedTarget && card.contains(event.relatedTarget)) return; if (activeCard === card) clearPathHighlight(); });
-      card.addEventListener('focusin', () => highlightPath(card));
+      card.addEventListener('focusin', () => { if (pathInspectionEnabled()) highlightPath(card); });
       card.addEventListener('focusout', event => { if (event.relatedTarget && card.contains(event.relatedTarget)) return; if (activeCard === card) clearPathHighlight(); });
     }
   }
@@ -156,7 +164,8 @@
     scheduled = false;
     const byId = cardMap(), reverse = reverseMap(byId);
     byId.forEach(card => { enhanceCard(card); updateStatusRow(card, byId, reverse); });
-    if (activeCard?.isConnected) highlightPath(activeCard);
+    if (!pathInspectionEnabled()) clearPathHighlight();
+    else if (activeCard?.isConnected) highlightPath(activeCard);
   }
   function schedule() { if (scheduled) return; scheduled = true; requestAnimationFrame(refresh); }
 
@@ -166,6 +175,7 @@
   observer.observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-id'] });
   document.addEventListener('input', event => { if (event.target.closest('.forfeit-editor-card')) schedule(); });
   document.addEventListener('change', event => { if (event.target.closest('.forfeit-editor-card')) schedule(); });
+  if (body) new MutationObserver(() => { if (!pathInspectionEnabled()) clearPathHighlight(); }).observe(body, { attributes:true, attributeFilter:['class'] });
   window.addEventListener('fortune-editor-refreshed', schedule);
   window.addEventListener('fortune-ai-applied', schedule);
   schedule();
