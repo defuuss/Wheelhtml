@@ -75,7 +75,6 @@ body[data-page="play"] .wheel-zone::before{
   text-shadow:0 1px #fff5d2;
 }
 
-/* Hostess image: upload assets/show/gameshow-hostess.png. */
 body[data-page="play"] .gameshow-host{
   position:absolute;
   z-index:4;
@@ -87,6 +86,7 @@ body[data-page="play"] .gameshow-host{
   display:grid;
   justify-items:center;
   filter:drop-shadow(0 22px 28px rgba(0,0,0,.42));
+  transition:filter .28s ease,transform .28s ease;
 }
 body[data-page="play"] .gameshow-host img{
   width:100%;
@@ -96,7 +96,18 @@ body[data-page="play"] .gameshow-host img{
   display:block;
   position:relative;
   z-index:2;
+  transition:opacity .22s ease,transform .32s cubic-bezier(.2,.8,.2,1);
 }
+body[data-page="play"] .gameshow-host.host-pose-enter img{animation:hostPosePop .42s cubic-bezier(.2,.8,.2,1)}
+@keyframes hostPosePop{
+  0%{opacity:.2;transform:translateY(12px) scale(.965)}
+  60%{opacity:1;transform:translateY(-3px) scale(1.018)}
+  100%{opacity:1;transform:none}
+}
+body[data-page="play"] .gameshow-host[data-pose="thinking"]{transform:translateY(-3px)}
+body[data-page="play"] .gameshow-host[data-pose="pointing"]{transform:translateX(5px)}
+body[data-page="play"] .gameshow-host[data-pose="invite"]{filter:drop-shadow(0 22px 28px rgba(0,0,0,.42)) drop-shadow(0 0 24px rgba(239,95,145,.20))}
+body[data-page="play"] .gameshow-host[data-pose="card"]{filter:drop-shadow(0 22px 28px rgba(0,0,0,.42)) drop-shadow(0 0 28px rgba(246,184,63,.28))}
 body[data-page="play"] .gameshow-host-glow{
   position:absolute;
   left:10%;right:10%;bottom:6%;height:62%;
@@ -116,15 +127,10 @@ body[data-page="play"] .gameshow-host figcaption{
   border:2px solid #f8c65f;
   box-shadow:0 5px 0 #321a31,0 10px 24px rgba(0,0,0,.28);
 }
-body[data-page="play"] .gameshow-host figcaption strong{
-  display:block;font-size:.68rem;letter-spacing:.11em;color:#ffe39a;
-}
-body[data-page="play"] .gameshow-host figcaption span{
-  display:block;margin-top:2px;font-size:.56rem;letter-spacing:.09em;color:#f5c8d9;
-}
+body[data-page="play"] .gameshow-host figcaption strong{display:block;font-size:.68rem;letter-spacing:.11em;color:#ffe39a}
+body[data-page="play"] .gameshow-host figcaption span{display:block;margin-top:2px;font-size:.56rem;letter-spacing:.09em;color:#f5c8d9}
 body[data-page="play"] .gameshow-host.host-missing{display:none}
 
-/* Give the hostess room without shrinking the wheel itself. */
 @media(min-width:1181px){
   body[data-page="play"] .stage-panel{padding-left:clamp(150px,14vw,220px)}
   body[data-page="play"] .wheel-zone{min-height:760px}
@@ -151,22 +157,14 @@ body[data-page="play"] .wheel-shell::after{
 }
 body[data-page="play"] .wheel-glow{opacity:.85;filter:saturate(1.25)}
 body[data-page="play"] .wheel-svg{filter:saturate(.92) brightness(1.05) contrast(.96)}
-body[data-page="play"] .wheel-segment{
-  stroke:rgba(95,47,66,.78);stroke-width:2.2;
-  filter:saturate(.86) brightness(1.06);
-}
+body[data-page="play"] .wheel-segment{stroke:rgba(95,47,66,.78);stroke-width:2.2;filter:saturate(.86) brightness(1.06)}
 body[data-page="play"] .wheel-divider{stroke:#fff2c2!important;stroke-width:2.7!important;opacity:.9}
 body[data-page="play"] .wheel-rim{stroke:#ffe59a!important;stroke-width:6!important;filter:drop-shadow(0 0 6px rgba(255,206,97,.42))}
 body[data-page="play"] .wheel-icon{font-size:25px!important;filter:drop-shadow(0 2px 2px rgba(52,22,39,.35))}
 body[data-page="play"] .wheel-label{fill:#2f1a2d!important;font-weight:1000!important;text-shadow:0 1px rgba(255,255,255,.45)}
 
-body[data-page="play"] .pointer{
-  top:-24px!important;filter:drop-shadow(0 8px 8px rgba(0,0,0,.40));
-}
-body[data-page="play"] .pointer span{
-  border-top-color:#f45d81!important;
-  filter:drop-shadow(0 -2px 0 #ffd36b) drop-shadow(0 0 8px rgba(255,113,150,.6));
-}
+body[data-page="play"] .pointer{top:-24px!important;filter:drop-shadow(0 8px 8px rgba(0,0,0,.40))}
+body[data-page="play"] .pointer span{border-top-color:#f45d81!important;filter:drop-shadow(0 -2px 0 #ffd36b) drop-shadow(0 0 8px rgba(255,113,150,.6))}
 body[data-page="play"] .wheel-hub{
   background:radial-gradient(circle at 34% 28%,#fff3bf,#ffc955 30%,#c87834 57%,#693449 80%);
   border:5px solid #ffeaa5!important;
@@ -183,12 +181,8 @@ body[data-page="play"] .spin-button{
   background:linear-gradient(180deg,#ff83a5 0%,#ee507d 48%,#c83669 100%)!important;
   box-shadow:0 7px 0 #74284c,0 12px 28px rgba(0,0,0,.34),inset 0 2px rgba(255,255,255,.35),0 0 24px rgba(239,95,145,.23)!important;
 }
-body[data-page="play"] .spin-button::before{
-  content:"✦";position:absolute;left:28px;top:50%;transform:translateY(-50%);color:#ffe49a;font-size:1.5rem;
-}
-body[data-page="play"] .spin-button::after{
-  content:"✦";position:absolute;right:28px;top:50%;transform:translateY(-50%);color:#ffe49a;font-size:1.5rem;
-}
+body[data-page="play"] .spin-button::before{content:"✦";position:absolute;left:28px;top:50%;transform:translateY(-50%);color:#ffe49a;font-size:1.5rem}
+body[data-page="play"] .spin-button::after{content:"✦";position:absolute;right:28px;top:50%;transform:translateY(-50%);color:#ffe49a;font-size:1.5rem}
 body[data-page="play"] .spin-label{color:#fff9e6!important;font-size:1.5rem!important;letter-spacing:.14em;text-shadow:0 2px #8b2c57}
 body[data-page="play"] .spin-sub{color:#ffd8dd!important}
 body[data-page="play"] .spin-button:hover:not(:disabled){transform:translateY(-2px) scale(1.01);filter:brightness(1.05)}
@@ -214,7 +208,6 @@ body[data-page="play"] .fate-deck-v4-panel{
 body[data-page="play"] .fate-deck-panel-copy>span{color:#ffd36f!important}
 body[data-page="play"] .fate-deck-panel-copy>strong{color:#fff1c4!important}
 
-/* Keep the small plaque only when the image is missing. */
 body[data-page="play"] .stage-panel .wheel-zone::after{
   content:"FATE HOST  ✦  SPIN • PLAY • DISCOVER";
   position:absolute;left:16px;bottom:18px;z-index:2;
@@ -236,4 +229,6 @@ body[data-page="play"] .wheel-zone:has(.gameshow-host:not(.host-missing))::after
 
 @media(prefers-reduced-motion:reduce){
   body[data-page="play"] .spin-button{transition:none!important}
+  body[data-page="play"] .gameshow-host img{transition:none!important}
+  body[data-page="play"] .gameshow-host.host-pose-enter img{animation:none!important}
 }
