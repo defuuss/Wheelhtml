@@ -1,0 +1,123 @@
+/* Cleaner play layout: active levels on the right, no odds inspector. */
+body[data-page="play"] .probability-card{
+  display:none!important;
+}
+
+body[data-page="play"] .side-panel{
+  align-self:start;
+}
+
+body[data-page="play"] .level-strip-wrap.levels-side-panel{
+  position:relative;
+  z-index:2;
+  padding:16px;
+  border-radius:20px;
+  border:2px solid rgba(246,184,63,.30);
+  background:
+    radial-gradient(circle at 85% 8%,rgba(239,95,145,.14),transparent 35%),
+    linear-gradient(180deg,rgba(63,34,69,.94),rgba(29,21,38,.96));
+  box-shadow:0 9px 0 rgba(86,40,60,.28),0 18px 36px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.06);
+}
+
+body[data-page="play"] .levels-side-panel .section-kicker{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:12px;
+  color:#ffd36e;
+  font-size:.68rem;
+  letter-spacing:.17em;
+}
+body[data-page="play"] .levels-side-panel .section-kicker::before{
+  content:'✦';
+  color:#ff7fa5;
+  font-size:.9rem;
+  text-shadow:0 0 12px rgba(239,95,145,.5);
+}
+body[data-page="play"] .levels-side-panel .section-kicker::after{
+  content:'IN PLAY';
+  margin-left:auto;
+  padding:4px 7px;
+  border-radius:999px;
+  border:1px solid rgba(255,221,132,.35);
+  background:rgba(255,205,88,.08);
+  color:#ffe7a5;
+  font-size:.52rem;
+  letter-spacing:.1em;
+}
+
+body[data-page="play"] .levels-side-panel .level-lights{
+  display:grid;
+  gap:9px;
+}
+
+/* Only active levels belong on the play screen. */
+body[data-page="play"] .levels-side-panel .level-light.locked{
+  display:none!important;
+}
+
+body[data-page="play"] .levels-side-panel .level-light.active{
+  position:relative;
+  display:grid!important;
+  grid-template-columns:42px minmax(0,1fr) auto;
+  align-items:center;
+  gap:11px;
+  width:100%;
+  min-height:58px;
+  padding:8px 10px!important;
+  border-radius:16px!important;
+  border:1px solid color-mix(in srgb,var(--level-color) 58%,rgba(255,255,255,.16))!important;
+  background:
+    linear-gradient(90deg,color-mix(in srgb,var(--level-color) 22%,transparent),rgba(255,255,255,.025) 55%,rgba(0,0,0,.08))!important;
+  box-shadow:
+    inset 4px 0 0 var(--level-color),
+    inset 0 1px rgba(255,255,255,.07),
+    0 7px 16px rgba(0,0,0,.18)!important;
+  overflow:hidden;
+}
+body[data-page="play"] .levels-side-panel .level-light.active::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(105deg,transparent 5%,rgba(255,255,255,.07) 40%,transparent 68%);
+}
+
+body[data-page="play"] .levels-side-panel .level-dot{
+  display:grid;
+  place-items:center;
+  width:40px;
+  height:40px;
+  border-radius:13px;
+  background:color-mix(in srgb,var(--level-color) 36%,#24152f);
+  border:1px solid color-mix(in srgb,var(--level-color) 70%,#fff0bc);
+  box-shadow:inset 0 1px rgba(255,255,255,.15),0 0 16px color-mix(in srgb,var(--level-color) 26%,transparent);
+  font-size:1.12rem;
+}
+body[data-page="play"] .levels-side-panel .level-light>span:nth-child(2){
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#fff1ca;
+  font-size:.9rem;
+  font-weight:900;
+  letter-spacing:.01em;
+}
+body[data-page="play"] .levels-side-panel .level-light b{
+  position:relative;
+  z-index:2;
+  padding:4px 7px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--level-color) 55%,#ffe39b);
+  background:color-mix(in srgb,var(--level-color) 16%,rgba(0,0,0,.20));
+  color:#fff0b2;
+  font-size:.5rem;
+  letter-spacing:.12em;
+}
+
+@media(max-width:980px){
+  body[data-page="play"] .levels-side-panel .level-lights{
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  }
+}
