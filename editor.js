@@ -238,9 +238,9 @@
   }
 
   function applyChanges() {
-    draft = M.saveConfig(draft); M.resetSession(draft); renderAll(); document.body.classList.remove('dirty'); toast('Saved. A fresh play session will use these settings.');
+    draft = M.saveConfig(draft); M.resetSession(draft); renderAll(); document.body.classList.remove('dirty'); $('saveStatus').textContent = 'All changes applied'; toast('Saved. A fresh play session will use these settings.');
   }
-  function markDirty() { document.body.classList.add('dirty'); }
+  function markDirty() { document.body.classList.add('dirty'); $('saveStatus').textContent = 'Unapplied changes'; }
   function toast(message) { const node = $('editorToast'); node.textContent = message; node.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('show'), 2600); }
   async function loadXml(file) { try { draft = await M.readXmlFile(file); renderAll(); markDirty(); toast('XML loaded into editor. Press Apply changes to activate it.'); } catch (error) { toast(error.message || 'Could not load XML.'); } finally { fileInput.value = ''; } }
 
@@ -270,6 +270,11 @@
     $(`tab-${button.dataset.tab}`).classList.add('active');
   }));
   $('addForfeitBtn').addEventListener('click', addForfeit); $('addLevelBtn').addEventListener('click', addLevel); $('addRuleBtn').addEventListener('click', addRule);
+  document.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault(); $('applyBtn').click();
+    }
+  });
   $('applyBtn').addEventListener('click', applyChanges); $('editorSaveBtn').addEventListener('click', () => M.downloadXml(draft)); $('editorLoadBtn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => loadXml(fileInput.files?.[0]));
   window.addEventListener('beforeunload', event => { if (!document.body.classList.contains('dirty')) return; event.preventDefault(); event.returnValue = ''; });

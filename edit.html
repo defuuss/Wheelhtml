@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="group-quick-add.css">
   <link rel="stylesheet" href="spin-drama.css">
   <link rel="stylesheet" href="mystery-editor.css">
+  <link rel="stylesheet" href="experience.css?v=1">
 </head>
 <body data-page="edit">
   <div class="ambient ambient-a"></div>
@@ -29,6 +30,7 @@
       <button class="btn ghost" id="editorLoadBtn" type="button">Load XML</button>
       <button class="btn ghost" id="editorSaveBtn" type="button">Save XML</button>
       <button class="btn ghost" id="editorAiOpen" type="button">✦ AI</button>
+      <span id="saveStatus" class="save-status" role="status">All changes applied</span>
       <button class="btn primary" id="applyBtn" type="button">Apply changes</button>
       <a class="btn ghost" href="index.html">Back to wheel</a>
       <input id="editorFileInput" type="file" accept=".xml,text/xml,application/xml" hidden>
@@ -39,7 +41,7 @@
     <section class="editor-intro">
       <div>
         <div class="section-kicker">CONFIGURATION</div>
-        <h1>Build the game behind the wheel.</h1>
+        <h1>Make every spin count.</h1>
         <p>Groups are broad game states. Individual forfeits can also depend on other forfeits, so one result can disappear and reveal the next result in a chain without creating another group.</p>
       </div>
       <div class="editor-summary">

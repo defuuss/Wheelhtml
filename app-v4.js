@@ -8,6 +8,8 @@
   let config = M.loadConfig();
   let session = M.loadSession(config);
   let spinning = false;
+  let pendingResult = false;
+  const options = window.FortuneSessionOptions.load();
   let rotation = 0;
   let audio = null;
   let segments = [];
@@ -72,6 +74,7 @@
   }
 
   function arc(cx, cy, radius, start, end) {
+    if (end - start >= 359.999) return `M ${cx} ${cy-radius} A ${radius} ${radius} 0 1 1 ${cx} ${cy+radius} A ${radius} ${radius} 0 1 1 ${cx} ${cy-radius} Z`;
     const p = polar(cx, cy, radius, start);
     const q = polar(cx, cy, radius, end);
     return `M ${cx} ${cy} L ${p.x} ${p.y} A ${radius} ${radius} 0 ${end - start > 180 ? 1 : 0} 1 ${q.x} ${q.y} Z`;
@@ -82,12 +85,13 @@
   }
 
   function active() {
-    return config.forfeits.filter(item => {
+    const eligible = config.forfeits.filter(item => {
       const runtime = session.runtime[item.id];
       return item.enabled && runtime && !runtime.removed && runtime.cooldown <= 0 &&
         session.activeLevels[item.levelId] &&
         !(item.lifetime.type === 'spins' && runtime.remainingSpins !== null && runtime.remainingSpins <= 0);
     });
+    return window.FortuneSessionOptions.candidates(eligible, session.history, options.avoidRepeat);
   }
 
   function makeSegments(items) {
@@ -112,7 +116,7 @@
     const items = active();
     segments = makeSegments(items);
     rotor.innerHTML = '';
-    spinBtn.disabled = spinning || !segments.length;
+    spinBtn.disabled = spinning || pendingResult || !segments.length;
 
     if (!segments.length) {
       rotor.innerHTML = '<div class="wheel-empty"><strong>No active forfeits</strong><span>Unlock a group or add entries in Edit.</span></div>';
@@ -184,7 +188,9 @@
 
   function renderOdds() {
     const cardNode = document.querySelector('.probability-card');
-    if (cardNode) cardNode.hidden = !config.settings.showProbabilities;
+    if (cardNode) cardNode.hidden = !options.showOdds;
+    $('oddsBtn').setAttribute('aria-expanded', String(!!options.showOdds));
+    $('oddsBtn').textContent = options.showOdds ? 'Hide odds' : 'Show odds';
     const box = $('probabilityList');
     box.innerHTML = '';
     const list = active();
@@ -192,6 +198,7 @@
     list.sort((a, b) => weight(b) - weight(a)).forEach(item => {
       const node = document.createElement('div');
       node.className = 'probability-row';
+      node.style.setProperty('--odds', `${weight(item) / total * 100}%`);
       node.innerHTML = `<span class="prob-icon" style="--item-color:${item.color}">${esc(item.mystery ? '❓' : item.icon)}</span><span class="prob-name"><strong>${esc(item.mystery ? 'Mystery' : item.name)}</strong><small>weight ${weight(item).toFixed(1)}${item.timerSeconds ? ` · ⏱ ${formatTime(item.timerSeconds)}` : ''}</small></span><span class="prob-value">${(weight(item) / total * 100).toFixed(1)}%</span>`;
       box.appendChild(node);
     });
@@ -251,6 +258,12 @@
 
   function renderAll() {
     ensureCardState();
+    $('gameHeading').textContent = config.settings.title || 'Fortune Engine';
+    $('sessionBadge').textContent = pendingResult ? 'Revealing…' : spinning ? 'Spinning…' : `Round ${session.spinCount + 1}`;
+    $('avoidRepeat').checked = !!options.avoidRepeat;
+    $('quickSpin').checked = !!options.quickSpin;
+    $('muteBtn').setAttribute('aria-pressed', String(!!options.muted));
+    $('muteBtn').textContent = options.muted ? 'Unmute' : 'Mute';
     document.title = `${config.settings.title} · Fortune Engine`;
     renderLevels();
     renderWheel();
@@ -429,12 +442,14 @@
   }
 
   async function spin() {
-    if (spinning || !segments.length) return;
+    if (spinning || pendingResult || !segments.length) return;
 
     hideResult();
     hideCardOverlay();
     hideSpinPreview();
     spinning = true;
+    $('sessionBadge').textContent = 'Spinning…';
+    ['resetBtn', 'loadBtn', 'avoidRepeat', 'quickSpin', 'muteBtn', 'oddsBtn'].forEach(id => $(id).disabled = true);
     spinBtn.disabled = true;
     $('undoBtn').disabled = true;
     snapshot();
@@ -452,20 +467,23 @@
     const minTotal = Math.min(config.settings.minSpinSeconds, config.settings.maxSpinSeconds);
     const maxTotal = Math.max(config.settings.minSpinSeconds, config.settings.maxSpinSeconds);
     const targetSeconds = randomFloat(minTotal, maxTotal);
-    const profile = motionProfile(targetSeconds, style);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const profile = options.quickSpin ? { up: .35, cruise: .4, down: 1.25 } : motionProfile(targetSeconds, style);
 
     const start = rotation;
     const final = rotation + fullTurns * 360 + alignment;
     const previewStart = Math.max(.1, Math.min(.8, Number(style.iconPreviewStartPercent || 35) / 100));
     const previewAfter = style.showSlowIcon === false ? null : previewStart;
-    const drama = style.dramaEnabled !== false && Math.random() * 100 < Number(style.dramaChance || 0);
+    const drama = !options.quickSpin && !reducedMotion && style.dramaEnabled !== false && Math.random() * 100 < Number(style.dramaChance || 0);
     const chaos = ensureCardState().chaosNext;
 
     state(chaos ? 'Chaos spin…' : 'Spinning…', chaos
       ? 'Temporary random weights are active for this spin.'
       : `Accelerating ${profile.up.toFixed(1)}s · full speed ${profile.cruise.toFixed(1)}s · slowing ${profile.down.toFixed(1)}s.`);
 
-    if (!drama) {
+    if (reducedMotion) {
+      rotation = final;
+    } else if (!drama) {
       await animateMotionProfile(start, final, profile, list, previewAfter);
       rotation = final;
     } else {
@@ -488,11 +506,16 @@
     const outcome = applyResult(pick.item);
     restoreChaosAfterSpin();
     spinning = false;
+    pendingResult = true;
     renderAll();
 
     setTimeout(() => {
       hideSpinPreview();
       showResult(pick.item, outcome);
+      pendingResult = false;
+      spinBtn.disabled = !segments.length;
+      ['resetBtn', 'loadBtn', 'avoidRepeat', 'quickSpin', 'muteBtn', 'oddsBtn'].forEach(id => $(id).disabled = false);
+      $('sessionBadge').textContent = `Round ${session.spinCount + 1}`;
     }, 300);
   }
 
@@ -946,6 +969,7 @@
   }
 
   function confetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const colors = ['#fff', '#57d3ff', '#ff6bd6', '#ffb454', '#8b7cff'];
     for (let i = 0; i < 38; i++) {
       const piece = document.createElement('i');
@@ -960,7 +984,7 @@
   }
 
   function ctx() {
-    if (!config.settings.soundEnabled) return null;
+    if (options.muted || !config.settings.soundEnabled) return null;
     if (!audio) {
       const Audio = window.AudioContext || window.webkitAudioContext;
       if (Audio) audio = new Audio();
@@ -995,7 +1019,9 @@
   }
 
   function undo() {
-    if (spinning || !session.undoStack.length) return;
+    if (spinning || pendingResult || !session.undoStack.length) return;
+    hideResult();
+    hideCardOverlay();
     const stack = session.undoStack;
     const previous = stack.pop();
     session = { ...previous, undoStack: stack };
@@ -1007,8 +1033,9 @@
   }
 
   function reset() {
+    if (spinning || pendingResult) return;
     if (!confirm('Reset the current session? This clears spin history, cards, timers, cooldowns and unlocked groups. Your wheel configuration stays intact.')) return;
-    stopTimerLoop();
+    hideResult();
     hideCardOverlay();
     session = M.resetSession(config);
     ensureCardState();
@@ -1027,8 +1054,13 @@
   }
 
   async function loadXml(file) {
+    if (!file || spinning || pendingResult) return;
     try {
-      config = M.saveConfig(await M.readXmlFile(file));
+      const imported = await M.readXmlFile(file);
+      if (spinning || pendingResult) { toast('Wait for the spin to finish, then load XML again.'); return; }
+      config = M.saveConfig(imported);
+      hideResult();
+      hideCardOverlay();
       session = M.resetSession(config);
       ensureCardState();
       rotation = 0;
@@ -1042,7 +1074,15 @@
     }
   }
 
-  spinBtn.addEventListener('click', () => { ctx(); spin(); });
+  function modalOpen() {
+    return [...document.querySelectorAll('.result-overlay, #specialCardOverlay, [role="dialog"]')].some(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
+  }
+  function saveOptions() { window.FortuneSessionOptions.save(options); renderAll(); }
+  $('avoidRepeat').addEventListener('change', event => { options.avoidRepeat = event.target.checked; saveOptions(); });
+  $('quickSpin').addEventListener('change', event => { options.quickSpin = event.target.checked; saveOptions(); });
+  $('muteBtn').addEventListener('click', () => { options.muted = !options.muted; saveOptions(); });
+  $('oddsBtn').addEventListener('click', () => { options.showOdds = !options.showOdds; saveOptions(); });
+  spinBtn.addEventListener('click', () => { if (!modalOpen()) { ctx(); spin(); } });
   $('saveBtn').addEventListener('click', () => M.downloadXml(config));
   $('loadBtn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => loadXml(fileInput.files?.[0]));
@@ -1052,6 +1092,10 @@
   $('resultSpinBtn').addEventListener('click', () => { hideResult(); setTimeout(spin, 100); });
   overlay.addEventListener('click', event => { if (event.target.classList.contains('result-backdrop')) hideResult(); });
   document.addEventListener('keydown', event => {
+    if (event.code === 'Space' && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey &&
+        !event.target.closest('input, textarea, select, button, a, [contenteditable]') && !modalOpen()) {
+      event.preventDefault(); spinBtn.click(); return;
+    }
     if (event.key !== 'Escape') return;
     if (!overlay.hidden) hideResult();
   });
