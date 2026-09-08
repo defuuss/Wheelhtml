@@ -1,40 +1,44 @@
 # Fortune Engine
 
-A zero-dependency, browser-only weighted wheel with unlockable groups, cooldowns, lifetimes, mystery entries, animated reveals, AND/OR unlock rules, XML import/export, history and undo.
+A dependency-free browser wheel with weighted entries, mystery reveals, fate cards,
+timers, group progression, cooldowns, XML import/export, session history and undo.
 
-## Run locally
+## Run
 
-Open `index.html` in a modern browser. No server or build step is required.
+Open `index.html` in a modern browser. No installation, server or build is needed.
+GitHub Pages publishes the repository root.
 
-## GitHub Pages
+## Structure
 
-The site is fully static. Publish the repository root with GitHub Pages to host it.
+| Location | Responsibility |
+| --- | --- |
+| `index.html` | Play page and explicit script order |
+| `edit.html` | Configuration editor and explicit script order |
+| `src/core/` | Configuration, storage, XML, dependencies, progression and spin settings |
+| `src/play/` | Selection, animation, results, fate cards and play presentation |
+| `src/editor/` | Forms, grouping, dependencies, pictograms and AI editor |
+| `styles/` | Shared, play and editor styles |
+| `assets/fate-cards/` | Active card artwork |
+| `tests/` | Dependency-free Node regression tests |
+| `docs/` | Architecture and maintenance notes |
 
-## Files
+Keep `index.html` and `edit.html` at the root so existing links and browser storage
+continue to work. HTML lists each external script once. Scripts are classic scripts,
+not modules, so the app still works when opened from a local file. CSS asset paths
+are relative to `styles/`; images referenced by JavaScript are relative to the page.
 
-- `index.html` — play view
-- `edit.html` — configuration editor
-- `styles.css` — dark responsive UI
-- `model.js` — config/session model and XML import/export
-- `app-v4.js` — wheel rendering, weighted selection, spin animation and game state
-- `editor.js` — editor UI
+## Controls and saved games
 
-## XML
+Press **Space** outside a control or dialog to spin. Configure sound, duration and
+spin drama in the editor. The former repeat-prevention, quick-spin, mute and odds
+shortcuts are removed, including their saved-preference behavior.
 
-Use **Save XML** to export the wheel configuration and **Load XML** to import it on another browser/device. The browser also keeps the current configuration and play session in local storage.
+**Ctrl+S / Cmd+S** in the editor applies the current configuration and starts a fresh
+session, just like **Apply changes**. Export with **Save XML** to transfer a wheel.
+The existing configuration and session storage keys and XML format are preserved.
 
-## Play controls
+## Validation
 
-- The game title and next round appear above the wheel.
-- **No back-to-back repeats** excludes the last result when another eligible entry exists. It never re-enables locked, removed or cooling-down entries. The displayed wheel and odds use the same filtered pool. With only one eligible entry, it remains playable.
-- **Quick spin** uses a two-second animation and skips the fake-stop drama. Normal mode keeps the configured spin timing. System reduced-motion preferences skip the wheel animation.
-- **Mute** silences wheel audio; it does not override sound disabled in the editor.
-- **Show odds** opens the current weighted probabilities, including mystery placeholders.
-- Press **Space** to spin when focus is outside a control and no dialog is open.
-- In the editor, **Ctrl+S / Cmd+S** applies changes (and starts a fresh session, just like Apply changes). The header indicates unapplied changes.
-
-Play toggles are saved on this browser separately from the XML configuration. Undo restores the previous session state; reset/import are blocked during an active spin and its result handoff.
-
-## Checks
-
-Run `node --test tests/session-options.test.cjs` for eligibility, weighting, single-entry geometry, preference storage and busy-state regression checks. This project still needs no dependencies or build step to run.
+Run `node --test tests/wheel.test.cjs`. The tests cover selection eligibility,
+weights, one-entry geometry, motion continuity, busy-state guards and page assets.
+No browser performance benchmark or visual/end-to-end test has been run.

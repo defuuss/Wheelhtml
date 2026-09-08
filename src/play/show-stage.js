@@ -53,7 +53,7 @@
     const spinning = shell.classList.contains('wheel-spinning');
     const drama = shell.classList.contains('wheel-drama');
     document.body.classList.toggle('stage-live-spin', spinning || drama);
-    const current = getComputedStyle(shell).getPropertyValue('--current-color').trim();
+    const current = shell.style.getPropertyValue('--current-color').trim();
     setAccent((spinning || drama) && current ? current : restAccent());
   }
 
@@ -145,6 +145,7 @@
   let bypassSpin = false;
   spinBtn.addEventListener('click', event => {
     if (bypassSpin || spinBtn.disabled) return;
+    if (introRunning) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     event.preventDefault();
     event.stopImmediatePropagation();
     runIntro().then(() => {
@@ -231,7 +232,7 @@
   syncLighting();
 
   new MutationObserver(() => { queueDecorate(); syncLighting(); }).observe(rotor, { childList:true });
-  new MutationObserver(syncLighting).observe(shell, { attributes:true, attributeFilter:['class','style'] });
+  new MutationObserver(syncLighting).observe(shell, { attributes:true, attributeFilter:['class'] });
   window.addEventListener('storage', () => { queueDecorate(); syncLighting(); });
   document.addEventListener('fullscreenchange', () => {
     const button = document.getElementById('studioModeBtn');

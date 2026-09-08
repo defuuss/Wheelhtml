@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#070a12">
   <title>Fortune Engine</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="spin-drama.css">
-  <link rel="stylesheet" href="mystery-reveal.css">
-  <link rel="stylesheet" href="wheel-visuals.css?v=1">
-  <link rel="stylesheet" href="game-cards.css?v=1">
-  <link rel="stylesheet" href="fate-deck-v3.css?v=1">
-  <link rel="stylesheet" href="fate-deck-overrides.css?v=1">
-  <link rel="stylesheet" href="pick-poison-direct.css?v=1">
-  <link rel="stylesheet" href="show-stage.css?v=1">
-  <link rel="stylesheet" href="gameshow-wheel-theme.css?v=3">
-  <link rel="stylesheet" href="centered-wheel.css?v=1">
-  <link rel="stylesheet" href="active-levels-panel.css?v=1">
-  <link rel="stylesheet" href="experience.css?v=1">
+  <link rel="stylesheet" href="styles/styles.css">
+  <link rel="stylesheet" href="styles/spin-drama.css">
+  <link rel="stylesheet" href="styles/mystery-reveal.css">
+  <link rel="stylesheet" href="styles/wheel-visuals.css?v=1">
+  <link rel="stylesheet" href="styles/game-cards.css?v=1">
+  <link rel="stylesheet" href="styles/fate-deck-v3.css?v=1">
+  <link rel="stylesheet" href="styles/fate-deck-overrides.css?v=1">
+  <link rel="stylesheet" href="styles/pick-poison-direct.css?v=1">
+  <link rel="stylesheet" href="styles/show-stage.css?v=1">
+  <link rel="stylesheet" href="styles/gameshow-wheel-theme.css?v=3">
+  <link rel="stylesheet" href="styles/centered-wheel.css?v=1">
+  <link rel="stylesheet" href="styles/active-levels-panel.css?v=1">
+  <link rel="stylesheet" href="styles/experience.css?v=1">
 </head>
 <body data-page="play">
   <div class="ambient ambient-a"></div>
@@ -42,12 +42,6 @@
   <main class="play-layout">
     <section class="stage-panel" aria-label="Wheel">
       <div class="session-heading"><div><div class="section-kicker">YOUR GAME</div><h1 id="gameHeading">Fortune Engine</h1></div><span class="session-badge" id="sessionBadge">Ready</span></div>
-      <div class="play-controls" aria-label="Session controls">
-        <label><input type="checkbox" id="avoidRepeat"> No back-to-back repeats</label>
-        <label><input type="checkbox" id="quickSpin"> Quick spin</label>
-        <button class="btn ghost" id="muteBtn" type="button" aria-pressed="false">Mute</button>
-        <button class="btn ghost" id="oddsBtn" type="button" aria-expanded="false" aria-controls="oddsPanel">Show odds</button>
-      </div>
       <div class="wheel-zone">
         <div class="wheel-shell" id="wheelShell">
           <div class="pointer" id="pointer" aria-hidden="true"><span></span></div>
@@ -90,10 +84,6 @@
         </div>
       </div>
 
-      <div class="probability-card" id="oddsPanel" hidden>
-        <h3>Next spin odds</h3><p class="muted">Based on the current eligible entries.</p>
-        <div id="probabilityList" class="probability-list"></div>
-      </div>
     </aside>
 
     <section class="history-panel">
@@ -126,18 +116,17 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="model.js?v=2"></script>
-  <script src="dependency-model.js?v=1"></script>
-  <script src="progression-model.js?v=1"></script>
-  <script src="spin-settings.js?v=3"></script>
-  <script src="session-options.js?v=1"></script>
-  <script src="app-v4.js?v=3"></script>
-  <script src="fate-deck-v3.js?v=2"></script>
-  <script src="fate-card-assets.js?v=1"></script>
-  <script src="pick-poison-direct.js?v=1"></script>
-  <script src="mystery-reveal.js"></script>
-  <script src="wheel-visuals-safe.js?v=1"></script>
-  <script src="show-stage-safe.js?v=1"></script>
-  <script src="progression-play-safe.js?v=1"></script>
+  <script src="src/core/model.js?v=2"></script>
+  <script src="src/core/dependency-model.js?v=1"></script>
+  <script src="src/core/progression-model.js?v=1"></script>
+  <script src="src/core/spin-settings.js?v=3"></script>
+  <script src="src/play/app.js?v=3"></script>
+  <script src="src/play/fate-deck.js?v=2"></script>
+  <script src="src/play/fate-card-assets.js?v=1"></script>
+  <script src="src/play/pick-poison-direct.js?v=1"></script>
+  <script src="src/play/mystery-reveal.js"></script>
+  <script src="src/play/wheel-visuals.js?v=1"></script>
+  <script src="src/play/show-stage.js?v=1"></script>
+  <script src="src/play/progression-play.js?v=1"></script>
 </body>
 </html>

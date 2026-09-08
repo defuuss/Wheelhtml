@@ -7,12 +7,8 @@
   transform-box:view-box;
   transform-origin:300px 300px;
 }
-.wheel-shell.wheel-spinning .wheel-segment.current-under-pointer{
-  filter:brightness(1.25) saturate(1.14) drop-shadow(0 0 8px color-mix(in srgb,var(--current-color) 62%,transparent));
-  stroke:rgba(255,255,255,.76);
-  stroke-width:5.5;
-}
-.wheel-shell.wheel-spinning .wheel-segment:not(.current-under-pointer){filter:brightness(.9) saturate(.92)}
+
+
 
 /* 4. Mystery wedges get a subtle diagonal texture and breathing sheen. */
 .wheel-mystery-overlay{pointer-events:none;opacity:.12;animation:mysteryWheelShimmer 2.8s ease-in-out infinite}

@@ -1,7 +1,5 @@
 /* Cleaner play layout: active levels on the right, no odds inspector. */
-body[data-page="play"] .probability-card{
-  display:none!important;
-}
+
 
 body[data-page="play"] .side-panel{
   align-self:start;

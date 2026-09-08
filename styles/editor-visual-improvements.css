@@ -41,7 +41,7 @@ body[data-page="edit"] .forfeit-compact-meta span{padding:1px 5px}
 body[data-page="edit"] .visual-disabled{opacity:.66}
 
 /* The old dependency compact row duplicated the semantic chips and was rebuilt by
-   dependency-editor.js. Hiding it removes the last visible blink without removing
+   src/editor/dependency-editor.js. Hiding it removes the last visible blink without removing
    the Availability / After controls or dependency information. */
 body[data-page="edit"] .dep-compact-row{display:none!important}
 
