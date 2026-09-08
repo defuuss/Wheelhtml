@@ -88,3 +88,36 @@ Run `node --test tests/*.test.cjs` for all dependency-free tests. Optional DOM
 integration tests (`tests/editor.integration.cjs` and `tests/play.integration.cjs`)
 require jsdom in the test environment; `WHEEL_TEST_JSDOM` may point to that module.
 They simulate events and persistence, not browser rendering or pointer hit testing.
+
+## Deck building and direct reveals
+
+The wheel uses a shuffled order stored with the session. Entry weights still set
+selection probability and segment size. Redraws and spins use the same order;
+resetting the session creates a new shuffle. Editor grouping is unchanged.
+
+In **Settings → Fate deck**, choose 0–30 copies of every card. Zero excludes a card;
+all zeros disable the deck. Quantities are saved with the configuration and XML
+(`<fateDeck><card type="devilFive" count="1" /></fateDeck>`). New sessions refill the
+configured deck. Existing configurations gain one copy of each new card by default.
+
+- Double/Triple reveal 2/3 total forfeits, retaining the current forfeit when drawn
+  from a result. They directly draw the additional results with no wheel animation.
+- Rarest Fate adds an eligible forfeit with the lowest effective weight. Ties are
+  chosen uniformly. Chaos Weights applies random 0.25–3× multipliers to active
+  entries for this session; Undo restores the earlier weights.
+- Devil’s Five asks for an active group, then directly reveals up to five different
+  eligible forfeits from it at 1.8-second intervals. Fewer available entries are
+  reported instead of duplicating or selecting locked entries.
+- Double or Nothing uses a small 50/50 wheel with smooth deceleration.
+
+Direct batches use current eligibility, effective weights, lifetimes, cooldowns,
+unlocks, modifiers and history. Only ordinary/unlock forfeits are candidates, so
+special event cards do not recursively draw more cards. Each draw updates the
+session before the next candidate is chosen. Revealed results include instructions
+and optional individual Start/Pause timers. Undo restores a whole batch. Taking a
+card still consumes it; undoing forfeits does not replenish that card. Reduced
+motion skips the reveal delays and wheel animation.
+
+Additional integration check: `tests/deck.integration.cjs` covers direct cards,
+unique/eligible selections, whole-batch undo, keeping the current result, changed
+weights, the risk wheel and deck quantities through editor save and XML.

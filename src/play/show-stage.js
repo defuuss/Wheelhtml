@@ -174,7 +174,7 @@
     const root = rotor.querySelector('.wheel-svg');
     if (!root) return;
     const { config, session } = readGame();
-    const items = activeItems(config, session);
+    const items = window.FortuneFeatures.wheelOrder(activeItems(config, session), session);
     root.querySelectorAll('.stage-special-overlay.safe').forEach(node => node.remove());
     root.querySelectorAll('.wheel-segment').forEach(path => path.classList.remove('stage-special-good','stage-special-bad','stage-special-risk','stage-special-unlock','stage-special-timed'));
     if (!items.length) return;
