@@ -67,6 +67,7 @@
         cooldown:Math.round(clampNumber(item.cooldown,0,99,0)),
         eventType:EVENT_TYPES.includes(item.eventType)?item.eventType:'normal',
         timerSeconds:Math.round(clampNumber(item.timerSeconds,0,3600,0)),
+        modifierWheel:window.FortuneFeatures.normalizeModifier(item.modifierWheel),
         mystery:Boolean(item.mystery), enabled:item.enabled!==false,
         unlockLevels:Array.isArray(item.unlockLevels)?item.unlockLevels.filter(id=>levelIds.has(id)):[]
       };
@@ -109,11 +110,13 @@
 
   function signature(config){
     const cfg=sanitizeConfig(config);
-    return JSON.stringify({
+    const result = JSON.stringify({
       levels:cfg.levels.map(l=>[l.id,l.activeAtStart]),
       forfeits:cfg.forfeits.map(f=>[f.id,f.levelId,f.weight,f.enabled,f.lifetime.type,f.lifetime.spins,f.cooldown,f.eventType,f.timerSeconds]),
       rules:cfg.rules.map(r=>[r.id,r.mode,r.enabled,r.conditionForfeitIds,r.unlockLevels])
     });
+    const modifiers = cfg.forfeits.filter(f => f.modifierWheel.enabled).map(f => [f.id, f.modifierWheel]);
+    return result + (modifiers.length ? '|modifiers:' + JSON.stringify(modifiers) : '');
   }
 
   function createSession(config){
@@ -137,19 +140,33 @@
     lines.push('  <groups>'); cfg.levels.forEach(level=>lines.push(`    <group id="${xmlEscape(level.id)}" name="${xmlEscape(level.name)}" icon="${xmlEscape(level.icon)}" color="${xmlEscape(level.color)}" activeAtStart="${level.activeAtStart}" />`)); lines.push('  </groups>');
     lines.push('  <forfeits>'); cfg.forfeits.forEach(item=>{
       lines.push(`    <forfeit id="${xmlEscape(item.id)}" name="${xmlEscape(item.name)}" icon="${xmlEscape(item.icon)}" color="${xmlEscape(item.color)}" weight="${item.weight}" group="${xmlEscape(item.levelId)}" category="${xmlEscape(item.category)}" animation="${xmlEscape(item.animation)}" lifetime="${xmlEscape(item.lifetime.type)}" lifetimeSpins="${item.lifetime.spins}" cooldown="${item.cooldown}" eventType="${xmlEscape(item.eventType)}" timerSeconds="${item.timerSeconds}" mystery="${item.mystery}" enabled="${item.enabled}">`);
-      lines.push(`      <description>${xmlEscape(item.description)}</description>`); lines.push('      <unlocks>'); item.unlockLevels.forEach(id=>lines.push(`        <group ref="${xmlEscape(id)}" />`)); lines.push('      </unlocks>'); lines.push('    </forfeit>');
+      lines.push(`      <description>${xmlEscape(item.description)}</description>`); lines.push('      <unlocks>'); item.unlockLevels.forEach(id=>lines.push(`        <group ref="${xmlEscape(id)}" />`)); lines.push('      </unlocks>');
+      const modifiers = item.modifierWheel;
+      if (modifiers.enabled || modifiers.outcomes.length) {
+        lines.push(`      <modifierWheel enabled="${modifiers.enabled}" chance="${modifiers.chance}">`);
+        modifiers.outcomes.forEach(entry => lines.push(`        <outcome name="${xmlEscape(entry.name)}" weight="${entry.weight}" timerMultiplier="${entry.timerMultiplier}">${xmlEscape(entry.description)}</outcome>`));
+        lines.push('      </modifierWheel>');
+      }
+      lines.push('    </forfeit>');
     }); lines.push('  </forfeits>');
     lines.push('  <rules>'); cfg.rules.forEach(rule=>{ lines.push(`    <rule id="${xmlEscape(rule.id)}" name="${xmlEscape(rule.name)}" mode="${xmlEscape(rule.mode)}" enabled="${rule.enabled}">`); lines.push('      <conditions>'); rule.conditionForfeitIds.forEach(id=>lines.push(`        <forfeit ref="${xmlEscape(id)}" />`)); lines.push('      </conditions>'); lines.push('      <unlocks>'); rule.unlockLevels.forEach(id=>lines.push(`        <group ref="${xmlEscape(id)}" />`)); lines.push('      </unlocks>'); lines.push('    </rule>'); }); lines.push('  </rules>'); lines.push('</fortuneEngine>'); return lines.join('\n');
   }
 
   function attr(node,name,fallback=''){ const value=node.getAttribute(name); return value===null?fallback:value; }
   function boolAttr(node,name,fallback=false){ const value=node.getAttribute(name); if(value===null)return fallback; return value==='true'||value==='1'; }
+  function readModifierXml(node) {
+    const wheel = node.querySelector(':scope > modifierWheel');
+    if (!wheel) return {};
+    return { enabled: boolAttr(wheel, 'enabled'), chance: Number(attr(wheel, 'chance', '100')),
+      outcomes: [...wheel.querySelectorAll(':scope > outcome')].map(entry => ({ name: attr(entry, 'name'), description: entry.textContent, weight: Number(attr(entry, 'weight', '1')), timerMultiplier: Number(attr(entry, 'timerMultiplier', '1')) })) };
+  }
   function xmlToConfig(xmlText){
     const parser=new DOMParser(); const doc=parser.parseFromString(String(xmlText),'application/xml'); if(doc.querySelector('parsererror')) throw new Error('Invalid XML file.'); const root=doc.documentElement; if(!root||root.nodeName!=='fortuneEngine') throw new Error('This is not a Fortune Engine XML file.');
     const settingsNode=root.querySelector(':scope > settings');
     const levels=[...root.querySelectorAll(':scope > groups > group')].map(node=>({id:attr(node,'id',makeId('group')),name:attr(node,'name','Group'),icon:attr(node,'icon','●'),color:attr(node,'color','#64748b'),activeAtStart:boolAttr(node,'activeAtStart',false)}));
     const forfeits=[...root.querySelectorAll(':scope > forfeits > forfeit')].map(node=>({
       id:attr(node,'id',makeId('forfeit')),name:attr(node,'name','Forfeit'),icon:attr(node,'icon','🎯'),color:attr(node,'color','#64748b'),weight:Number(attr(node,'weight','1')),levelId:attr(node,'group',levels[0]?.id||'start'),category:attr(node,'category','Challenge'),description:node.querySelector(':scope > description')?.textContent||'',animation:attr(node,'animation','zoom'),
+      modifierWheel: readModifierXml(node),
       lifetime:{type:attr(node,'lifetime','forever'),spins:Number(attr(node,'lifetimeSpins','3'))},cooldown:Number(attr(node,'cooldown','0')),eventType:attr(node,'eventType','normal'),timerSeconds:Number(attr(node,'timerSeconds','0')),mystery:boolAttr(node,'mystery',false),enabled:boolAttr(node,'enabled',true),unlockLevels:[...node.querySelectorAll(':scope > unlocks > group')].map(group=>attr(group,'ref')).filter(Boolean)
     }));
     const rules=[...root.querySelectorAll(':scope > rules > rule')].map(node=>({id:attr(node,'id',makeId('rule')),name:attr(node,'name','Rule'),mode:attr(node,'mode','all'),enabled:boolAttr(node,'enabled',true),conditionForfeitIds:[...node.querySelectorAll(':scope > conditions > forfeit')].map(entry=>attr(entry,'ref')).filter(Boolean),unlockLevels:[...node.querySelectorAll(':scope > unlocks > group')].map(group=>attr(group,'ref')).filter(Boolean)}));

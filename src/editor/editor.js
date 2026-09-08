@@ -127,6 +127,7 @@
         draft.forfeits.splice(index + 1, 0, copy);
         renderForfeits(); renderSummary(); markDirty();
       });
+      window.FortuneModifierEditor.mount(card, item, markDirty);
       forfeitList.appendChild(card);
     });
     if (!draft.forfeits.length) forfeitList.innerHTML = '<div class="editor-empty">No wheel entries yet. Add your first forfeit or special event.</div>';
@@ -157,16 +158,8 @@
       icon.addEventListener('change', () => { renderForfeits(); renderRules(); });
       color.addEventListener('input', () => { level.color = color.value; markDirty(); });
       active.addEventListener('change', () => { level.activeAtStart = active.checked; markDirty(); });
-      card.querySelector('.js-level-delete').addEventListener('click', () => {
-        if (draft.levels.length <= 1) return toast('At least one group is required.');
-        const fallback = draft.levels.find((_, i) => i !== index)?.id;
-        const removedId = level.id;
-        draft.levels.splice(index, 1);
-        draft.forfeits.forEach(item => { if (item.levelId === removedId) item.levelId = fallback; item.unlockLevels = item.unlockLevels.filter(id => id !== removedId); });
-        draft.rules.forEach(rule => { rule.unlockLevels = rule.unlockLevels.filter(id => id !== removedId); });
-        if (!draft.levels.some(l => l.activeAtStart)) draft.levels[0].activeAtStart = true;
-        renderAll(); markDirty();
-      });
+      card.querySelector('.js-level-delete').title = 'Delete group and its forfeits';
+      card.querySelector('.js-level-delete').addEventListener('click', () => deleteGroup(level.id));
       levelList.appendChild(card);
     });
   }
@@ -218,11 +211,35 @@
     $('gameTitle').addEventListener('input', () => { draft.settings.title = $('gameTitle').value.slice(0, 60); markDirty(); });
   }
 
-  function addForfeit() {
-    const group = draft.levels[0];
+  function addForfeit(groupId) {
+    const search = $('forfeitSearchInput');
+    if (search?.value) { search.value = ''; search.dispatchEvent(new Event('input', { bubbles:true })); }
+    const group = draft.levels.find(level => level.id === groupId) || draft.levels[0];
     draft.forfeits.push({ id: M.makeId('forfeit'), name: 'New Forfeit', icon: '🎯', color: '#5b8cff', weight: 1, levelId: group.id, category: 'Challenge', description: '', animation: 'zoom', lifetime: { type: 'forever', spins: 3 }, cooldown: 0, eventType: 'normal', mystery: false, enabled: true, unlockLevels: [] });
     renderForfeits(); renderSummary(); markDirty();
-    setTimeout(() => forfeitList.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    const id = draft.forfeits.at(-1).id;
+    setTimeout(() => {
+      const card = [...forfeitList.querySelectorAll('.forfeit-editor-card')].find(node => node.dataset.id === id);
+      card?.closest('.forfeit-group')?.classList.remove('collapsed');
+      if (!card?.classList.contains('is-expanded')) card?.querySelector('.detail-toggle')?.click();
+      card?.querySelector('.js-name')?.focus(); card?.querySelector('.js-name')?.select();
+      card?.scrollIntoView({ block: 'nearest' });
+    }, 80);
+    return id;
+  }
+
+  function deleteGroup(groupId) {
+    let full = window.FortuneEditor.getDraft();
+    full.forfeits.forEach(item => Object.assign(item, window.FortuneDependencyState?.getForfeit(item.id) || {}));
+    const group = full.levels.find(level => level.id === groupId);
+    if (!group) return;
+    const count = full.forfeits.filter(item => item.levelId === groupId).length;
+    if (!confirm(`Delete "${group.name}" and all ${count} forfeits in it? Linked dependencies and rules will be cleaned up. Apply changes to save the deletion.${full.levels.length === 1 ? ' An empty Start group will remain.' : ''}`)) return;
+    draft = window.FortuneFeatures.deleteGroup(full, groupId);
+    window.FortuneDependencyState?.replace(draft);
+    window.FortuneProgressionState?.replace(draft);
+    renderAll(); markDirty();
+    toast(`Deleted group and ${count} forfeits. Apply changes to save.`);
   }
 
   function addLevel() {
@@ -253,6 +270,8 @@
 
   window.FortuneEditor = {
     refreshFromSaved,
+    addForfeit,
+    deleteGroup,
     renderAll,
     getDraft: () => M.deepClone(draft),
     getSavedConfig: () => M.deepClone(loadSavedConfig())

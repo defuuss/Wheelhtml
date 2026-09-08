@@ -1,0 +1,44 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const fs = require('node:fs');
+const path = require('node:path');
+function setup() {
+  const storage = new Map();
+  const context = vm.createContext({ window: {}, document: {body:{dataset:{page:'edit'}}}, console, localStorage: { getItem: k => storage.get(k) || null, setItem: (k,v) => storage.set(k,v) } });
+  for (const name of ['features.js','model.js','dependency-model.js','progression-model.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/core',name),'utf8'), context);
+  return { F: context.window.FortuneFeatures, M: context.window.FortuneModel, D: context.window.FortuneDependencyState, P: context.window.FortuneProgressionState };
+}
+test('group deletion removes contents and dependent rules, preserves other groups and does not mutate its input', () => {
+  const { F } = setup();
+  const original = { levels:[{id:'a',activeAtStart:true},{id:'b',completionUnlockLevels:['a']}], forfeits:[{id:'x',levelId:'a'},{id:'y',levelId:'b',unlockLevels:['a'],requiresForfeitIds:['x']}], rules:[{id:'r',conditionForfeitIds:['x'],unlockLevels:['b']}] };
+  const result = F.deleteGroup(original,'a');
+  assert.deepEqual(Array.from(result.forfeits,x=>x.id),['y']);
+  assert.equal(result.forfeits[0].requiresForfeitIds.length,0); assert.equal(result.forfeits[0].unlockLevels.length,0);
+  assert.equal(result.levels[0].completionUnlockLevels.length,0); assert.equal(result.levels[0].activeAtStart,true);
+  assert.equal(result.rules.length,0); assert.equal(original.forfeits.length,2);
+  const final = F.deleteGroup(result,'b'); assert.equal(final.forfeits.length,0); assert.equal(final.levels[0].id,'start');
+});
+test('modifiers survive all model layers, save/reload and cloning', () => {
+  const { F,M } = setup(); let config = M.loadConfig();
+  config.forfeits[0].modifierWheel = {enabled:true,chance:75,outcomes:[{name:'Short version',description:'A <custom> & original instruction',weight:3,timerMultiplier:.5},{name:'Keep original',weight:1,timerMultiplier:1}]};
+  config = M.saveConfig(config); const loaded = M.loadConfig();
+  assert.equal(loaded.forfeits[0].modifierWheel.outcomes[0].timerMultiplier,.5);
+  assert.equal(loaded.forfeits[0].modifierWheel.chance,75);
+  assert.equal(F.choose(loaded.forfeits[0].modifierWheel.outcomes,()=>.74).name,'Short version');
+  assert.equal(F.choose(loaded.forfeits[0].modifierWheel.outcomes,()=>.76).name,'Keep original');
+  const changed = F.applyModifier({...loaded.forfeits[0],timerSeconds:120},loaded.forfeits[0].modifierWheel.outcomes[0]);
+  assert.equal(changed.timerSeconds,60); assert.match(changed.description,/Short version/);
+  assert.equal(F.applyModifier({timerSeconds:0}, {timerMultiplier:2,name:'X'}).timerSeconds,0);
+  assert.equal(F.applyModifier({timerSeconds:1800}, {timerMultiplier:4,name:'X'}).timerSeconds,3600);
+});
+test('disabled legacy modifier data does not alter session signatures; active changes do', () => {
+  const { M } = setup(); const config = M.loadConfig(); const before = M.signature(config);
+  config.forfeits[0].modifierWheel = {enabled:false,outcomes:[]}; assert.equal(M.signature(config),before);
+  config.forfeits[0].modifierWheel = {enabled:true,chance:100,outcomes:[{name:'A',weight:1}]}; assert.notEqual(M.signature(config),before);
+});
+test('modifier settings clamp malformed input and remain disabled for old XML configurations', () => {
+  const { F } = setup(); assert.equal(F.normalizeModifier(undefined).enabled,false);
+  const settings=F.normalizeModifier({enabled:true,chance:250,outcomes:[{name:'a',weight:-2,timerMultiplier:100}]});
+  assert.equal(settings.chance,100); assert.equal(settings.outcomes[0].weight,.1); assert.equal(settings.outcomes[0].timerMultiplier,4);
+});

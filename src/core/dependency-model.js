@@ -151,7 +151,7 @@
 
   function signature(config) {
     const cfg = fullRuleView(sanitizeConfig(config));
-    return JSON.stringify({
+    const result = JSON.stringify({
       levels: cfg.levels.map(l => [l.id, l.activeAtStart]),
       forfeits: cfg.forfeits.map(f => [
         f.id, f.levelId, f.weight, f.enabled, f.lifetime.type, f.lifetime.spins, f.cooldown,
@@ -161,6 +161,8 @@
         r.id, r.mode, r.enabled, r.minOccurrences || 1, r.conditionForfeitIds, r.unlockLevels
       ])
     });
+    const modifiers = cfg.forfeits.filter(f => f.modifierWheel.enabled).map(f => [f.id, f.modifierWheel]);
+    return result + (modifiers.length ? '|modifiers:' + JSON.stringify(modifiers) : '');
   }
 
   function applyDependencyState(session, cfg) {

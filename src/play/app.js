@@ -199,7 +199,7 @@
     history.forEach((entry, index) => {
       const node = document.createElement('div');
       node.className = 'history-item';
-      const detail = entry.cardName ? ` · ${esc(entry.cardName)}` : '';
+      const detail = (entry.cardName ? ` · ${esc(entry.cardName)}` : '') + (entry.modifierName ? ` · Modifier: ${esc(entry.modifierName)}` : '');
       node.innerHTML = `<span class="history-index">${session.history.length - index}</span><span class="history-icon" style="--item-color:${entry.color}">${esc(entry.icon)}</span><span class="history-copy"><strong>${esc(entry.name)}</strong><small>${esc(entry.category)}${detail}${entry.unlocked?.length ? ' · unlocked ' + esc(entry.unlocked.join(', ')) : ''}</small></span><span class="history-time">${esc(entry.time)}</span>`;
       box.appendChild(node);
     });
@@ -492,9 +492,18 @@
     pendingResult = true;
     renderAll();
 
-    setTimeout(() => {
+    setTimeout(async () => {
       hideSpinPreview();
-      showResult(pick.item, outcome);
+      let modifier = null;
+      try { modifier = await window.FortuneModifierWheel.resolve(pick.item); }
+      catch (error) { console.warn('Modifier wheel could not open:', error); }
+      const resultItem = window.FortuneFeatures.applyModifier(pick.item, modifier);
+      if (modifier) {
+        const last = session.history.at(-1);
+        if (last) { last.modifierName = modifier.name; last.modifierDescription = modifier.description; last.modifierTimerMultiplier = modifier.timerMultiplier; }
+        M.saveSession(session); renderHistory();
+      }
+      showResult(resultItem, outcome);
       pendingResult = false;
       spinBtn.disabled = !segments.length;
       ['resetBtn', 'loadBtn'].forEach(id => $(id).disabled = false);
