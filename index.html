@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="gameshow-wheel-theme.css?v=3">
   <link rel="stylesheet" href="centered-wheel.css?v=1">
   <link rel="stylesheet" href="active-levels-panel.css?v=1">
+  <link rel="stylesheet" href="experience.css?v=1">
 </head>
 <body data-page="play">
   <div class="ambient ambient-a"></div>
@@ -40,6 +41,13 @@
 
   <main class="play-layout">
     <section class="stage-panel" aria-label="Wheel">
+      <div class="session-heading"><div><div class="section-kicker">YOUR GAME</div><h1 id="gameHeading">Fortune Engine</h1></div><span class="session-badge" id="sessionBadge">Ready</span></div>
+      <div class="play-controls" aria-label="Session controls">
+        <label><input type="checkbox" id="avoidRepeat"> No back-to-back repeats</label>
+        <label><input type="checkbox" id="quickSpin"> Quick spin</label>
+        <button class="btn ghost" id="muteBtn" type="button" aria-pressed="false">Mute</button>
+        <button class="btn ghost" id="oddsBtn" type="button" aria-expanded="false" aria-controls="oddsPanel">Show odds</button>
+      </div>
       <div class="wheel-zone">
         <div class="wheel-shell" id="wheelShell">
           <div class="pointer" id="pointer" aria-hidden="true"><span></span></div>
@@ -54,7 +62,7 @@
         <div class="spin-row">
           <button id="spinBtn" class="spin-button" type="button">
             <span class="spin-label">SPIN</span>
-            <span class="spin-sub">Press to tempt fate</span>
+            <span class="spin-sub">Press Space or tap to spin</span>
           </button>
         </div>
 
@@ -82,7 +90,8 @@
         </div>
       </div>
 
-      <div class="probability-card" hidden aria-hidden="true">
+      <div class="probability-card" id="oddsPanel" hidden>
+        <h3>Next spin odds</h3><p class="muted">Based on the current eligible entries.</p>
         <div id="probabilityList" class="probability-list"></div>
       </div>
     </aside>
@@ -121,7 +130,8 @@
   <script src="dependency-model.js?v=1"></script>
   <script src="progression-model.js?v=1"></script>
   <script src="spin-settings.js?v=3"></script>
-  <script src="app-v4.js?v=2"></script>
+  <script src="session-options.js?v=1"></script>
+  <script src="app-v4.js?v=3"></script>
   <script src="fate-deck-v3.js?v=2"></script>
   <script src="fate-card-assets.js?v=1"></script>
   <script src="pick-poison-direct.js?v=1"></script>
