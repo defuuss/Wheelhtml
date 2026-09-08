@@ -25,7 +25,7 @@
 
   function levelExtra(raw = {}, validLevels = new Set(), ownId = '') {
     return {
-      completionMode: raw.completionMode === 'required' ? 'required' : 'manual',
+      completionMode: raw.completionMode === 'required' ? 'required' : 'empty',
       completionLabel: String(raw.completionLabel || '').trim().slice(0, 40),
       completionUnlockLevels: [...new Set((Array.isArray(raw.completionUnlockLevels) ? raw.completionUnlockLevels : [])
         .map(String).filter(id => id && id !== ownId && validLevels.has(id)))]
@@ -167,9 +167,15 @@
           session.activeLevels[level.id] = false;
           return;
         }
-        if (!session.activeLevels[level.id] || level.completionMode !== 'required') return;
+        if (!session.activeLevels[level.id]) return;
+        const members = cfg.forfeits.filter(item => item.enabled && item.levelId === level.id);
+        const exhausted = members.length > 0 && members.every(item => {
+          const runtime = session.runtime?.[item.id];
+          return runtime && runtime.removed && !runtime.dependencyLocked;
+        });
         const required = cfg.forfeits.filter(item => item.enabled && item.levelId === level.id && item.requiredForCompletion);
-        if (!required.length || !required.every(item => occurred.has(item.id))) return;
+        const requiredDone = level.completionMode === 'required' && required.length > 0 && required.every(item => occurred.has(item.id));
+        if (!exhausted && !requiredDone) return;
 
         session.completedLevels[level.id] = true;
         session.activeLevels[level.id] = false;
@@ -290,7 +296,7 @@
     [...doc.querySelectorAll('groups > group')].forEach(node => {
       const level = levelById.get(node.getAttribute('id'));
       if (!level) return;
-      level.completionMode = node.getAttribute('completion') === 'required' ? 'required' : 'manual';
+      level.completionMode = node.getAttribute('completion') === 'required' ? 'required' : 'empty';
       level.completionLabel = String(node.getAttribute('completionLabel') || '').slice(0, 40);
       level.completionUnlockLevels = [...node.querySelectorAll(':scope > onComplete > group')]
         .map(child => child.getAttribute('ref')).filter(id => id && id !== level.id && levelIds.has(id));
@@ -328,7 +334,7 @@
   window.FortuneProgressionState = {
     getLevel(id) {
       const value = sidecar.levels.get(id);
-      return value ? clone(value) : { completionMode:'manual', completionLabel:'', completionUnlockLevels:[] };
+      return value ? clone(value) : { completionMode:'empty', completionLabel:'', completionUnlockLevels:[] };
     },
     setLevel(id, value) {
       const ids = new Set(loadConfig().levels.map(level => level.id));

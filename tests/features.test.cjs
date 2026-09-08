@@ -42,3 +42,26 @@ test('modifier settings clamp malformed input and remain disabled for old XML co
   const settings=F.normalizeModifier({enabled:true,chance:250,outcomes:[{name:'a',weight:-2,timerMultiplier:100}]});
   assert.equal(settings.chance,100); assert.equal(settings.outcomes[0].weight,.1); assert.equal(settings.outcomes[0].timerMultiplier,4);
 });
+
+test('groups complete only after permanent removal, then unlock the next group', () => {
+  const {M,P}=setup();
+  const cfg=M.sanitizeConfig({levels:[{id:'a',activeAtStart:true,completionUnlockLevels:['b']},{id:'b'}],forfeits:[{id:'x',levelId:'a',lifetime:{type:'once'}},{id:'y',levelId:'a',lifetime:{type:'once'},requiresForfeitIds:['x']},{id:'z',levelId:'b'}]});
+  const s=M.createSession(cfg);
+  assert.equal(s.completedLevels.a,undefined);
+  s.runtime.x.removed=true;s.runtime.y.removed=true;s.runtime.y.dependencyLocked=true;
+  P.evaluate(s,cfg);assert.equal(s.completedLevels.a,undefined,'Locked prerequisite is not exhausted');
+  s.runtime.y.dependencyLocked=false;s.runtime.y.removed=false;s.runtime.y.cooldown=2;
+  P.evaluate(s,cfg);assert.equal(s.completedLevels.a,undefined,'Cooldown is temporary');
+  s.runtime.y.removed=true;P.evaluate(s,cfg);
+  assert.equal(s.completedLevels.a,true);assert.equal(s.activeLevels.a,false);assert.equal(s.activeLevels.b,true);
+});
+test('simple modifier wheels produce equal outcomes and minutes set a timer on untimed results',()=>{
+ const {F,M}=setup();
+ assert.deepEqual(Array.from(F.modifierOutcomes({type:'binary'}),x=>x.value),[true,false]);
+ const outcomes=F.modifierOutcomes({type:'minutes',min:2,max:6,step:2});
+ assert.deepEqual(Array.from(outcomes,x=>x.timerSeconds),[120,240,360]);
+ assert.equal(F.applyModifier({timerSeconds:0},outcomes[1]).timerSeconds,240);
+ assert.ok(F.modifierOutcomes({type:'number',min:0,max:999,step:1}).length<=24);
+ let cfg=M.loadConfig();cfg.forfeits[0].modifierWheel={enabled:true,type:'minutes',min:2,max:6,step:2};M.saveConfig(cfg);
+ assert.equal(M.loadConfig().forfeits[0].modifierWheel.type,'minutes');
+});

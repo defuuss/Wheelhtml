@@ -3,7 +3,7 @@
 
   const CONFIG_KEY = 'fortune-engine-config-v1';
   const SESSION_KEY = 'fortune-engine-session-v1';
-  const EVENT_TYPES = ['normal','spinAgain','unlock','doubleSpin','immunity','randomize','goodCard','badCard','doubleOrNothing'];
+  const EVENT_TYPES = ['normal','spinAgain','unlock','doubleSpin','immunity','randomize','cardPick','goodCard','badCard','doubleOrNothing'];
 
   const DEFAULT_CONFIG = {
     version: 1,
@@ -142,8 +142,8 @@
       lines.push(`    <forfeit id="${xmlEscape(item.id)}" name="${xmlEscape(item.name)}" icon="${xmlEscape(item.icon)}" color="${xmlEscape(item.color)}" weight="${item.weight}" group="${xmlEscape(item.levelId)}" category="${xmlEscape(item.category)}" animation="${xmlEscape(item.animation)}" lifetime="${xmlEscape(item.lifetime.type)}" lifetimeSpins="${item.lifetime.spins}" cooldown="${item.cooldown}" eventType="${xmlEscape(item.eventType)}" timerSeconds="${item.timerSeconds}" mystery="${item.mystery}" enabled="${item.enabled}">`);
       lines.push(`      <description>${xmlEscape(item.description)}</description>`); lines.push('      <unlocks>'); item.unlockLevels.forEach(id=>lines.push(`        <group ref="${xmlEscape(id)}" />`)); lines.push('      </unlocks>');
       const modifiers = item.modifierWheel;
-      if (modifiers.enabled || modifiers.outcomes.length) {
-        lines.push(`      <modifierWheel enabled="${modifiers.enabled}" chance="${modifiers.chance}">`);
+      if (modifiers.enabled || modifiers.outcomes.length || modifiers.type !== 'number' || modifiers.min !== 1 || modifiers.max !== 6 || modifiers.step !== 1) {
+        lines.push(`      <modifierWheel enabled="${modifiers.enabled}" chance="${modifiers.chance}" type="${modifiers.type}" min="${modifiers.min}" max="${modifiers.max}" step="${modifiers.step}">`);
         modifiers.outcomes.forEach(entry => lines.push(`        <outcome name="${xmlEscape(entry.name)}" weight="${entry.weight}" timerMultiplier="${entry.timerMultiplier}">${xmlEscape(entry.description)}</outcome>`));
         lines.push('      </modifierWheel>');
       }
@@ -157,7 +157,7 @@
   function readModifierXml(node) {
     const wheel = node.querySelector(':scope > modifierWheel');
     if (!wheel) return {};
-    return { enabled: boolAttr(wheel, 'enabled'), chance: Number(attr(wheel, 'chance', '100')),
+    return { type: attr(wheel, 'type', 'custom'), min: Number(attr(wheel, 'min', '1')), max: Number(attr(wheel, 'max', '6')), step: Number(attr(wheel, 'step', '1')), enabled: boolAttr(wheel, 'enabled'), chance: Number(attr(wheel, 'chance', '100')),
       outcomes: [...wheel.querySelectorAll(':scope > outcome')].map(entry => ({ name: attr(entry, 'name'), description: entry.textContent, weight: Number(attr(entry, 'weight', '1')), timerMultiplier: Number(attr(entry, 'timerMultiplier', '1')) })) };
   }
   function xmlToConfig(xmlText){

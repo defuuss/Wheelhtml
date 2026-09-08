@@ -30,7 +30,7 @@
     if (window.__fortuneProgressionAiBridge) return;
     window.__fortuneProgressionAiBridge = true;
     const originalFetch = window.fetch.bind(window);
-    const guide = `\n\nSIMPLE LEVEL PROGRESSION SCHEMA:\n- A <group> may use completion="manual|required". manual means it stays active normally. required means the level automatically completes after every enabled forfeit in that group with requiredForCompletion="true" has occurred at least once.\n- A group may have completionLabel="Naked" (or another short state label). This is a display/state milestone recorded when the level completes.\n- A group may contain <onComplete><group ref="NEXT_LEVEL_ID"/></onComplete>. Those levels activate automatically when this level completes. The completed level is removed from the wheel.\n- A <forfeit> may use requiredForCompletion="true". Only mark results that genuinely must happen before the level is finished. Optional/repeatable results should not be required.\n- Keep progression simple. Example: Strip has completion="required", its clothing-removal results are required, completionLabel="Naked", and onComplete unlocks Naked Humiliation. Do NOT invent a separate complex state/rule system when this direct level progression is enough.\n- Existing direct <unlocks>, ALL/ANY rules and per-forfeit <requires> still work for special cases. Prefer level completion for broad phase transitions and <requires> for order inside one level.\n- Preserve completion, completionLabel, onComplete and requiredForCompletion on unrelated edits.\n`;
+    const guide = `\n\nSIMPLE LEVEL PROGRESSION SCHEMA:\n- Groups finish when their enabled forfeits are permanently removed: completion="empty" (default). Cooldowns and dependency locks do not count as removal.\n- For an earlier milestone use completion="required" and requiredForCompletion="true" on the chosen forfeits.\n- A group may contain <onComplete><group ref="NEXT_GROUP_ID"/></onComplete> to unlock other groups on completion.\n- Prefer direct <unlocks>, ALL/ANY rules and per-forfeit <requires>. No state variable system is needed. Preserve old completionLabel data on unrelated edits.\n- Per-forfeit modifierWheel supports type="number|minutes|binary|custom", enabled, chance, min, max and step. Minutes sets the result timer. Use custom only for old named outcomes.\n- eventType="cardPick" draws a fate card; spinAgain queues another spin after accepting; randomize changes active weights.\n`;
 
     window.fetch = async (input, init = {}) => {
       try {
@@ -71,7 +71,7 @@
       const p = toolbar.querySelector('p');
       if (kicker) kicker.textContent = 'GAME PHASES';
       if (h2) h2.textContent = 'Levels & progression';
-      if (p) p.textContent = 'Keep simple levels active normally, or let a level finish automatically when its required results are done and unlock the next phase.';
+      if (p) p.textContent = 'Groups finish when all enabled forfeits have been permanently removed. Choose which groups unlock next, or use selected-forfeit rules.';
       const add = toolbar.querySelector('#addLevelBtn');
       if (add) add.textContent = '+ Add level';
     }
@@ -80,7 +80,7 @@
       const guide = document.createElement('div');
       guide.id = 'progressionGuide';
       guide.className = 'progression-guide';
-      guide.innerHTML = '<strong>Simple progression:</strong><span class="progression-step"><b>1</b> Activate a level</span><span>→</span><span class="progression-step"><b>2</b> Complete required results</span><span>→</span><span class="progression-step"><b>3</b> Unlock the next level</span>';
+      guide.innerHTML = '<strong>Simple progression:</strong><span class="progression-step"><b>1</b> Activate a level</span><span>→</span><span class="progression-step"><b>2</b> Remove the last forfeit</span><span>→</span><span class="progression-step"><b>3</b> Unlock the next level</span>';
       pane.querySelector('.editor-toolbar')?.insertAdjacentElement('afterend', guide);
     }
 
@@ -98,7 +98,7 @@
       details.id = 'advancedProgressionRules';
       details.className = 'advanced-progression-rules';
       const summary = document.createElement('summary');
-      summary.textContent = 'Advanced unlock rules (optional)';
+      summary.textContent = 'Unlock after selected forfeits (ALL / ANY)';
       head.parentNode.insertBefore(details, head);
       details.append(summary, head, list);
       const kicker = head.querySelector('.section-kicker');
@@ -106,7 +106,7 @@
       const p = head.querySelector('p');
       if (kicker) kicker.textContent = 'ADVANCED';
       if (h2) h2.textContent = 'Conditional unlock rules';
-      if (p) p.textContent = 'Only use these when a direct result unlock or level-completion unlock is not enough.';
+      if (p) p.textContent = 'Choose one or several forfeits, then choose the groups they unlock. ALL waits for every selected forfeit; ANY waits for the first.';
     }
   }
 
@@ -123,7 +123,7 @@
     const summary = document.createElement('summary');
     const summaryText = extra.completionMode === 'required'
       ? `${requiredCount} required${unlockNames.length ? ` · → ${unlockNames.join(', ')}` : ''}`
-      : 'Stays active';
+      : 'When empty';
     summary.innerHTML = `<span>Progression</span><span class="progression-summary"></span>`;
     summary.querySelector('.progression-summary').textContent = summaryText;
 
@@ -131,13 +131,13 @@
     content.className = 'progression-content';
     const modeLabel = document.createElement('label');
     modeLabel.className = 'field';
-    modeLabel.innerHTML = '<span>When does this level finish?</span><select><option value="manual">Keep active normally</option><option value="required">When required results are done</option></select>';
+    modeLabel.innerHTML = '<span>When does this level finish?</span><select><option value="empty">When all forfeits are removed</option><option value="required">When marked forfeits have been selected</option></select>';
     const mode = modeLabel.querySelector('select');
     mode.value = extra.completionMode;
 
     const auto = document.createElement('div');
     auto.className = 'progression-auto-fields';
-    auto.hidden = extra.completionMode !== 'required';
+    auto.hidden = false;
 
     const labelField = document.createElement('label');
     labelField.className = 'field';
@@ -177,7 +177,8 @@
       ? `${requiredCount} result${requiredCount === 1 ? '' : 's'} currently required. Required results are marked in the Forfeits tab.`
       : 'No required results yet. In the Forfeits tab, mark the results that must happen before this level is finished.';
 
-    auto.append(labelField, unlockTitle, chips, hint);
+    auto.append(unlockTitle, chips, hint);
+    if (extra.completionMode !== 'required') hint.textContent = 'Cooldowns and locked prerequisites do not count as removal. Use “Remove after selected” for forfeits that should finish after one spin.';
     content.append(modeLabel, auto);
     box.append(summary, content);
     card.appendChild(box);

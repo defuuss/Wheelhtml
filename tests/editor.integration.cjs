@@ -20,7 +20,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
   const card=[...list.querySelectorAll('.forfeit-editor-card')].find(x=>x.dataset.id===added.id);
   assert.equal(w.document.activeElement,card.querySelector('.js-name'));
   const dropdown=card.querySelector('.js-lifetime-type');dropdown.focus();dropdown.value='once';dropdown.dispatchEvent(new w.Event('change',{bubbles:true}));await pause(150);assert.equal(w.document.activeElement,dropdown);assert.equal(dropdown.value,'once');
-  const panel=card.querySelector('.modifier-editor');const enable=panel.querySelector('input[type=checkbox]');enable.checked=true;enable.dispatchEvent(new w.Event('change',{bubbles:true}));panel.querySelector('.modifier-editor-content button').click();
+  const panel=card.querySelector('.modifier-editor');const enable=panel.querySelector('input[type=checkbox]');enable.checked=true;enable.dispatchEvent(new w.Event('change',{bubbles:true}));const type=panel.querySelector('.modifier-type');type.value='custom';type.dispatchEvent(new w.Event('change',{bubbles:true}));panel.querySelector('.modifier-editor-content button').click();
   const row=panel.querySelector('.modifier-row');const entryName=row.querySelector('input');entryName.value='Half time & <custom>';entryName.dispatchEvent(new w.Event('input',{bubbles:true}));
   const fields=row.querySelectorAll('input[type=number]');fields[1].value='.5';fields[1].dispatchEvent(new w.Event('input',{bubbles:true}));
   w.document.getElementById('applyBtn').click();await pause(250);

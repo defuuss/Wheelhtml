@@ -51,14 +51,34 @@ to the deleted group/results are cleaned; rules depending on deleted results are
 removed. Deleting the final group leaves an empty Start group. Deletions are saved
 only when **Apply changes** is pressed.
 
-Open a forfeit with **Edit**, then open **Modifier wheel**. Enable it and choose a
-trigger percentage (100 means every selection), then add up to 24 named outcomes.
-Each outcome has custom instructions, a weight and an optional timer multiplier.
-The modifier affects only that selection. Timer values are capped at 60 minutes
-before existing fate-card timer effects. Untimed results stay untimed. Players can
-keep the original result or use the modifier; the choice appears in session history.
-The configuration is saved in XML as an optional `modifierWheel` child per forfeit.
-Older files without this element keep modifiers disabled.
+Open a forfeit with **Edit**, then **Modifier wheel**. Choose **Number**, **Minutes**,
+or **True / False**, enable it and set the trigger chance. Number/minute ranges have
+From, To and Step controls with a preview (at most 24 outcomes; wider ranges
+increase the effective step). Minute results replace the timer, including on
+previously untimed forfeits, capped at 60 minutes. Number and binary results are
+shown as result instructions. Existing custom weighted wheels remain available
+under **Custom outcomes (advanced)**. Players may keep the original result.
+
+**Entry type** is available in Simple view, with a Special forfeits section for
+Spin again, Weight modifier and Pick a fate card. Spin again starts another spin
+after accepting the result. Weight modifier randomizes active weights for the
+session. Pick a fate card draws directly from the current fate deck; an empty deck
+shows a message. Legacy event types remain supported.
+
+Groups complete automatically when all enabled members have been permanently
+removed. Cooldowns and unmet prerequisites do not count as removal. Empty groups
+with no enabled members do not auto-complete. Repeatable members prevent exhaustion;
+use **Remove after selected** for one-time forfeits. **Then unlock groups** configures
+the next phase. An optional earlier milestone can finish a group after its marked
+forfeits have been selected. ALL/ANY unlock rules and per-forfeit direct unlocks
+remain available in Simple view. State labels are no longer an editable field;
+old data is preserved for compatibility. Progression is based on selection/removal,
+not on confirmation that an activity has been performed.
+
+On the play page, **Spin mode → Spin until I press Stop** keeps the wheel spinning
+until Stop (or Space). Stop uses a smooth slowdown to the weighted result. The
+mode is remembered in this browser; it is a player preference and is not included
+in the game XML. Reduced-motion mode waits for Stop with the wheel visually still.
 
 The editor now has one owner for group ordering. It sorts on rebuild or **Sort A–Z**,
 never on every typed character. Basic view keeps everyday fields visible; event
