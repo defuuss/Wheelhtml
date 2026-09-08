@@ -1,10 +1,6 @@
 (() => {
   'use strict';
 
-  if (document.readyState === 'loading' && !window.__fortuneProgressionBootstrap) {
-    window.__fortuneProgressionBootstrap = true;
-    document.write('<script src="progression-model.js?v=1"></' + 'script><script src="progression-editor.js?v=1"></' + 'script>');
-  }
 
   const M = window.FortuneModel;
   const template = document.getElementById('forfeitTemplate');

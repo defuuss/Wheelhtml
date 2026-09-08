@@ -5,14 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#070a12">
   <title>Edit · Fortune Engine</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="editor-enhancements.css">
-  <link rel="stylesheet" href="tree-editor.css">
-  <link rel="stylesheet" href="editor-visual-improvements.css?v=1">
-  <link rel="stylesheet" href="group-quick-add.css">
-  <link rel="stylesheet" href="spin-drama.css">
-  <link rel="stylesheet" href="mystery-editor.css">
-  <link rel="stylesheet" href="experience.css?v=1">
+  <link rel="stylesheet" href="styles/styles.css">
+  <link rel="stylesheet" href="styles/editor-enhancements.css">
+  <link rel="stylesheet" href="styles/tree-editor.css">
+  <link rel="stylesheet" href="styles/editor-visual-improvements.css?v=1">
+  <link rel="stylesheet" href="styles/group-quick-add.css">
+  <link rel="stylesheet" href="styles/spin-drama.css">
+  <link rel="stylesheet" href="styles/mystery-editor.css">
+  <link rel="stylesheet" href="styles/editor-simple-ui-v2.css?v=1">
+  <link rel="stylesheet" href="styles/ai-chat.css?v=3">
+  <link rel="stylesheet" href="styles/experience.css?v=2">
 </head>
 <body data-page="edit">
   <div class="ambient ambient-a"></div>
@@ -106,7 +108,6 @@
           <div class="section-kicker">DISPLAY</div>
           <h3>Visual behaviour</h3>
           <label class="check-line"><input id="showTextOnWheel" type="checkbox"> <span>Show short text with pictograms</span></label>
-          <label class="check-line"><input id="showProbabilities" type="checkbox"> <span>Show probability inspector on play page</span></label>
           <label class="field">Game title<input id="gameTitle" type="text" maxlength="60"></label>
         </div>
       </div>
@@ -221,20 +222,23 @@
     </article>
   </template>
 
-  <script src="model.js?v=2"></script>
-  <script src="dependency-model.js?v=1"></script>
-  <script src="spin-settings.js?v=3"></script>
-  <script src="game-editor.js?v=2"></script>
-  <script src="editor.js?v=3"></script>
-  <script src="editor-enhancements.js"></script>
-  <script src="icon-expansion.js"></script>
-  <script src="display-mode.js"></script>
-  <script src="mystery-editor.js"></script>
-  <script src="tree-editor.js?v=2"></script>
-  <script src="group-quick-add.js"></script>
-  <script src="dependency-editor.js?v=2"></script>
-  <script src="editor-visual-improvements.js?v=2"></script>
-  <script src="editor-ai-integrated.js?v=4"></script>
+  <script src="src/core/model.js?v=2"></script>
+  <script src="src/core/dependency-model.js?v=1"></script>
+  <script src="src/core/spin-settings.js?v=3"></script>
+  <script src="src/core/progression-model.js?v=1"></script>
+  <script src="src/editor/progression-editor.js?v=1"></script>
+  <script src="src/editor/game-editor.js?v=2"></script>
+  <script src="src/editor/editor.js?v=3"></script>
+  <script src="src/editor/editor-enhancements.js"></script>
+  <script src="src/editor/icon-expansion.js"></script>
+  <script src="src/editor/display-mode.js"></script>
+  <script src="src/editor/mystery-editor.js"></script>
+  <script src="src/editor/tree-editor.js?v=2"></script>
+  <script src="src/editor/group-quick-add.js"></script>
+  <script src="src/editor/dependency-editor.js?v=2"></script>
+  <script src="src/editor/editor-visual-improvements.js?v=2"></script>
+  <script src="src/editor/editor-simple-ui-v2.js?v=1"></script>
+  <script src="src/editor/editor-ai-integrated.js?v=4"></script>
 
   <script>
     (() => {
@@ -266,7 +270,7 @@
     })();
   </script>
 
-  <script src="ai-engine.js?v=7"></script>
+  <script src="src/editor/ai-engine.js?v=7"></script>
   <script>
     (() => {
       const showVersion = () => {

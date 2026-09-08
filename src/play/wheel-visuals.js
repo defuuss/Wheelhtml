@@ -18,7 +18,6 @@
   let session = null;
   let segments = [];
   let tracking = false;
-  let raf = 0;
   let decorateQueued = false;
 
   const svg = (tag, attrs = {}) => {
@@ -135,12 +134,6 @@
     shell.style.setProperty('--current-color', segments[index]?.item?.color || '#65d8ff');
   }
 
-  function loop() {
-    if (!tracking) { raf = 0; return; }
-    updateHighlight();
-    raf = requestAnimationFrame(loop);
-  }
-
   function beginSpinVisuals() {
     if (tracking) return;
     refreshData();
@@ -149,13 +142,11 @@
     shell.classList.add('wheel-spinning');
     document.getElementById('winnerLockSvg')?.remove();
     document.getElementById('winnerLockBadge')?.remove();
-    if (!raf) raf = requestAnimationFrame(loop);
+    rotor.querySelectorAll('.current-under-pointer').forEach(path => path.classList.remove('current-under-pointer'));
   }
 
   function finishSpinVisuals() {
     tracking = false;
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
     shell.classList.remove('wheel-spinning','wheel-winner-lock','wheel-drama');
     document.body.classList.remove('wheel-drama-active');
     document.getElementById('winnerLockSvg')?.remove();
@@ -164,13 +155,8 @@
     queueDecorate();
   }
 
-  let previousDisabled = spinBtn.disabled;
-  new MutationObserver(() => {
-    const disabled = spinBtn.disabled;
-    if (disabled && !previousDisabled) beginSpinVisuals();
-    if (!disabled && previousDisabled) finishSpinVisuals();
-    previousDisabled = disabled;
-  }).observe(spinBtn, { attributes:true, attributeFilter:['disabled'] });
+  window.addEventListener('fortune-spin-start', beginSpinVisuals);
+  window.addEventListener('fortune-spin-end', finishSpinVisuals);
 
   new MutationObserver(queueDecorate).observe(rotor, { childList:true });
   new MutationObserver(mutations => {

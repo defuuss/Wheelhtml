@@ -12,13 +12,6 @@
   let saveTimer = null;
 
   function addStyles() {
-    if (!document.querySelector('link[data-editor-ai-chat-css]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'ai-chat.css?v=3';
-      link.dataset.editorAiChatCss = '1';
-      document.head.appendChild(link);
-    }
     if ($('editorAiIntegratedStyles')) return;
     const style = document.createElement('style');
     style.id = 'editorAiIntegratedStyles';

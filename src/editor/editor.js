@@ -206,7 +206,7 @@
   function renderSettings() {
     const s = draft.settings;
     $('minSpin').value = s.minSpinSeconds; $('maxSpin').value = s.maxSpinSeconds; $('minTurns').value = s.minTurns;
-    $('soundEnabled').checked = s.soundEnabled; $('showTextOnWheel').checked = s.showTextOnWheel; $('showProbabilities').checked = s.showProbabilities; $('gameTitle').value = s.title;
+    $('soundEnabled').checked = s.soundEnabled; $('showTextOnWheel').checked = s.showTextOnWheel; $('gameTitle').value = s.title;
   }
 
   function bindSettings() {
@@ -215,7 +215,6 @@
     $('minTurns').addEventListener('input', () => { draft.settings.minTurns = Math.round(clamp($('minTurns').value, 3, 20, 6)); markDirty(); });
     $('soundEnabled').addEventListener('change', () => { draft.settings.soundEnabled = $('soundEnabled').checked; markDirty(); });
     $('showTextOnWheel').addEventListener('change', () => { draft.settings.showTextOnWheel = $('showTextOnWheel').checked; markDirty(); });
-    $('showProbabilities').addEventListener('change', () => { draft.settings.showProbabilities = $('showProbabilities').checked; markDirty(); });
     $('gameTitle').addEventListener('input', () => { draft.settings.title = $('gameTitle').value.slice(0, 60); markDirty(); });
   }
 

@@ -1,7 +1,7 @@
 /* Fate Deck presentation override: use uploaded 70s card back and make reveals larger/slower. */
 .fate-v4-mini-stack img,
 .fate-v4-back img{
-  content:url('assets/fate-cards/card-back.png?v=2');
+  content:url('../assets/fate-cards/card-back.png?v=2');
 }
 
 .fate-v4-overlay{

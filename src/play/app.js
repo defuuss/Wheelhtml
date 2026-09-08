@@ -9,13 +9,16 @@
   let session = M.loadSession(config);
   let spinning = false;
   let pendingResult = false;
-  const options = window.FortuneSessionOptions.load();
   let rotation = 0;
   let audio = null;
   let segments = [];
   let timerState = null;
   let timerTickHandle = null;
   let currentResult = null;
+  let spinStyle = null;
+  let lastTickAt = -Infinity;
+  let pointerAnimation = null;
+  let previewAnimation = null;
 
   const rotor = $('wheelRotor');
   const spinBtn = $('spinBtn');
@@ -85,13 +88,12 @@
   }
 
   function active() {
-    const eligible = config.forfeits.filter(item => {
+    return config.forfeits.filter(item => {
       const runtime = session.runtime[item.id];
       return item.enabled && runtime && !runtime.removed && runtime.cooldown <= 0 &&
         session.activeLevels[item.levelId] &&
         !(item.lifetime.type === 'spins' && runtime.remainingSpins !== null && runtime.remainingSpins <= 0);
     });
-    return window.FortuneSessionOptions.candidates(eligible, session.history, options.avoidRepeat);
   }
 
   function makeSegments(items) {
@@ -186,25 +188,6 @@
     });
   }
 
-  function renderOdds() {
-    const cardNode = document.querySelector('.probability-card');
-    if (cardNode) cardNode.hidden = !options.showOdds;
-    $('oddsBtn').setAttribute('aria-expanded', String(!!options.showOdds));
-    $('oddsBtn').textContent = options.showOdds ? 'Hide odds' : 'Show odds';
-    const box = $('probabilityList');
-    box.innerHTML = '';
-    const list = active();
-    const total = list.reduce((sum, item) => sum + weight(item), 0);
-    list.sort((a, b) => weight(b) - weight(a)).forEach(item => {
-      const node = document.createElement('div');
-      node.className = 'probability-row';
-      node.style.setProperty('--odds', `${weight(item) / total * 100}%`);
-      node.innerHTML = `<span class="prob-icon" style="--item-color:${item.color}">${esc(item.mystery ? '❓' : item.icon)}</span><span class="prob-name"><strong>${esc(item.mystery ? 'Mystery' : item.name)}</strong><small>weight ${weight(item).toFixed(1)}${item.timerSeconds ? ` · ⏱ ${formatTime(item.timerSeconds)}` : ''}</small></span><span class="prob-value">${(weight(item) / total * 100).toFixed(1)}%</span>`;
-      box.appendChild(node);
-    });
-    if (!list.length) box.innerHTML = '<div class="empty-small">No selectable entries.</div>';
-  }
-
   function renderHistory() {
     const box = $('historyList');
     const history = session.history.slice(-8).reverse();
@@ -260,14 +243,9 @@
     ensureCardState();
     $('gameHeading').textContent = config.settings.title || 'Fortune Engine';
     $('sessionBadge').textContent = pendingResult ? 'Revealing…' : spinning ? 'Spinning…' : `Round ${session.spinCount + 1}`;
-    $('avoidRepeat').checked = !!options.avoidRepeat;
-    $('quickSpin').checked = !!options.quickSpin;
-    $('muteBtn').setAttribute('aria-pressed', String(!!options.muted));
-    $('muteBtn').textContent = options.muted ? 'Unmute' : 'Mute';
     document.title = `${config.settings.title} · Fortune Engine`;
     renderLevels();
     renderWheel();
-    renderOdds();
     renderHistory();
     renderInventory();
     $('spinCount').textContent = session.spinCount;
@@ -320,7 +298,7 @@
   }
 
   function updateSpinPreview(item, bump = true) {
-    const style = S?.load?.() || {};
+    const style = spinStyle || S?.load?.() || {};
     if (style.showSlowIcon === false) return;
     const preview = ensureSpinPreview();
     const icon = preview.querySelector('.spin-live-icon');
@@ -330,9 +308,8 @@
     preview.style.setProperty('--preview-color', item?.color || '#65d8ff');
     preview.classList.add('show');
     if (bump) {
-      preview.classList.remove('bump');
-      void preview.offsetWidth;
-      preview.classList.add('bump');
+      previewAnimation?.cancel();
+      previewAnimation = preview.animate([{ scale: '.96' }, { scale: '1.04' }, { scale: '1' }], { duration: 150, easing: 'ease-out' });
     }
   }
 
@@ -355,37 +332,38 @@
     return { up, cruise, down, total: up + cruise + down };
   }
 
+  // Integral of a smoothstep velocity curve: acceleration is zero at all
+  // phase boundaries, and the final angle remains the preselected result.
+  function motionDistance(elapsed, distance, { up, cruise, down }) {
+    const total = up + cruise + down;
+    if (elapsed <= 0) return 0;
+    if (elapsed >= total) return distance;
+    const velocity = distance / (.5 * up + cruise + .5 * down);
+    if (elapsed < up) {
+      const t = elapsed / up;
+      return velocity * up * (t ** 3 - .5 * t ** 4);
+    }
+    if (elapsed < up + cruise) return velocity * (.5 * up + elapsed - up);
+    const t = (elapsed - up - cruise) / down;
+    return velocity * (.5 * up + cruise + down * (t - t ** 3 + .5 * t ** 4));
+  }
+
   function animateMotionProfile(from, to, profile, list, previewAfter = null) {
     const distance = to - from;
     const up = Math.max(.001, profile.up);
     const cruise = Math.max(0, profile.cruise);
     const down = Math.max(.001, profile.down);
-    const effectiveTime = .5 * up + cruise + .5 * down;
-    const maxVelocity = distance / Math.max(.001, effectiveTime);
-    const upDistance = .5 * maxVelocity * up;
-    const cruiseDistance = maxVelocity * cruise;
     const totalTime = up + cruise + down;
-    const upEnd = up;
-    const cruiseEnd = up + cruise;
 
     return new Promise(done => {
       const started = performance.now();
       let last = pointerIndex(from, list);
       let previewVisible = false;
+      let lastPreviewAt = -Infinity;
 
       const frame = now => {
         const elapsed = Math.min(totalTime, (now - started) / 1000);
-        let travelled;
-        if (elapsed <= upEnd) {
-          const acceleration = maxVelocity / up;
-          travelled = .5 * acceleration * elapsed * elapsed;
-        } else if (elapsed <= cruiseEnd) {
-          travelled = upDistance + maxVelocity * (elapsed - upEnd);
-        } else {
-          const t = elapsed - cruiseEnd;
-          const deceleration = maxVelocity / down;
-          travelled = upDistance + cruiseDistance + maxVelocity * t - .5 * deceleration * t * t;
-        }
+        const travelled = motionDistance(elapsed, distance, { up, cruise, down });
 
         const progress = totalTime ? elapsed / totalTime : 1;
         rotation = elapsed >= totalTime ? to : from + travelled;
@@ -399,7 +377,10 @@
         if (index !== last) {
           last = index;
           tick();
-          if (shouldPreview) updateSpinPreview(list[index]?.item);
+          if (shouldPreview && now - lastPreviewAt >= 120) {
+            lastPreviewAt = now;
+            updateSpinPreview(list[index]?.item, false);
+          }
         }
         if (elapsed < totalTime) requestAnimationFrame(frame);
         else done();
@@ -448,8 +429,9 @@
     hideCardOverlay();
     hideSpinPreview();
     spinning = true;
+    window.dispatchEvent(new Event('fortune-spin-start'));
     $('sessionBadge').textContent = 'Spinning…';
-    ['resetBtn', 'loadBtn', 'avoidRepeat', 'quickSpin', 'muteBtn', 'oddsBtn'].forEach(id => $(id).disabled = true);
+    ['resetBtn', 'loadBtn'].forEach(id => $(id).disabled = true);
     spinBtn.disabled = true;
     $('undoBtn').disabled = true;
     snapshot();
@@ -459,7 +441,7 @@
     const target = pick.start + pick.span * (.22 + Math.random() * .56);
     const desired = norm(-90 - target);
     const alignment = norm(desired - norm(rotation));
-    const style = S?.load?.() || {};
+    const style = spinStyle = S?.load?.() || {};
 
     const minTurns = Math.max(3, Math.round(config.settings.minTurns || 6));
     const maxTurns = Math.max(minTurns, Math.round(style.maxTurns || minTurns + 2));
@@ -468,13 +450,13 @@
     const maxTotal = Math.max(config.settings.minSpinSeconds, config.settings.maxSpinSeconds);
     const targetSeconds = randomFloat(minTotal, maxTotal);
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const profile = options.quickSpin ? { up: .35, cruise: .4, down: 1.25 } : motionProfile(targetSeconds, style);
+    const profile = motionProfile(targetSeconds, style);
 
     const start = rotation;
     const final = rotation + fullTurns * 360 + alignment;
     const previewStart = Math.max(.1, Math.min(.8, Number(style.iconPreviewStartPercent || 35) / 100));
     const previewAfter = style.showSlowIcon === false ? null : previewStart;
-    const drama = !options.quickSpin && !reducedMotion && style.dramaEnabled !== false && Math.random() * 100 < Number(style.dramaChance || 0);
+    const drama = !reducedMotion && style.dramaEnabled !== false && Math.random() * 100 < Number(style.dramaChance || 0);
     const chaos = ensureCardState().chaosNext;
 
     state(chaos ? 'Chaos spin…' : 'Spinning…', chaos
@@ -506,6 +488,7 @@
     const outcome = applyResult(pick.item);
     restoreChaosAfterSpin();
     spinning = false;
+    window.dispatchEvent(new Event('fortune-spin-end'));
     pendingResult = true;
     renderAll();
 
@@ -514,7 +497,7 @@
       showResult(pick.item, outcome);
       pendingResult = false;
       spinBtn.disabled = !segments.length;
-      ['resetBtn', 'loadBtn', 'avoidRepeat', 'quickSpin', 'muteBtn', 'oddsBtn'].forEach(id => $(id).disabled = false);
+      ['resetBtn', 'loadBtn'].forEach(id => $(id).disabled = false);
       $('sessionBadge').textContent = `Round ${session.spinCount + 1}`;
     }, 300);
   }
@@ -984,7 +967,7 @@
   }
 
   function ctx() {
-    if (options.muted || !config.settings.soundEnabled) return null;
+    if (!config.settings.soundEnabled) return null;
     if (!audio) {
       const Audio = window.AudioContext || window.webkitAudioContext;
       if (Audio) audio = new Audio();
@@ -1008,9 +991,11 @@
   }
 
   function tick() {
-    pointer.classList.remove('tick');
-    void pointer.offsetWidth;
-    pointer.classList.add('tick');
+    const now = performance.now();
+    if (now - lastTickAt < 70) return;
+    lastTickAt = now;
+    pointerAnimation?.cancel();
+    pointerAnimation = pointer.animate([{ rotate: '0deg' }, { rotate: '-7deg', offset: .35 }, { rotate: '0deg' }], { duration: 100, easing: 'ease-out' });
     beep(780, .035, .045);
   }
 
@@ -1077,11 +1062,6 @@
   function modalOpen() {
     return [...document.querySelectorAll('.result-overlay, #specialCardOverlay, [role="dialog"]')].some(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
   }
-  function saveOptions() { window.FortuneSessionOptions.save(options); renderAll(); }
-  $('avoidRepeat').addEventListener('change', event => { options.avoidRepeat = event.target.checked; saveOptions(); });
-  $('quickSpin').addEventListener('change', event => { options.quickSpin = event.target.checked; saveOptions(); });
-  $('muteBtn').addEventListener('click', () => { options.muted = !options.muted; saveOptions(); });
-  $('oddsBtn').addEventListener('click', () => { options.showOdds = !options.showOdds; saveOptions(); });
   spinBtn.addEventListener('click', () => { if (!modalOpen()) { ctx(); spin(); } });
   $('saveBtn').addEventListener('click', () => M.downloadXml(config));
   $('loadBtn').addEventListener('click', () => fileInput.click());

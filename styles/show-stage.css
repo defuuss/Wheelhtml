@@ -60,9 +60,9 @@ body.stage-winner-light::before{filter:saturate(1.35) brightness(1.13)}
 .wheel-segment.stage-special-unlock{stroke:#d8c5ff!important;stroke-width:3.4!important;stroke-dasharray:8 4}
 .wheel-segment.stage-special-timed{stroke-linejoin:round}
 .stage-special-overlay{pointer-events:none;opacity:.28;mix-blend-mode:screen}
-.stage-special-overlay.good{fill:url(#stageGoodPattern)}
-.stage-special-overlay.bad{fill:url(#stageBadPattern)}
-.stage-special-overlay.risk{fill:url(#stageRiskPattern);opacity:.42}
+.stage-special-overlay.good{fill:url(#safeGoodPattern)}
+.stage-special-overlay.bad{fill:url(#safeBadPattern)}
+.stage-special-overlay.risk{fill:url(#safeRiskPattern);opacity:.42}
 .stage-special-overlay.unlock{fill:url(#stageUnlockPattern);opacity:.22}
 .wheel-shell.wheel-spinning .stage-special-overlay{opacity:.2}
 
@@ -130,12 +130,8 @@ body.studio-mode .wheel-stats{opacity:.72}
   opacity:.48
 }
 .wheel-shell.wheel-spinning .wheel-segment{transition:filter .08s ease,opacity .08s ease,stroke-width .08s ease,stroke .08s ease,transform .08s ease}
-.wheel-shell.wheel-spinning .wheel-segment.current-under-pointer{
-  transform:scale(1.028)!important;
-  filter:brightness(1.38) saturate(1.2) drop-shadow(0 0 10px color-mix(in srgb,var(--current-color) 72%,transparent))!important;
-  stroke:rgba(255,255,255,.94)!important;stroke-width:6!important
-}
-.wheel-shell.wheel-drama .wheel-segment.current-under-pointer{transform:scale(1.038)!important}
+
+
 .wheel-shell.wheel-winner-lock .winner-lock-path{filter:brightness(1.48) saturate(1.22) drop-shadow(0 0 12px var(--winner-color)) drop-shadow(0 0 31px color-mix(in srgb,var(--winner-color) 70%,transparent))!important}
 
 .show-intro-overlay{
@@ -184,5 +180,5 @@ body.stage-intro-active .side-panel,body.stage-intro-active .history-panel,body.
 }
 @media(prefers-reduced-motion:reduce){
   body[data-page="play"]::after,.show-countdown.bump,.stage-unlock-card,.wheel-segment.stage-new-unlocked,.level-light.stage-new-group{animation:none!important}
-  .wheel-shell.wheel-spinning .wheel-segment.current-under-pointer{transform:none!important}
+
 }
