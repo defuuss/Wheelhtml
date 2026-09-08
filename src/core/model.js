@@ -83,6 +83,7 @@
     return {
       version:1,
       settings:{
+        fateDeck:window.FortuneFeatures.normalizeDeck(settings.fateDeck),
         title:String(settings.title||'Fortune Engine').slice(0,60),
         minSpinSeconds:clampNumber(settings.minSpinSeconds,3,20,6.5), maxSpinSeconds:clampNumber(settings.maxSpinSeconds,3,25,9.5),
         minTurns:Math.round(clampNumber(settings.minTurns,3,20,6)), soundEnabled:settings.soundEnabled!==false,
@@ -122,7 +123,7 @@
   function createSession(config){
     const cfg=sanitizeConfig(config); const activeLevels={}; cfg.levels.forEach(level=>{activeLevels[level.id]=Boolean(level.activeAtStart);});
     const runtime={}; cfg.forfeits.forEach(item=>{runtime[item.id]={removed:false,cooldown:0,remainingSpins:item.lifetime.type==='spins'?item.lifetime.spins:null,weightMultiplier:1};});
-    return ensureCardState({version:1,configSignature:signature(cfg),spinCount:0,activeLevels,runtime,history:[],undoStack:[],immunityTokens:0,doubleSpinTokens:0,cardState:{respin:0,shorten:0,chaosNext:false,doubleTimeNext:false,forcedForfeits:0,chaosBackup:{}}});
+    return ensureCardState({version:1,sessionId:makeId('session'),configSignature:signature(cfg),spinCount:0,wheelOrder:window.FortuneFeatures.shuffle(cfg.forfeits.map(item=>item.id)),activeLevels,runtime,history:[],undoStack:[],immunityTokens:0,doubleSpinTokens:0,cardState:{respin:0,shorten:0,chaosNext:false,doubleTimeNext:false,forcedForfeits:0,chaosBackup:{}}});
   }
   function loadSession(config){
     const cfg=sanitizeConfig(config); const sig=signature(cfg);
@@ -137,6 +138,7 @@
   function configToXml(config){
     const cfg=sanitizeConfig(config); const lines=['<?xml version="1.0" encoding="UTF-8"?>','<fortuneEngine version="1">']; const s=cfg.settings;
     lines.push(`  <settings title="${xmlEscape(s.title)}" minSpinSeconds="${s.minSpinSeconds}" maxSpinSeconds="${s.maxSpinSeconds}" minTurns="${s.minTurns}" soundEnabled="${s.soundEnabled}" showTextOnWheel="${s.showTextOnWheel}" showProbabilities="${s.showProbabilities}" />`);
+    lines.push('  <fateDeck>'); Object.entries(s.fateDeck).forEach(([id,count])=>lines.push(`    <card type="${id}" count="${count}" />`)); lines.push('  </fateDeck>');
     lines.push('  <groups>'); cfg.levels.forEach(level=>lines.push(`    <group id="${xmlEscape(level.id)}" name="${xmlEscape(level.name)}" icon="${xmlEscape(level.icon)}" color="${xmlEscape(level.color)}" activeAtStart="${level.activeAtStart}" />`)); lines.push('  </groups>');
     lines.push('  <forfeits>'); cfg.forfeits.forEach(item=>{
       lines.push(`    <forfeit id="${xmlEscape(item.id)}" name="${xmlEscape(item.name)}" icon="${xmlEscape(item.icon)}" color="${xmlEscape(item.color)}" weight="${item.weight}" group="${xmlEscape(item.levelId)}" category="${xmlEscape(item.category)}" animation="${xmlEscape(item.animation)}" lifetime="${xmlEscape(item.lifetime.type)}" lifetimeSpins="${item.lifetime.spins}" cooldown="${item.cooldown}" eventType="${xmlEscape(item.eventType)}" timerSeconds="${item.timerSeconds}" mystery="${item.mystery}" enabled="${item.enabled}">`);
@@ -170,7 +172,7 @@
       lifetime:{type:attr(node,'lifetime','forever'),spins:Number(attr(node,'lifetimeSpins','3'))},cooldown:Number(attr(node,'cooldown','0')),eventType:attr(node,'eventType','normal'),timerSeconds:Number(attr(node,'timerSeconds','0')),mystery:boolAttr(node,'mystery',false),enabled:boolAttr(node,'enabled',true),unlockLevels:[...node.querySelectorAll(':scope > unlocks > group')].map(group=>attr(group,'ref')).filter(Boolean)
     }));
     const rules=[...root.querySelectorAll(':scope > rules > rule')].map(node=>({id:attr(node,'id',makeId('rule')),name:attr(node,'name','Rule'),mode:attr(node,'mode','all'),enabled:boolAttr(node,'enabled',true),conditionForfeitIds:[...node.querySelectorAll(':scope > conditions > forfeit')].map(entry=>attr(entry,'ref')).filter(Boolean),unlockLevels:[...node.querySelectorAll(':scope > unlocks > group')].map(group=>attr(group,'ref')).filter(Boolean)}));
-    return sanitizeConfig({version:1,settings:{title:settingsNode?attr(settingsNode,'title','Fortune Engine'):'Fortune Engine',minSpinSeconds:settingsNode?Number(attr(settingsNode,'minSpinSeconds','6.5')):6.5,maxSpinSeconds:settingsNode?Number(attr(settingsNode,'maxSpinSeconds','9.5')):9.5,minTurns:settingsNode?Number(attr(settingsNode,'minTurns','6')):6,soundEnabled:settingsNode?boolAttr(settingsNode,'soundEnabled',true):true,showTextOnWheel:settingsNode?boolAttr(settingsNode,'showTextOnWheel',false):false,showProbabilities:settingsNode?boolAttr(settingsNode,'showProbabilities',true):true},levels,forfeits,rules});
+    return sanitizeConfig({version:1,settings:{fateDeck:Object.fromEntries([...root.querySelectorAll(':scope > fateDeck > card')].map(node=>[attr(node,'type'),Number(attr(node,'count','0'))])),title:settingsNode?attr(settingsNode,'title','Fortune Engine'):'Fortune Engine',minSpinSeconds:settingsNode?Number(attr(settingsNode,'minSpinSeconds','6.5')):6.5,maxSpinSeconds:settingsNode?Number(attr(settingsNode,'maxSpinSeconds','9.5')):9.5,minTurns:settingsNode?Number(attr(settingsNode,'minTurns','6')):6,soundEnabled:settingsNode?boolAttr(settingsNode,'soundEnabled',true):true,showTextOnWheel:settingsNode?boolAttr(settingsNode,'showTextOnWheel',false):false,showProbabilities:settingsNode?boolAttr(settingsNode,'showProbabilities',true):true},levels,forfeits,rules});
   }
 
   function downloadXml(config,filename='fortune-wheel.xml'){ const blob=new Blob([configToXml(config)],{type:'application/xml;charset=utf-8'}); const url=URL.createObjectURL(blob); const link=document.createElement('a'); link.href=url; link.download=filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); }

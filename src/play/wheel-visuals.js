@@ -52,7 +52,7 @@
     });
     const total = items.reduce((sum, item) => sum + weight(item), 0);
     let angle = -90;
-    segments = items.map(item => {
+    segments = window.FortuneFeatures.wheelOrder(items, session).map(item => {
       const w = weight(item);
       const span = total ? w / total * 360 : 0;
       const out = { item, start: angle, end: angle + span, span };

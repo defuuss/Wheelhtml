@@ -12,6 +12,7 @@ function fixture() {
     document: { getElementById: () => ({}) },
     confirm: () => { throw Error('Confirmation must not open while spinning'); }
   });
+  vm.runInContext(fs.readFileSync(path.join(root, 'src/core/features.js'), 'utf8'), context);
   const source = fs.readFileSync(path.join(root, 'src/play/app.js'), 'utf8');
   vm.runInContext(source.slice(0, source.indexOf('  function modalOpen()')) + `
     window.testGame = { active, makeSegments, choose, arc, motionDistance, spin, reset, undo, loadXml,

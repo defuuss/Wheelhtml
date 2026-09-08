@@ -140,7 +140,7 @@
     } finally {
       postFlowRunning = false;
       syncLevelLights();
-      if (spinBtn.disabled) {
+      if (spinBtn.disabled && !document.querySelector('.batch-overlay')) {
         const available = config.forfeits.some(item => {
           const runtime = session.runtime?.[item.id];
           return item.enabled && runtime && !runtime.removed && runtime.cooldown <= 0 && session.activeLevels?.[item.levelId];

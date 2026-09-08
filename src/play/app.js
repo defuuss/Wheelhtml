@@ -101,7 +101,7 @@
   function makeSegments(items) {
     const total = items.reduce((sum, item) => sum + weight(item), 0);
     let angle = -90;
-    return items.map(item => {
+    return window.FortuneFeatures.wheelOrder(items, session).map(item => {
       const itemWeight = weight(item);
       const span = total ? itemWeight / total * 360 : 0;
       const segment = { item, start: angle, end: angle + span, span, weight: itemWeight, total };
@@ -207,7 +207,7 @@
     });
 
     if (!history.length) box.innerHTML = '<div class="history-empty">Your last results will appear here.</div>';
-    $('undoBtn').disabled = !session.undoStack.length || spinning;
+    $('undoBtn').disabled = !session.undoStack.length || spinning || pendingResult;
   }
 
   function ensureInventory() {
@@ -1119,6 +1119,46 @@
     }
   }
 
+  let directBatch = false;
+  window.FortunePlay = {
+    candidates(exclude = [], groupId = '') {
+      return active().filter(item => ['normal','unlock'].includes(item.eventType) && !exclude.includes(item.id) && (!groupId || item.levelId === groupId))
+        .map(item => ({ ...M.deepClone(item), effectiveWeight: weight(item), groupName: config.levels.find(g => g.id === item.levelId)?.name || item.levelId }));
+    },
+    beginDirect(keepCurrent) {
+      if (spinning || pendingResult || directBatch) return null;
+      const original = keepCurrent && currentResult ? M.deepClone(currentResult.item) : null;
+      if (original && timerState) original.timerSeconds = timerState.remaining;
+      snapshot(); hideResult(); directBatch = true; pendingResult = true;
+      ['spinBtn','resetBtn','loadBtn','undoBtn','spinMode'].forEach(id => $(id).disabled = true);
+      return { original };
+    },
+    async drawDirect(exclude, groupId, lowest, cardName) {
+      if (!directBatch) return null;
+      let options = this.candidates(exclude, groupId);
+      if (!options.length) return null;
+      if (lowest) { const min = Math.min(...options.map(x => x.effectiveWeight)); options = options.filter(x => Math.abs(x.effectiveWeight - min) < 1e-9); }
+      const picked = lowest ? options[Math.floor(Math.random()*options.length)] : window.FortuneFeatures.choose(options.map(x => ({...x,weight:x.effectiveWeight})));
+      const item = config.forfeits.find(x => x.id === picked.id);
+      const outcome = applyResult(item);
+      const modifier = await window.FortuneModifierWheel.resolve(item);
+      const result = window.FortuneFeatures.applyModifier(item, modifier);
+      const last = session.history.at(-1); last.cardName = cardName;
+      if (modifier) { last.modifierName = modifier.name; last.modifierDescription = modifier.description; }
+      M.saveSession(session); renderAll();
+      return { item: result, outcome };
+    },
+    endDirect() {
+      directBatch = false; pendingResult = false; renderAll();
+      ['resetBtn','loadBtn','spinMode'].forEach(id => $(id).disabled = false);
+    },
+    randomizeWeights() {
+      if (spinning || pendingResult) return false;
+      snapshot(); active().forEach(item => { session.runtime[item.id].weightMultiplier = Number((.25 + Math.random()*2.75).toFixed(2)); });
+      M.saveSession(session); renderAll(); state('Chaos Weights', 'Active weights have changed for this session.'); return true;
+    }
+  };
+
   function modalOpen() {
     return [...document.querySelectorAll('.result-overlay, #specialCardOverlay, [role="dialog"]')].some(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
   }
@@ -1145,6 +1185,7 @@
     if (!overlay.hidden) hideResult();
   });
 
+  if (!session.wheelOrder) session.wheelOrder = window.FortuneFeatures.shuffle(config.forfeits.map(item => item.id));
   ensureCardState();
   ensureCardOverlay();
   ensureResultExtras();

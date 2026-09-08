@@ -198,6 +198,7 @@
 
   function renderSettings() {
     const s = draft.settings;
+    window.FortuneDeckEditor.mount(s, markDirty);
     $('minSpin').value = s.minSpinSeconds; $('maxSpin').value = s.maxSpinSeconds; $('minTurns').value = s.minTurns;
     $('soundEnabled').checked = s.soundEnabled; $('showTextOnWheel').checked = s.showTextOnWheel; $('gameTitle').value = s.title;
   }

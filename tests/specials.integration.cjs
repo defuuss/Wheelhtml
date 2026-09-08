@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..'),pause=ms=>new Promise(r=>setTimeout(r,ms
    for(const script of w.document.querySelectorAll('script'))if(script.src)w.eval(fs.readFileSync(root+'/'+script.getAttribute('src').split('?')[0],'utf8'));
    w.document.getElementById('spinBtn').click();await pause(1000);
    const M=w.FortuneModel;assert.equal(M.loadConfig().forfeits[0].eventType,eventType);assert.equal(M.xmlToConfig(M.configToXml(M.loadConfig())).forfeits[0].eventType,eventType);
-   if(eventType==='cardPick'){assert.equal(w.document.getElementById('fateDeckOverlayV4').hidden,false);assert.match(w.document.getElementById('fateDeckCount').textContent,/17/);}
+   if(eventType==='cardPick'){assert.equal(w.document.getElementById('fateDeckOverlayV4').hidden,false);assert.match(w.document.getElementById('fateDeckCount').textContent,/20/);}
    if(eventType==='randomize'){const multiplier=M.loadSession(M.loadConfig()).runtime.special.weightMultiplier;assert.ok(multiplier>=.6&&multiplier<=1.6);}
    if(eventType==='spinAgain'){w.document.getElementById('resultCloseBtn').click();await pause(700);assert.equal(M.loadSession(M.loadConfig()).spinCount,2);}
    assert.deepEqual(errors,[]);

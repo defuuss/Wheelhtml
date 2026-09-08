@@ -65,3 +65,16 @@ test('simple modifier wheels produce equal outcomes and minutes set a timer on u
  let cfg=M.loadConfig();cfg.forfeits[0].modifierWheel={enabled:true,type:'minutes',min:2,max:6,step:2};M.saveConfig(cfg);
  assert.equal(M.loadConfig().forfeits[0].modifierWheel.type,'minutes');
 });
+
+test('deck quantities are bounded and shuffled wheel order is stable across redraws',()=>{
+ const {F,M}=setup();
+ assert.equal(F.normalizeDeck({devilFive:0}).devilFive,0);assert.equal(F.normalizeDeck({rarest:99}).rarest,30);
+ const source=[{id:'a'},{id:'b'},{id:'c'},{id:'d'}];const order=F.shuffle(source.map(x=>x.id),()=>0);
+ assert.deepEqual(Array.from(order),['b','c','d','a']);
+ assert.deepEqual(Array.from(F.wheelOrder(source,{wheelOrder:order}),x=>x.id),Array.from(order));
+ assert.deepEqual(Array.from(F.wheelOrder(source.filter(x=>x.id!=='c'),{wheelOrder:order}),x=>x.id),['b','d','a']);
+ let config=M.loadConfig();config.settings.fateDeck={...F.deckDefaults,devilFive:0,rarest:4};M.saveConfig(config);
+ assert.equal(M.loadConfig().settings.fateDeck.rarest,4);assert.equal(M.loadConfig().settings.fateDeck.devilFive,0);
+ const session=M.createSession(config);assert.equal(new Set(session.wheelOrder).size,config.forfeits.length);
+ const next=M.createSession(config);assert.notEqual(next.sessionId,session.sessionId);
+});
