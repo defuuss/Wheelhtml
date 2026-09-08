@@ -14,6 +14,27 @@
     chance.oninput = () => { settings.chance = Math.max(0, Math.min(100, Number(chance.value) || 0)); changed(); };
     chanceLabel.append(chance);
     const fields = document.createElement('div'); fields.hidden = !settings.enabled;
+    const typeLabel = document.createElement('label'); typeLabel.className = 'field'; typeLabel.textContent = 'Wheel outcome';
+    const type = document.createElement('select'); type.className = 'modifier-type';
+    for (const [value, name] of [['number','Number'],['minutes','Minutes (sets the timer)'],['binary','True / False'],['custom','Custom outcomes (advanced)']]) {
+      const option = document.createElement('option'); option.value = value; option.textContent = name; type.append(option);
+    }
+    type.value = settings.type; typeLabel.append(type);
+    const range = document.createElement('div'); range.className = 'modifier-range';
+    for (const [key, name] of [['min','From'],['max','To'],['step','Step']]) {
+      const label = document.createElement('label'); label.className = 'field'; label.textContent = name;
+      const input = document.createElement('input'); input.type = 'number'; input.min = key === 'min' ? 0 : 1; input.max = 999; input.step = 1; input.value = settings[key]; input.className = 'modifier-' + key;
+      input.onchange = () => { settings[key] = Math.max(Number(input.min), Math.min(999, Math.round(Number(input.value) || 0))); input.value = settings[key]; update(); changed(); };
+      label.append(input); range.append(label);
+    }
+    const preview = document.createElement('p'); preview.className = 'modifier-options-preview';
+    function update() {
+      const custom = settings.type === 'custom'; rows.hidden = add.hidden = custom ? false : true;
+      range.hidden = custom || settings.type === 'binary';
+      note.textContent = custom ? 'Custom instructions, relative weights and timer multipliers.' : 'Every outcome has an equal chance. Minutes sets the result timer; numbers and True / False appear with the result. Up to 24 outcomes; large ranges automatically use a wider step.';
+      preview.textContent = custom ? '' : window.FortuneFeatures.modifierOutcomes(settings).map(x => x.name).join(' · ');
+    }
+    type.onchange = () => { settings.type = type.value; update(); changed(); };
     const rows = document.createElement('div'); rows.className = 'modifier-rows';
     const add = document.createElement('button'); add.type = 'button'; add.className = 'btn ghost'; add.textContent = '+ Add modifier';
     function renderRows() {
@@ -45,6 +66,6 @@
       summary.textContent = settings.enabled ? 'Modifier wheel · enabled' : 'Modifier wheel'; changed();
     };
     summary.textContent = settings.enabled ? 'Modifier wheel · enabled' : 'Modifier wheel';
-    fields.append(note, chanceLabel, rows, add); content.append(enabledLabel, fields); panel.append(summary, content); card.append(panel); renderRows();
+    fields.append(typeLabel, range, preview, note, chanceLabel, rows, add); content.append(enabledLabel, fields); panel.append(summary, content); card.append(panel); renderRows(); update();
   } };
 })();

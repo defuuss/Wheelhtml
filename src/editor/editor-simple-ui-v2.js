@@ -133,7 +133,7 @@
 
   function tagCard(card) {
     if (!card?.dataset?.id) return;
-    const advancedSelectors = ['.js-icon', '.js-color', '.js-category', '.js-animation', '.js-cooldown', '.js-event-type'];
+    const advancedSelectors = ['.js-icon', '.js-color', '.js-category', '.js-animation', '.js-cooldown'];
     advancedSelectors.forEach(selector => card.querySelector(selector)?.closest('label.field')?.classList.add('simple-v2-advanced-field'));
 
     const primarySelectors = ['.js-level', '.js-weight', '.js-lifetime-type', '.js-lifetime-count', '.js-event-type', '.js-timer-seconds'];

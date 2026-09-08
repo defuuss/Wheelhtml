@@ -95,7 +95,7 @@ body[data-page="edit"].editor-simple-mode .level-edit-main{grid-template-columns
 body[data-page="edit"].editor-simple-mode .progression-box{margin:10px 0 0!important;border-radius:11px;background:rgba(255,255,255,.012)}
 body[data-page="edit"].editor-simple-mode .progression-box>summary{padding:9px 11px}
 body[data-page="edit"].editor-simple-mode .progression-content{padding:0 11px 11px}
-body[data-page="edit"].editor-simple-mode .advanced-progression-rules{display:none!important}
+body[data-page="edit"].editor-simple-mode .advanced-progression-rules{display:block!important}
 body[data-page="edit"].editor-simple-mode #levelEditorList.tree-sorted-levels .level-editor-card{padding-left:12px}
 body[data-page="edit"].editor-simple-mode #levelEditorList.tree-sorted-levels .level-editor-card::before{display:none}
 

@@ -87,6 +87,10 @@
       if (completed) {
         light.classList.remove('active','locked');
         if (badge) badge.textContent = 'DONE';
+      } else if (active && level.completionMode === 'empty') {
+        const members = config.forfeits.filter(item => item.enabled && item.levelId === level.id);
+        const gone = members.filter(item => session.runtime?.[item.id]?.removed && !session.runtime?.[item.id]?.dependencyLocked);
+        if (badge) badge.textContent = `${gone.length}/${members.length}`;
       } else if (active && level.completionMode === 'required') {
         const required = config.forfeits.filter(item => item.enabled && item.levelId === level.id && item.requiredForCompletion);
         if (required.length && badge) badge.textContent = `${required.filter(item => occurred.has(item.id)).length}/${required.length}`;

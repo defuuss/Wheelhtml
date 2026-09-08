@@ -4,6 +4,7 @@
   const colors = ['#8359b8', '#d58b35', '#329a9c', '#be557f', '#5d76ba', '#8e974c'];
   window.FortuneModifierWheel = { async resolve(item) {
     const settings = F.normalizeModifier(item.modifierWheel);
+    settings.outcomes = F.modifierOutcomes(settings);
     if (!settings.enabled || !settings.outcomes.length || Math.random() * 100 >= settings.chance) return null;
     const previousFocus = document.activeElement;
     const overlay = document.createElement('div'); overlay.className = 'modifier-overlay';
@@ -20,11 +21,12 @@
     segments.forEach((segment, index) => {
       const marker = document.createElement('span'); marker.className = 'modifier-number';
       const radians = (segment.start + segment.end) / 2 * Math.PI / 180;
-      marker.style.left = `${50 + Math.sin(radians) * 35}%`; marker.style.top = `${50 - Math.cos(radians) * 35}%`; marker.textContent = index + 1; wheel.append(marker);
+      marker.style.left = `${50 + Math.sin(radians) * 35}%`; marker.style.top = `${50 - Math.cos(radians) * 35}%`; marker.textContent = settings.type === 'custom' ? index + 1 : segment.entry.name; wheel.append(marker);
     });
     shell.append(pointer, wheel);
     const legend = document.createElement('ol'); legend.className = 'modifier-legend';
     segments.forEach(segment => { const row = document.createElement('li'); row.textContent = `${segment.entry.name} · ${(segment.entry.weight / total * 100).toFixed(1)}%`; legend.append(row); });
+    legend.hidden = settings.type !== 'custom';
     const result = document.createElement('p'); result.className = 'modifier-result'; result.setAttribute('role', 'status'); result.textContent = 'Spin to reveal the modifier.';
     const controls = document.createElement('div'); controls.className = 'group-actions';
     const spin = document.createElement('button'); spin.type = 'button'; spin.className = 'btn primary'; spin.textContent = 'Spin modifier';
@@ -59,7 +61,7 @@
         } catch (_) { if (finished) return; }
         if (finished) return;
         selected = chosen; spinning = false; spin.disabled = false; spin.textContent = 'Use this modifier';
-        result.textContent = `${chosen.name}${chosen.description ? ': ' + chosen.description : ''}${item.timerSeconds ? ` · Timer ×${chosen.timerMultiplier}` : ''}`; spin.focus();
+        result.textContent = `${chosen.name}${chosen.description ? ': ' + chosen.description : ''}${settings.type === 'custom' && item.timerSeconds ? ` · Timer ×${chosen.timerMultiplier}` : ''}`; spin.focus();
       };
     });
   } };

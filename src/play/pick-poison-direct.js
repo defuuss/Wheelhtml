@@ -8,7 +8,7 @@
   const $ = id => document.getElementById(id);
   if (!M) return;
 
-  const CARD_EVENTS = new Set(['goodCard', 'badCard', 'doubleOrNothing']);
+  const CARD_EVENTS = new Set(['cardPick', 'goodCard', 'badCard', 'doubleOrNothing']);
   let poisonSwapChosen = false;
   let directRevealActive = false;
 

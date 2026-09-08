@@ -8,6 +8,8 @@
   let config = M.loadConfig();
   let session = M.loadSession(config);
   let spinning = false;
+  let stopRequested = false;
+  let manualCruising = false;
   let pendingResult = false;
   let rotation = 0;
   let audio = null;
@@ -33,7 +35,7 @@
   const unlockNotice = $('unlockNotice');
   const fileInput = $('fileInput');
 
-  const CARD_EVENTS = new Set(['goodCard', 'badCard', 'doubleOrNothing']);
+  const CARD_EVENTS = new Set(['cardPick', 'goodCard', 'badCard', 'doubleOrNothing']);
   const GOOD_CARDS = [
     { id: 'respin', type: 'good', icon: '↻', name: 'Re-spin', text: 'Keep this card. Use it on a future result to undo that result and spin again.' },
     { id: 'shorten', type: 'good', icon: '⏱', name: 'Shorten', text: 'Keep this card. Use it on a timed result to cut the remaining time in half.' }
@@ -422,6 +424,37 @@
     s.chaosBackup = {};
   }
 
+  function manualMotion(list, desired, reduced) {
+    const speed = 540, up = 0.8;
+    const initial = rotation;
+    return new Promise(done => {
+      const started = performance.now();
+      let braking = null;
+      const frame = now => {
+        const elapsed = (now - started) / 1000;
+        if (!braking) {
+          const t = Math.min(1, elapsed / up);
+          const distance = elapsed < up ? speed * up * (t ** 3 - .5 * t ** 4) : speed * (elapsed - up / 2);
+          rotation = initial + distance;
+          // Finish acceleration before braking, including an immediate Stop click.
+          if (stopRequested && elapsed >= up) {
+            const distanceToTarget = 360 + norm(desired - norm(rotation));
+            braking = { start: rotation, distance: distanceToTarget, at: now, duration: 2 * distanceToTarget / speed };
+            manualCruising = false; spinBtn.disabled = true;
+            spinBtn.querySelector('.spin-label').textContent = 'STOPPING';
+          }
+        } else {
+          const t = Math.min(1, (now - braking.at) / (braking.duration * 1000));
+          rotation = braking.start + speed * braking.duration * (t - t ** 3 + .5 * t ** 4);
+          if (t >= 1) { rotation = braking.start + braking.distance; done(); return; }
+        }
+        if (!reduced) rotor.style.transform = `rotate(${rotation}deg)`;
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
   async function spin() {
     if (spinning || pendingResult || !segments.length) return;
 
@@ -429,10 +462,16 @@
     hideCardOverlay();
     hideSpinPreview();
     spinning = true;
+    stopRequested = false;
+    const manual = $('spinMode').value === 'manual';
+    manualCruising = manual;
+    $('spinMode').disabled = true;
     window.dispatchEvent(new Event('fortune-spin-start'));
     $('sessionBadge').textContent = 'Spinning…';
     ['resetBtn', 'loadBtn'].forEach(id => $(id).disabled = true);
-    spinBtn.disabled = true;
+    spinBtn.disabled = !manual;
+    spinBtn.querySelector('.spin-label').textContent = manual ? 'STOP' : 'SPIN';
+    spinBtn.querySelector('.spin-sub').textContent = manual ? 'Press Space or tap to stop' : 'Spinning…';
     $('undoBtn').disabled = true;
     snapshot();
 
@@ -463,7 +502,10 @@
       ? 'Temporary random weights are active for this spin.'
       : `Accelerating ${profile.up.toFixed(1)}s · full speed ${profile.cruise.toFixed(1)}s · slowing ${profile.down.toFixed(1)}s.`);
 
-    if (reducedMotion) {
+    if (manual) {
+      state('Spinning until Stop', 'Press Stop to slow down and reveal the result.');
+      await manualMotion(list, desired, reducedMotion);
+    } else if (reducedMotion) {
       rotation = final;
     } else if (!drama) {
       await animateMotionProfile(start, final, profile, list, previewAfter);
@@ -488,6 +530,9 @@
     const outcome = applyResult(pick.item);
     restoreChaosAfterSpin();
     spinning = false;
+    manualCruising = false;
+    spinBtn.querySelector('.spin-label').textContent = 'SPIN';
+    spinBtn.querySelector('.spin-sub').textContent = 'Press Space or tap to spin';
     window.dispatchEvent(new Event('fortune-spin-end'));
     pendingResult = true;
     renderAll();
@@ -505,6 +550,7 @@
       }
       showResult(resultItem, outcome);
       pendingResult = false;
+      $('spinMode').disabled = false;
       spinBtn.disabled = !segments.length;
       ['resetBtn', 'loadBtn'].forEach(id => $(id).disabled = false);
       $('sessionBadge').textContent = `Round ${session.spinCount + 1}`;
@@ -896,6 +942,10 @@
   }
 
   function showResult(item, outcome) {
+    if (item.eventType === 'cardPick') {
+      if (window.FortuneFateDeck?.drawFromWheel()) { state('Fate card drawn', item.name); return; }
+      item = { ...item, eventType: 'normal', description: 'The fate deck is empty. Reset the session to refill it.' };
+    }
     if (CARD_EVENTS.has(item.eventType)) {
       showSpecialEvent(item);
       state('Card drawn', item.name);
@@ -944,9 +994,10 @@
   }
 
   function continueAfterResult() {
+    const again = currentResult?.item.eventType === 'spinAgain';
     stopTimerLoop();
     hideResult();
-    if (ensureCardState().forcedForfeits > 0) setTimeout(spin, 130);
+    if (again || ensureCardState().forcedForfeits > 0) setTimeout(spin, 130);
   }
 
   function hideResult() {
@@ -1071,7 +1122,12 @@
   function modalOpen() {
     return [...document.querySelectorAll('.result-overlay, #specialCardOverlay, [role="dialog"]')].some(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
   }
-  spinBtn.addEventListener('click', () => { if (!modalOpen()) { ctx(); spin(); } });
+  spinBtn.addEventListener('click', () => {
+    if (manualCruising) { stopRequested = true; spinBtn.disabled = true; spinBtn.querySelector('.spin-label').textContent = 'STOPPING'; return; }
+    if (!modalOpen()) { ctx(); spin(); }
+  });
+  try { $('spinMode').value = localStorage.getItem('fortune-spin-mode') === 'manual' ? 'manual' : 'auto'; } catch (_) {}
+  $('spinMode').addEventListener('change', () => { try { localStorage.setItem('fortune-spin-mode', $('spinMode').value); } catch (_) {} });
   $('saveBtn').addEventListener('click', () => M.downloadXml(config));
   $('loadBtn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => loadXml(fileInput.files?.[0]));

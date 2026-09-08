@@ -30,3 +30,5 @@ body[data-page="edit"].editor-simple-mode .detail-toggle::after,
 body[data-page="edit"].editor-simple-mode .dep-edit-action::after,
 body[data-page="edit"].editor-simple-mode .dep-after-action::after{font-size:.875rem}
 body[data-page="edit"] .modifier-editor input[type="checkbox"]{width:18px;height:18px;min-height:0}
+
+.modifier-range{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.modifier-range[hidden]{display:none}.modifier-options-preview{overflow-wrap:anywhere}.spin-mode-field{max-width:320px;margin:12px auto}.special-type-field{border:1px solid #bd8a47;padding:12px;border-radius:12px;background:#a7772112}.modifier-wheel-shell{width:min(60vw,220px)}

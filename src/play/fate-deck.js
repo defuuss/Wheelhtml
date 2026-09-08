@@ -228,7 +228,8 @@
     if (timerButton && timerButton.textContent === 'Pause') timerButton.click();
     showCard(id,'result');
   }
-  function drawFromWheel() { const id = takeCard(); closeOldCardOverlay(); if (id) showCard(id,'wheel'); }
+  function drawFromWheel() { const id = takeCard(); closeOldCardOverlay(); if (id) showCard(id,'wheel'); return Boolean(id); }
+  window.FortuneFateDeck = { drawFromWheel };
   function closeOldCardOverlay() { const old = $('specialCardOverlay'); if (old) old.hidden = true; }
   function restorePreviousSpin() {
     const result = $('resultOverlay');
