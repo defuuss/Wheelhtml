@@ -52,6 +52,7 @@
         <span>⌕</span>
       </label>
       <span id="forfeitShownCount" class="tool-count"></span>
+      <button id="sortEntries" class="btn ghost" type="button">Sort A–Z</button>
       <button id="expandAllGroups" class="btn ghost" type="button">Expand groups</button>
       <button id="collapseAllGroups" class="btn ghost" type="button">Collapse groups</button>`;
     const editorToolbar = forfeitPane.querySelector('.editor-toolbar');
@@ -61,6 +62,7 @@
       currentSearch = event.target.value.trim().toLowerCase();
       applySearchFilter();
     });
+    document.getElementById('sortEntries').addEventListener('click', groupForfeits);
     document.getElementById('expandAllGroups').addEventListener('click', () => {
       collapsedGroups.clear();
       forfeitList.querySelectorAll('.forfeit-group').forEach(group => group.classList.remove('collapsed'));
@@ -73,20 +75,8 @@
     });
   }
 
-  function getLevelMeta(cards) {
-    const firstSelect = cards[0]?.querySelector('.js-level');
-    if (!firstSelect) return [];
-    const levelCards = [...document.querySelectorAll('#levelEditorList .level-editor-card')];
-    return [...firstSelect.options].map((option, index) => {
-      const levelCard = levelCards[index];
-      return {
-        id: option.value,
-        name: levelCard?.querySelector('.js-level-name')?.value || option.textContent.trim() || 'Group',
-        icon: levelCard?.querySelector('.js-level-icon')?.value || '◆',
-        color: levelCard?.querySelector('.js-level-color')?.value || '#64748b',
-        activeAtStart: !!levelCard?.querySelector('.js-level-start')?.checked
-      };
-    });
+  function getLevelMeta() {
+    return (window.FortuneEditor.getDraft().levels || []).slice().sort((a, b) => Number(b.activeAtStart) - Number(a.activeAtStart) || a.name.localeCompare(b.name, undefined, { numeric:true, sensitivity:'base' }));
   }
 
   function cardSearchText(card) {
@@ -108,12 +98,6 @@
   function groupForfeits() {
     if (!forfeitList.isConnected) return;
     const cards = [...forfeitList.querySelectorAll('.forfeit-editor-card')];
-    if (!cards.length) {
-      forfeitList.classList.remove('grouped-forfeits');
-      updateShownCount(0, 0);
-      return;
-    }
-
     listObserver?.disconnect();
     cards.forEach(enhanceForfeitCard);
     const levels = getLevelMeta(cards);
@@ -132,7 +116,8 @@
 
     levels.forEach(level => {
       const groupCards = grouped.get(level.id) || [];
-      if (groupCards.length) forfeitList.appendChild(buildGroup(level, groupCards));
+      groupCards.sort((a,b) => a.querySelector('.js-name').value.localeCompare(b.querySelector('.js-name').value, undefined, { numeric:true, sensitivity:'base' }));
+      forfeitList.appendChild(buildGroup(level, groupCards));
     });
     if (unassigned.length) {
       forfeitList.appendChild(buildGroup({ id: '__unassigned__', name: 'Unassigned', icon: '❔', color: '#64748b', activeAtStart: false }, unassigned));
@@ -230,8 +215,8 @@
     }
 
     card.querySelector('.js-level')?.addEventListener('change', debounceGroup);
-    card.querySelector('.js-weight')?.addEventListener('input', debounceGroup);
-    card.querySelector('.js-enabled')?.addEventListener('change', debounceGroup);
+
+
     ['.js-name','.js-category','.js-description'].forEach(selector => card.querySelector(selector)?.addEventListener('input', applySearchFilter));
   }
 
@@ -261,7 +246,7 @@
         card.hidden = !visible;
         if (visible) { shown++; visibleInGroup++; }
       });
-      group.classList.toggle('is-filtered-empty', visibleInGroup === 0);
+      group.classList.toggle('is-filtered-empty', !!currentSearch && visibleInGroup === 0);
       if (currentSearch && visibleInGroup) group.classList.remove('collapsed');
       else if (!currentSearch) group.classList.toggle('collapsed', collapsedGroups.has(group.dataset.levelId));
     });
@@ -400,7 +385,7 @@
   function observeLevels() {
     levelObserver?.disconnect();
     levelObserver = new MutationObserver(debounceLevels);
-    levelObserver.observe(levelList, { childList: true, subtree: true });
+    levelObserver.observe(levelList, { childList: true });
   }
 
   initToolbar();

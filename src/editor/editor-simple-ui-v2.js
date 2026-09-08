@@ -85,24 +85,14 @@
     document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
   }
 
-  function ensureSaveStatus() {
-    if (!topActions) return null;
-    let status = document.getElementById('editorSaveStatusV2');
-    if (status) return status;
-    status = document.createElement('span');
-    status.id = 'editorSaveStatusV2';
-    status.className = 'editor-save-status-v2';
-    const apply = document.getElementById('applyBtn');
-    if (apply) topActions.insertBefore(status, apply);
-    return status;
-  }
+  function ensureSaveStatus() { return document.getElementById('saveStatus'); }
 
   function syncSaveStatus() {
     const status = ensureSaveStatus();
     if (!status) return;
     const dirty = body.classList.contains('dirty');
     status.classList.toggle('dirty', dirty);
-    status.textContent = dirty ? '● Unsaved' : '✓ Saved';
+    setText(status, dirty ? 'Unapplied changes' : 'All changes applied');
   }
 
   function simplifyStaticCopy() {
@@ -111,9 +101,9 @@
       intro.dataset.simpleV2 = '1';
       setText(intro.querySelector('.section-kicker'), 'GAME BUILDER');
       setText(intro.querySelector('h1'), 'Build your wheel.');
-      setText(intro.querySelector('p'), 'Add entries, organise them into levels, and choose how the game progresses. Advanced options stay available when you need them.');
+      setText(intro.querySelector('p'), 'Open a forfeit to edit it. Add or delete a whole group below. Use Advanced only for detailed rules.');
       const labels = intro.querySelectorAll('.editor-summary span');
-      setText(labels[0], 'Entries'); setText(labels[1], 'Levels'); setText(labels[2], 'Weight');
+      setText(labels[0], 'Entries'); setText(labels[1], 'Groups'); setText(labels[2], 'Weight');
     }
 
     const forfeitToolbar = document.querySelector('#tab-forfeits .editor-toolbar');
@@ -121,9 +111,9 @@
       forfeitToolbar.dataset.simpleV2 = '1';
       setText(forfeitToolbar.querySelector('.section-kicker'), 'WHEEL ENTRIES');
       setText(forfeitToolbar.querySelector('h2'), 'What can the wheel choose?');
-      setText(forfeitToolbar.querySelector('p'), 'Entries are grouped by level. Use “When available” only when an entry depends on an earlier result.');
+      setText(forfeitToolbar.querySelector('p'), 'Choose a group, add a forfeit, then open Edit. Optional modifiers live inside each forfeit.');
     }
-    setText(document.getElementById('addForfeitBtn'), '+ New entry');
+    setText(document.getElementById('addForfeitBtn'), '+ Add forfeit');
 
     const settingsPane = document.getElementById('tab-settings');
     if (settingsPane && !settingsPane.querySelector('.simple-settings-heading-v2')) {
@@ -136,14 +126,14 @@
     const apply = document.getElementById('applyBtn');
     const ai = document.getElementById('editorAiOpen');
     const play = topActions?.querySelector('a[href="index.html"]');
-    setText(apply, 'Save game');
+    setText(apply, 'Apply changes');
     setText(ai, '✦ AI helper');
     setText(play, '▶ Play');
   }
 
   function tagCard(card) {
     if (!card?.dataset?.id) return;
-    const advancedSelectors = ['.js-icon', '.js-color', '.js-category', '.js-animation', '.js-cooldown'];
+    const advancedSelectors = ['.js-icon', '.js-color', '.js-category', '.js-animation', '.js-cooldown', '.js-event-type'];
     advancedSelectors.forEach(selector => card.querySelector(selector)?.closest('label.field')?.classList.add('simple-v2-advanced-field'));
 
     const primarySelectors = ['.js-level', '.js-weight', '.js-lifetime-type', '.js-lifetime-count', '.js-event-type', '.js-timer-seconds'];

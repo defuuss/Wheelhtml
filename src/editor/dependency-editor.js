@@ -212,40 +212,6 @@
     }
   }
 
-  function orderTree(byId, stateMap, reverse) {
-    [...list.querySelectorAll('.forfeit-group-body')].forEach(body => {
-      const groupCards = [...body.querySelectorAll(':scope > .forfeit-editor-card[data-id]')];
-      const ids = new Set(groupCards.map(card => card.dataset.id));
-      const parent = new Map();
-      const children = new Map(groupCards.map(card => [card.dataset.id, []]));
-      groupCards.forEach(card => {
-        const req = (stateMap.get(card.dataset.id)?.requiresForfeitIds || []).find(ref => ids.has(ref));
-        if (req) { parent.set(card.dataset.id, req); children.get(req)?.push(card.dataset.id); }
-      });
-      children.forEach(arr => arr.sort((a, b) => cmp(nameOf(byId.get(a)), nameOf(byId.get(b)))));
-      const roots = groupCards.map(card => card.dataset.id).filter(id => !parent.has(id)).sort((a, b) => cmp(nameOf(byId.get(a)), nameOf(byId.get(b))));
-      const visited = new Set();
-      const ordered = [];
-      const walk = (id, depth, trail = new Set()) => {
-        if (visited.has(id) || trail.has(id)) return;
-        visited.add(id); ordered.push({ id, depth });
-        const next = new Set(trail); next.add(id);
-        (children.get(id) || []).forEach(child => walk(child, depth + 1, next));
-      };
-      roots.forEach(id => walk(id, 0));
-      groupCards.forEach(card => { if (!visited.has(card.dataset.id)) walk(card.dataset.id, 0); });
-      ordered.forEach((entry, index) => {
-        const card = byId.get(entry.id); if (!card) return;
-        card.style.order = String(index + 1);
-        card.style.setProperty('--dep-depth', String(Math.min(entry.depth, 7)));
-        card.classList.toggle('dep-child', entry.depth > 0);
-        card.classList.toggle('dep-parent', (reverse.get(entry.id) || []).some(ref => ids.has(ref)));
-        const badge = card.querySelector('.tree-order-badge');
-        if (badge) badge.textContent = String(index + 1).padStart(2, '0');
-      });
-    });
-  }
-
   function renderLogic(byId, stateMap, reverse, cycles) {
     const logic = $('dependencyLogicView');
     if (!logic) return;
@@ -479,7 +445,7 @@
     const byId = cardMap(); if (!byId.size) return;
     const stateMap = states(byId), reverse = reverseMap(stateMap), cycles = cycleNodes(stateMap);
     byId.forEach(card => decorateCard(card, stateMap, reverse, byId, cycles));
-    orderTree(byId, stateMap, reverse);
+    // Grouping owns stable alphabetical order; dependency editing does not move inputs.
     renderLogic(byId, stateMap, reverse, cycles);
   }
 

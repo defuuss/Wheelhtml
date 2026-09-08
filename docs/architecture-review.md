@@ -28,3 +28,22 @@ browser testing. No measured FPS claim is made.
 A future cleanup can replace the remaining model wrappers and presentation
 MutationObservers with a shared controller/event API, with saved-game fixtures for
 each historical XML format. This is not needed to run the current static app.
+
+## Editor stability follow-up
+
+The old tree sorter and the grouping enhancer disagreed on top-level order. Sorting
+triggered grouping, which rebuilt the original order and triggered sorting again.
+The standalone tree sorter is removed. Grouping owns sorted order and observes only
+structural root changes. Weight/title edits do not rebuild groups. The dependency
+editor no longer applies CSS order changes while titles are being edited. Group
+metadata comes from IDs in the draft, rather than matching sorted DOM cards by index.
+Group actions now call editor methods directly instead of polling for newly inserted
+cards and simulating select changes. Hover transforms on the editor controls are
+removed. One save-state indicator is used.
+
+Modifiers are part of the base configuration model so they survive dependency and
+progression wrappers, copying, save/reload and XML round-trips. Signatures include
+active modifier settings without invalidating legacy sessions with no modifiers.
+The main result handoff remains pending until the modifier resolves or is skipped;
+selection history records the chosen modifier. The editor and play DOM integration
+checks exercise these transitions in jsdom, without external network requests.

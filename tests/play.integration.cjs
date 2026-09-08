@@ -1,0 +1,20 @@
+const {JSDOM}=require(process.env.WHEEL_TEST_JSDOM || 'jsdom');const fs=require('node:fs');const assert=require('node:assert/strict');
+const root=require('node:path').resolve(__dirname,'..');const pause=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{const dom=new JSDOM(fs.readFileSync(root+'/index.html','utf8'),{url:'https://wheel.test/',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window;const errors=[];
+w.addEventListener('error',e=>errors.push(e.error||e.message));w.matchMedia=()=>({matches:true,addEventListener(){}});w.confirm=()=>true;w.HTMLElement.prototype.scrollIntoView=function(){};w.HTMLElement.prototype.animate=function(){return {finished:Promise.resolve(),cancel(){}}};
+w.localStorage.setItem('fortune-engine-config-v1',JSON.stringify({settings:{soundEnabled:false},levels:[{id:'start',activeAtStart:true}],forfeits:[{id:'one',name:'Timed challenge',levelId:'start',timerSeconds:120,modifierWheel:{enabled:true,chance:100,outcomes:[{name:'Shorter',description:'Use the short version.',weight:1,timerMultiplier:.5}]}}],rules:[]}));
+try{
+ for(const script of w.document.querySelectorAll('script'))if(script.src)w.eval(fs.readFileSync(root+'/'+script.getAttribute('src').split('?')[0],'utf8'));
+ w.document.getElementById('spinBtn').click();await pause(1100);
+ const modal=w.document.querySelector('.modifier-overlay');assert.ok(modal,'Selected forfeit should trigger modifier wheel');
+ const before=w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history.length;
+ w.document.getElementById('spinBtn').click();await pause(30);assert.equal(w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history.length,before,'No overlapping main spin');
+ modal.querySelector('.group-actions button').click();await pause(20);modal.querySelector('.group-actions button').click();await pause(50);
+ assert.equal(w.document.querySelector('.modifier-overlay'),null);assert.equal(w.document.getElementById('resultOverlay').hidden,false);
+ assert.match(w.document.getElementById('resultDescription').textContent,/Shorter/);
+ const history=w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history;assert.equal(history.at(-1).modifierName,'Shorter');
+ assert.match(w.document.getElementById('resultTimerPanel').textContent,/01:00|1:00/);
+ const pending=w.FortuneModifierWheel.resolve({name:'Test',modifierWheel:{enabled:true,chance:100,outcomes:[{name:'X',weight:1}]}});
+ w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(await pending,null);assert.equal(w.document.querySelector('.modifier-overlay'),null);
+ assert.deepEqual(errors,[]);console.log('PASS: full main-spin → modifier → result flow, timer adjustment, history, overlap guard and cancellation.');
+}finally{w.close();}})().catch(e=>{console.error(e);process.exitCode=1});
