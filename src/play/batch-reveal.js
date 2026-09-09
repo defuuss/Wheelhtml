@@ -1,11 +1,19 @@
 (() => {
   let running = false;
   const pause = ms => new Promise(resolve => setTimeout(resolve,ms));
-  window.FortuneBatchReveal = { async open({ count, title, groupId = '', lowest = false, keepCurrent = false }) {
+  window.FortuneBatchReveal = { async open({ count, title, groupId = '', lowest = false, keepCurrent = false, replaceCurrent = false, excludeCurrent = false, randomGroup = false }) {
     if (running) return;
-    const P = window.FortunePlay, start = P.beginDirect(keepCurrent);
+    const P = window.FortunePlay;
+    const exclude = excludeCurrent && P.pendingItem() ? [P.pendingItem().id] : [];
+    if (replaceCurrent && !P.candidates(exclude,groupId).length) {
+      const notice = document.getElementById('resultUnlockNotice') || document.getElementById('resultDescription');
+      if (notice) { notice.hidden=false;notice.textContent='No eligible replacement is available. Your original result is still pending.'; }
+      return;
+    }
+    const start = P.beginDirect(keepCurrent,replaceCurrent);
     if (!start) return;
     running = true;
+    if (randomGroup) { const ids=[...new Set(P.candidates(start.original ? [start.original.id] : []).map(item=>item.levelId))];groupId=ids[Math.floor(Math.random()*ids.length)] || '__none__'; }
     const overlay = document.createElement('div'); overlay.className = 'batch-overlay';
     const dialog = document.createElement('section'); dialog.className = 'batch-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','true'); dialog.setAttribute('aria-labelledby','batchTitle');
     const heading = document.createElement('h2'); heading.id = 'batchTitle'; heading.textContent = groupId ? `${title} · ${P.candidates([],groupId)[0]?.groupName || 'Group'}` : title;
@@ -22,6 +30,7 @@
       const name = document.createElement('h3'); name.textContent = `${item.icon || '✦'} ${item.name}`;
       const description = document.createElement('p'); description.textContent = item.description || 'Selected from the active wheel.';
       card.append(number,name,description);
+      if (!original) { const remaining=document.createElement('small');remaining.textContent=item.removedFromWheel ? 'Removed from the wheel' : item.remainingSelections != null ? `${item.remainingSelections} selection(s) remaining` : 'Repeatable forfeit: stays on the wheel';card.append(remaining); }
       if (item.timerSeconds > 0) {
         let remaining = item.timerSeconds, deadline = 0, interval = null;
         const button = document.createElement('button'); button.className = 'btn ghost';
@@ -51,8 +60,10 @@
     try {
       for (let i=0;i<count;i++) {
         status.textContent = `Revealing ${i+1} of ${count}…`;
-        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) await pause(title.includes('Devil') ? 1800 : 1100);
-        const result = await P.drawDirect(shown,groupId,lowest,title);
+        const sealed=document.createElement('div');sealed.className='batch-sealed';sealed.textContent=`✦  Fate ${i+1} is sealed…`;list.append(sealed);
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { await pause(title.includes('Devil') ? 2300 : 1600);sealed.textContent='Revealing…';await pause(650); }
+        sealed.remove();
+        const result = await P.drawDirect([...shown,...exclude],groupId,lowest,title);
         if (!result) break;
         shown.push(result.item.id); revealed++; add(result.item);
       }

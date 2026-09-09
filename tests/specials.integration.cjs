@@ -10,10 +10,10 @@ const root=path.resolve(__dirname,'..'),pause=ms=>new Promise(r=>setTimeout(r,ms
    w.document.getElementById('spinBtn').click();await pause(1000);
    const M=w.FortuneModel;assert.equal(M.loadConfig().forfeits[0].eventType,eventType);assert.equal(M.xmlToConfig(M.configToXml(M.loadConfig())).forfeits[0].eventType,eventType);
    if(eventType==='cardPick'){assert.equal(w.document.getElementById('fateDeckOverlayV4').hidden,false);assert.match(w.document.getElementById('fateDeckCount').textContent,/20/);}
-   if(eventType==='randomize'){const multiplier=M.loadSession(M.loadConfig()).runtime.special.weightMultiplier;assert.ok(multiplier>=.6&&multiplier<=1.6);}
-   if(eventType==='spinAgain'){w.document.getElementById('resultCloseBtn').click();await pause(700);assert.equal(M.loadSession(M.loadConfig()).spinCount,2);}
+   if(eventType==='randomize'){w.FortunePlay.acceptPending();const multiplier=M.loadSession(M.loadConfig()).runtime.special.weightMultiplier;assert.ok(multiplier>=.6&&multiplier<=1.6);}
+   if(eventType==='spinAgain'){w.document.getElementById('resultCloseBtn').click();await pause(700);assert.equal(M.loadSession(M.loadConfig()).spinCount,1);assert.ok(M.loadSession(M.loadConfig()).pendingForfeit);}
    assert.deepEqual(errors,[]);
-  }finally{w.close();}
+  }finally{await pause(150);w.close();}
  }
  console.log('PASS: card-pick, weight modifier and spin-again events execute; special types survive XML.');
 })().catch(e=>{console.error(e);process.exitCode=1});

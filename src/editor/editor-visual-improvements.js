@@ -115,7 +115,7 @@
       chips.push({ type: 'enables', text: `→ Enables ${data.dependentNames.length}`, title: data.dependentNames.join('\n') });
     }
     if (data.lifetime === 'once') chips.push({ type: 'once', text: '1× Once', title: 'Removed after it is selected' });
-    else if (data.lifetime === 'spins') chips.push({ type: 'timed', text: `⏳ ${Math.max(1, data.lifetimeSpins || 1)} spins`, title: 'Limited lifetime after activation' });
+    else if (data.lifetime === 'spins') chips.push({ type: 'timed', text: `⏳ ${Math.max(1, data.lifetimeSpins || 1)} selections`, title: 'Removed after this many selections' });
     if (data.timerSeconds > 0) chips.push({ type: 'timed', text: `⏱ ${formatTimer(data.timerSeconds)}`, title: 'Timed result' });
     if (data.cooldown > 0) chips.push({ type: 'cooldown', text: `↻ Cooldown ${data.cooldown}`, title: '' });
     if (data.mystery) chips.push({ type: 'mystery', text: '? Mystery', title: '' });

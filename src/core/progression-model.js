@@ -174,7 +174,7 @@
           return runtime && runtime.removed && !runtime.dependencyLocked;
         });
         const required = cfg.forfeits.filter(item => item.enabled && item.levelId === level.id && item.requiredForCompletion);
-        const requiredDone = level.completionMode === 'required' && required.length > 0 && required.every(item => occurred.has(item.id));
+        const requiredDone = level.completionMode === 'required' && required.length > 0 && required.every(item => item.lifetime.type === 'forever' ? occurred.has(item.id) : session.runtime?.[item.id]?.removed && !session.runtime?.[item.id]?.dependencyLocked);
         if (!exhausted && !requiredDone) return;
 
         session.completedLevels[level.id] = true;

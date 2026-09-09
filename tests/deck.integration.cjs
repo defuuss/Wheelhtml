@@ -24,7 +24,7 @@ async function setup(card, page='index.html') {
   } finally {await pause(150);close();}
  }
  {const {w,errors,close}=await setup('doubleForfeit');try {
-  w.document.getElementById('spinBtn').click();await pause(850);const original=w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history.at(-1).id;
+  w.document.getElementById('spinBtn').click();await pause(850);const original=w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).pendingForfeit.item.id;
   w.document.getElementById('temptFateBtn').click();w.document.getElementById('fateV4Continue').click();await pause(100);
   assert.equal(w.document.querySelectorAll('.batch-forfeit').length,2);const history=w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history;assert.equal(history.length,2);assert.equal(history[0].id,original);assert.notEqual(history[1].id,original);assert.deepEqual(errors,[]);
  }finally{await pause(150);close();}}

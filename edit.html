@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#070a12">
   <title>Edit · Fortune Engine</title>
-  <link rel="stylesheet" href="styles/styles.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/editor-enhancements.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/tree-editor.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/editor-visual-improvements.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/group-quick-add.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/spin-drama.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/mystery-editor.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/editor-simple-ui-v2.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/ai-chat.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/modifiers.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/experience.css?v=20260908-5">
-  <link rel="stylesheet" href="styles/deck-upgrade.css?v=20260908-5">
+  <link rel="stylesheet" href="styles/styles.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/editor-enhancements.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/tree-editor.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/editor-visual-improvements.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/group-quick-add.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/spin-drama.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/mystery-editor.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/editor-simple-ui-v2.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/ai-chat.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/modifiers.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/experience.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/deck-upgrade.css?v=20260909-6">
 </head>
 <body data-page="edit">
   <div class="ambient ambient-a"></div>
@@ -100,6 +100,7 @@
         <div class="editor-card static-card">
           <div class="section-kicker">WHEEL</div>
           <h3>Spin behaviour</h3>
+          <label class="field">Spin mode<select id="spinMode"><option value="auto">Automatic stop</option><option value="manual">Spin until Stop is pressed</option></select></label>
           <label class="field">Minimum spin seconds<input id="minSpin" type="number" min="3" max="20" step="0.5"></label>
           <label class="field">Maximum spin seconds<input id="maxSpin" type="number" min="3" max="25" step="0.5"></label>
           <label class="field">Minimum full rotations<input id="minTurns" type="number" min="3" max="20" step="1"></label>
@@ -151,10 +152,10 @@
           <select class="js-lifetime-type">
             <option value="forever">Stay forever</option>
             <option value="once">Remove after selected</option>
-            <option value="spins">Stay for X spins after activation</option>
+            <option value="spins">Remove after selected X times</option>
           </select>
         </label>
-        <label class="field js-lifetime-count-wrap">Lifetime spins<input class="js-lifetime-count" type="number" min="1" max="999" step="1"></label>
+        <label class="field js-lifetime-count-wrap">Selections before removal<input class="js-lifetime-count" type="number" min="1" max="999" step="1"></label>
         <label class="field">Cooldown after hit<input class="js-cooldown" type="number" min="0" max="99" step="1"></label>
         <label class="field special-type-field">Entry type
           <select class="js-event-type">
@@ -224,25 +225,25 @@
     </article>
   </template>
 
-  <script src="src/core/features.js?v=20260908-5"></script>
-  <script src="src/core/model.js?v=20260908-5"></script>
-  <script src="src/core/dependency-model.js?v=20260908-5"></script>
-  <script src="src/core/spin-settings.js?v=20260908-5"></script>
-  <script src="src/core/progression-model.js?v=20260908-5"></script>
-  <script src="src/editor/progression-editor.js?v=20260908-5"></script>
-  <script src="src/editor/game-editor.js?v=20260908-5"></script>
-  <script src="src/editor/modifiers.js?v=20260908-5"></script>
-  <script src="src/editor/deck-editor.js?v=20260908-5"></script>
-  <script src="src/editor/editor.js?v=20260908-5"></script>
-  <script src="src/editor/editor-enhancements.js?v=20260908-5"></script>
-  <script src="src/editor/icon-expansion.js?v=20260908-5"></script>
-  <script src="src/editor/display-mode.js?v=20260908-5"></script>
-  <script src="src/editor/mystery-editor.js?v=20260908-5"></script>
-  <script src="src/editor/group-quick-add.js?v=20260908-5"></script>
-  <script src="src/editor/dependency-editor.js?v=20260908-5"></script>
-  <script src="src/editor/editor-visual-improvements.js?v=20260908-5"></script>
-  <script src="src/editor/editor-simple-ui-v2.js?v=20260908-5"></script>
-  <script src="src/editor/editor-ai-integrated.js?v=20260908-5"></script>
+  <script src="src/core/features.js?v=20260909-6"></script>
+  <script src="src/core/model.js?v=20260909-6"></script>
+  <script src="src/core/dependency-model.js?v=20260909-6"></script>
+  <script src="src/core/spin-settings.js?v=20260909-6"></script>
+  <script src="src/core/progression-model.js?v=20260909-6"></script>
+  <script src="src/editor/progression-editor.js?v=20260909-6"></script>
+  <script src="src/editor/game-editor.js?v=20260909-6"></script>
+  <script src="src/editor/modifiers.js?v=20260909-6"></script>
+  <script src="src/editor/deck-editor.js?v=20260909-6"></script>
+  <script src="src/editor/editor.js?v=20260909-6"></script>
+  <script src="src/editor/editor-enhancements.js?v=20260909-6"></script>
+  <script src="src/editor/icon-expansion.js?v=20260909-6"></script>
+  <script src="src/editor/display-mode.js?v=20260909-6"></script>
+  <script src="src/editor/mystery-editor.js?v=20260909-6"></script>
+  <script src="src/editor/group-quick-add.js?v=20260909-6"></script>
+  <script src="src/editor/dependency-editor.js?v=20260909-6"></script>
+  <script src="src/editor/editor-visual-improvements.js?v=20260909-6"></script>
+  <script src="src/editor/editor-simple-ui-v2.js?v=20260909-6"></script>
+  <script src="src/editor/editor-ai-integrated.js?v=20260909-6"></script>
 
   <script>
     (() => {
@@ -274,7 +275,7 @@
     })();
   </script>
 
-  <script src="src/editor/ai-engine.js?v=20260908-5"></script>
+  <script src="src/editor/ai-engine.js?v=20260909-6"></script>
   <script>
     (() => {
       const showVersion = () => {

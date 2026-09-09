@@ -19,9 +19,9 @@
     doubleOrNothing: { name:'Double or Nothing', kind:'RISK CARD', className:'risk', art:ASSET('double-or-nothing'), text:'Spin the small wheel. Nothing cancels the current forfeit; Double reveals one more.' },
     pickYourPoison: { name:'Pick Your Poison', kind:'CHOICE CARD', className:'poison', art:ASSET('pick-your-poison'), text:'Choose: keep the result you already know, or replace it with one unknown result you must accept.' },
     fateRoulette: { name:'Fate Roulette', kind:'CHAOS CARD', className:'roulette', art:ASSET('fate-roulette'), text:'A mini roulette decides: Keep, Skip, Swap, or Double.' },
-    rarest: { name:'Rarest Fate', kind:'RARE CARD', className:'rare', glyph:'◇', text:'Adds the eligible forfeit with the smallest current weight. Ties are chosen randomly.' },
+    rarest: { name:'Rarest Fate', kind:'RARE CARD', className:'rare', glyph:'◇', text:'Replaces the current result with the eligible forfeit with the smallest current weight. Ties are chosen randomly.' },
     chaosWeights: { name:'Chaos Weights', kind:'CHAOS CARD', className:'chaos', glyph:'⚡', text:'Randomly changes active weights for this session. The wheel updates immediately.' },
-    devilFive: { name:'Devil’s Five', kind:'DEVIL CARD', className:'devil', glyph:'♆', text:'Choose an active group. Up to five different available forfeits reveal slowly, one by one.' },
+    devilFive: { name:'Devil’s Five', kind:'DEVIL CARD', className:'devil', glyph:'♆', text:'Fate chooses an active group at random, then reveals up to five different available forfeits, one by one.' },
     tripleTrouble: { name:'Triple Trouble', kind:'VERY BAD CARD', className:'triple', art:ASSET('triple-trouble'), text:'The current forfeit stays and two additional forfeits are added.' }
   };
 
@@ -35,6 +35,8 @@
   let pendingAction = null;
   let coinResolved = false;
   let rouletteResolved = false;
+  let cardReady = false;
+  let revealToken = 0;
 
   function defaultState() { return { signature:deckSignature(), cards:Object.entries(deckSettings()).flatMap(([id,count])=>Array(count).fill(id)), pendingExtraSpins:0, lockNextResult:false }; }
   function loadState() {
@@ -98,6 +100,7 @@
   function resultKey() {
     try {
       const cfg = M.loadConfig(), session = M.loadSession(cfg), last = session.history?.at?.(-1);
+      if (session.pendingForfeit) return session.pendingForfeit.key;
       return last ? `${session.sessionId || 'legacy'}:${session.spinCount}:${last.id}:${last.time || ''}` : '';
     } catch (_) { return ''; }
   }
@@ -126,7 +129,7 @@
     const button = ensureTemptButton();
     if (!button) return;
     const key = resultKey(), cardsLeft = loadState().cards.length, resultVisible = !$('resultOverlay')?.hidden;
-    button.hidden = !resultVisible || !key || usedResultKey === key;
+    button.hidden = !resultVisible || !key || usedResultKey === key || !window.FortunePlay.canTakeCard();
     button.disabled = cardsLeft === 0;
     button.innerHTML = cardsLeft ? `<span>✦</span> Take a Fate Card <small>${cardsLeft} left</small>` : '<span>✦</span> Fate Deck Empty';
     const accept = $('resultCloseBtn');
@@ -176,7 +179,6 @@
           <div id="fateV4RouletteResult" class="fate-v4-mini-result">SPIN THE MINI WHEEL</div>
           <button id="fateV4RouletteSpin" class="btn fate-v4-roulette-btn large" type="button">SPIN ROULETTE</button>
         </div>
-        <label id="devilGroupField" class="field devil-group-field" hidden>Choose the group<select id="devilGroup"></select></label>
         <div class="fate-v4-actions"><button id="fateV4Continue" class="btn primary large" type="button">Continue</button></div>
       </section>`;
     document.body.appendChild(overlay);
@@ -191,6 +193,7 @@
   function showCard(id, context) {
     const overlay = ensureOverlay(), meta = CARD_META[id];
     if (!meta) return;
+    cardReady = false; const token = ++revealToken;
     currentDraw = id; currentContext = context; pendingAction = null; coinResolved = false; rouletteResolved = false;
     const card = $('fateV4Card');
     card.dataset.kind = meta.className;
@@ -198,10 +201,6 @@
     $('fateV4FrontImage').hidden = Boolean(meta.glyph);
     if (meta.art) $('fateV4FrontImage').src = meta.art;
     const art = $('fateCustomArt'); art.hidden = !meta.glyph; art.dataset.kind = meta.className; art.querySelector('span').textContent = meta.glyph || ''; art.querySelector('strong').textContent = meta.name;
-    $('devilGroupField').hidden = id !== 'devilFive';
-    $('devilGroup').replaceChildren();
-    const groups = new Map(); window.FortunePlay.candidates().forEach(item => { const group = groups.get(item.levelId) || {name:item.groupName,count:0}; group.count++;groups.set(item.levelId,group); });
-    groups.forEach((group,id) => { const option=document.createElement('option');option.value=id;option.textContent=`${group.name} · ${group.count} available`; $('devilGroup').append(option); });
     $('fateV4FrontImage').alt = meta.name;
     $('fateV4Status').innerHTML = `<span>${meta.kind}</span><strong id="fateV4Title">${meta.name}</strong><small>${meta.text}</small>`;
     $('fateV4CoinArea').hidden = id !== 'doubleOrNothing';
@@ -212,19 +211,35 @@
     $('fateV4Flip').hidden = false; $('fateV4Flip').disabled = false; $('fateV4CoinResult').textContent = 'FATE IS WAITING'; $('fateV4Coin').getAnimations?.().forEach(animation=>animation.cancel()); $('fateV4Coin').className = 'risk-wheel'; $('fateV4Coin').style.transform = 'rotate(0deg)';
     $('fateV4ChoiceKeep').disabled = false; $('fateV4ChoiceSwap').disabled = false;
     $('fateV4RouletteSpin').hidden = false; $('fateV4RouletteSpin').disabled = false; $('fateV4RouletteResult').textContent = 'SPIN THE MINI WHEEL'; $('fateV4Roulette').style.transform = 'rotate(0deg)';
+    const concealed = [$('fateV4Status'),$('fateV4CoinArea'),$('fateV4ChoiceArea'),$('fateV4RouletteArea'),overlay.querySelector('.fate-v4-actions')];
+    const hiddenStates = concealed.map(node=>node.hidden);
+    concealed.forEach(node=>node.hidden=true);
+    overlay.querySelector('.fate-v4-reveal-label').textContent='FATE IS CHOOSING…';
+    overlay.querySelectorAll('button').forEach(button=>button.disabled=true);
     overlay.hidden = false;
-    requestAnimationFrame(() => {
-      card.classList.add('dealing');
-      setTimeout(() => { card.classList.add('revealed'); if (['bad','triple'].includes(meta.className)) setTimeout(() => card.classList.add('evil-pop'),520); },620);
-    });
+    const reveal = () => {
+      if (token !== revealToken) return;
+      card.classList.add('revealed');
+      const ready = () => {
+        if (token !== revealToken) return;
+        cardReady=true;concealed.forEach((node,i)=>node.hidden=hiddenStates[i]);
+        overlay.querySelectorAll('button').forEach(button=>button.disabled=false);
+        overlay.querySelector('.fate-v4-reveal-label').textContent='YOUR FATE IS REVEALED';
+        if (['bad','triple','devil'].includes(meta.className)) card.classList.add('evil-pop');
+      };
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) ready(); else setTimeout(ready,900);
+    };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) reveal();
+    else { card.classList.add('dealing');setTimeout(reveal,1600+Math.random()*700); }
   }
 
   function drawFromResult() {
     const key = resultKey();
-    if (!key || usedResultKey === key) return;
+    if (!key || usedResultKey === key || !window.FortunePlay.canTakeCard()) return;
     const id = takeCard();
     if (!id) return;
     usedResultKey = key;
+    window.FortunePlay.markCardUsed();
     updateTemptButton();
     const timerButton = $('timerStartPause');
     if (timerButton && timerButton.textContent === 'Pause') timerButton.click();
@@ -233,17 +248,6 @@
   function drawFromWheel() { const id = takeCard(); closeOldCardOverlay(); if (id) showCard(id,'wheel'); return Boolean(id); }
   window.FortuneFateDeck = { drawFromWheel };
   function closeOldCardOverlay() { const old = $('specialCardOverlay'); if (old) old.hidden = true; }
-  function restorePreviousSpin() {
-    const result = $('resultOverlay');
-    if (result && !result.hidden) { result.classList.remove('show'); result.hidden = true; }
-    const undo = $('undoBtn');
-    if (undo && !undo.disabled) undo.click();
-  }
-  function forceReplacementSpin() {
-    const state = loadState(); state.lockNextResult = true; saveState(state);
-    if (currentContext === 'result') restorePreviousSpin();
-    setTimeout(() => $('spinBtn')?.click(),220);
-  }
   function launchOnePendingSpin() {
     const state = loadState();
     if (state.pendingExtraSpins <= 0) return false;
@@ -251,12 +255,12 @@
   }
   function performAction(action) {
     const resultContext = currentContext === 'result';
-    if (action === 'skip') { if (resultContext) restorePreviousSpin(); }
-    else if (action === 'swap') forceReplacementSpin();
+    if (action === 'skip') { if (resultContext) window.FortunePlay.discardPending(); }
+    else if (action === 'swap') window.FortuneBatchReveal.open({count:1,title:'Replacement Fate',replaceCurrent:resultContext,excludeCurrent:true});
     else if (action === 'double' || action === 'triple' || action === 'rarest' || action === 'devilFive') {
       const count = action === 'devilFive' ? 5 : action === 'rarest' ? 1 : (action === 'double' ? 2 : 3) - (resultContext ? 1 : 0);
       const title = action === 'devilFive' ? 'Devil’s Five' : action === 'rarest' ? 'Rarest Fate' : action === 'double' ? 'Double Forfeit' : 'Triple Trouble';
-      window.FortuneBatchReveal.open({count,title,lowest:action === 'rarest',groupId:action === 'devilFive' ? ($('devilGroup').value || '__none__') : '',keepCurrent:resultContext});
+      window.FortuneBatchReveal.open({count,title,lowest:action === 'rarest',randomGroup:action === 'devilFive',replaceCurrent:resultContext && action === 'rarest',keepCurrent:resultContext && action !== 'rarest'});
     } else if (action === 'chaosWeights') window.FortunePlay.randomizeWeights();
   }
   function resolveChoice(action) {
@@ -291,7 +295,8 @@
   }
   function finishCard() {
     const overlay = $('fateDeckOverlayV4');
-    if (!overlay) return;
+    if (!overlay || !cardReady || !currentDraw) return;
+    cardReady=false; ++revealToken;
     const draw = currentDraw, context = currentContext;
     let action = pendingAction;
     if (!action) {
