@@ -75,10 +75,10 @@ remain available in Simple view. State labels are no longer an editable field;
 old data is preserved for compatibility. Progression is based on selection/removal,
 not on confirmation that an activity has been performed.
 
-On the play page, **Spin mode → Spin until I press Stop** keeps the wheel spinning
-until Stop (or Space). Stop uses a smooth slowdown to the weighted result. The
-mode is remembered in this browser; it is a player preference and is not included
-in the game XML. Reduced-motion mode waits for Stop with the wheel visually still.
+Choose **Edit → Settings → Spin behaviour → Spin mode** to use automatic stopping
+or **Spin until Stop is pressed**. The mode is saved in the game configuration and
+XML. The main page only has the Spin/Stop button. Reduced motion keeps the wheel
+visually still until Stop is pressed.
 
 The editor now has one owner for group ordering. It sorts on rebuild or **Sort A–Z**,
 never on every typed character. Basic view keeps everyday fields visible; event
@@ -102,11 +102,11 @@ configured deck. Existing configurations gain one copy of each new card by defau
 
 - Double/Triple reveal 2/3 total forfeits, retaining the current forfeit when drawn
   from a result. They directly draw the additional results with no wheel animation.
-- Rarest Fate adds an eligible forfeit with the lowest effective weight. Ties are
+- Rarest Fate replaces the pending result with an eligible forfeit with the lowest effective weight. Ties are
   chosen uniformly. Chaos Weights applies random 0.25–3× multipliers to active
   entries for this session; Undo restores the earlier weights.
-- Devil’s Five asks for an active group, then directly reveals up to five different
-  eligible forfeits from it at 1.8-second intervals. Fewer available entries are
+- Devil’s Five chooses an eligible active group randomly, then directly reveals up to five different
+  eligible forfeits from it with sealed-card suspense before each reveal. Fewer available entries are
   reported instead of duplicating or selecting locked entries.
 - Double or Nothing uses a small 50/50 wheel with smooth deceleration.
 
@@ -121,3 +121,28 @@ motion skips the reveal delays and wheel animation.
 Additional integration check: `tests/deck.integration.cjs` covers direct cards,
 unique/eligible selections, whole-batch undo, keeping the current result, changed
 weights, the risk wheel and deck quantities through editor save and XML.
+
+## Accepted results and selection limits
+
+Ordinary wheel results are provisional until **Accept** is pressed or a retaining
+card commits them. Pending results survive reloads. They do not yet remove an entry,
+consume a use, enter committed history, complete groups or unlock prerequisites.
+Swap, Pick Your Poison and Rarest Fate replace through the same controller; skipped
+and replaced originals never apply those effects. If no replacement exists, the
+original remains pending. A pending result can use only one Fate card, even after
+reloading. Direct card reveals are final and commit through the same result logic.
+
+**Remove after selected X times** counts selections of that specific forfeit, from
+the wheel or from cards. The historical XML token `lifetime="spins"` and
+`lifetimeSpins` number are retained, but now represent selection uses rather than
+elapsed wheel rounds. One-time entries remove after the first accepted selection;
+repeatable entries intentionally stay. New editor entries default to one-time.
+Group completion waits for finite-use marked entries to exhaust their uses too.
+Already-consumed uses in an older session are not reconstructed; reset the session
+to test the corrected counters from their configured starting values.
+
+Card identities and action controls remain concealed until the reveal finishes.
+Direct results use sealed placeholders before each reveal. Reduced motion skips
+these delays. `tests/result-lifecycle.integration.cjs` verifies the accepted-result
+flow, repeated card/wheel selections, replacement unlock isolation, reloads,
+random group selection, suspense gating and spin-mode XML persistence.

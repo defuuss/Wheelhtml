@@ -120,7 +120,7 @@
     const items = active();
     segments = makeSegments(items);
     rotor.innerHTML = '';
-    spinBtn.disabled = spinning || pendingResult || !segments.length;
+    spinBtn.disabled = spinning || pendingResult || Boolean(session.pendingForfeit) || !segments.length;
 
     if (!segments.length) {
       rotor.innerHTML = '<div class="wheel-empty"><strong>No active forfeits</strong><span>Unlock a group or add entries in Edit.</span></div>';
@@ -456,16 +456,15 @@
   }
 
   async function spin() {
-    if (spinning || pendingResult || !segments.length) return;
+    if (spinning || pendingResult || session.pendingForfeit || !segments.length) return;
 
     hideResult();
     hideCardOverlay();
     hideSpinPreview();
     spinning = true;
     stopRequested = false;
-    const manual = $('spinMode').value === 'manual';
+    const manual = config.settings.spinMode === 'manual';
     manualCruising = manual;
-    $('spinMode').disabled = true;
     window.dispatchEvent(new Event('fortune-spin-start'));
     $('sessionBadge').textContent = 'Spinning…';
     ['resetBtn', 'loadBtn'].forEach(id => $(id).disabled = true);
@@ -527,7 +526,9 @@
 
     rotor.style.transform = `rotate(${rotation}deg)`;
     updateSpinPreview(pick.item, false);
-    const outcome = applyResult(pick.item);
+    const provisional = !CARD_EVENTS.has(pick.item.eventType);
+    const outcome = provisional ? {unlocked:[],specialMessage:'Accept this result to apply its effects.'} : applyResult(pick.item);
+    if (provisional) { session.pendingForfeit = { key:M.makeId('result'), item:M.deepClone(pick.item) }; M.saveSession(session); }
     restoreChaosAfterSpin();
     spinning = false;
     manualCruising = false;
@@ -543,15 +544,15 @@
       try { modifier = await window.FortuneModifierWheel.resolve(pick.item); }
       catch (error) { console.warn('Modifier wheel could not open:', error); }
       const resultItem = window.FortuneFeatures.applyModifier(pick.item, modifier);
-      if (modifier) {
+      if (session.pendingForfeit) { session.pendingForfeit.item = M.deepClone(resultItem); session.pendingForfeit.modifier = modifier; M.saveSession(session); }
+      if (modifier && !session.pendingForfeit) {
         const last = session.history.at(-1);
         if (last) { last.modifierName = modifier.name; last.modifierDescription = modifier.description; last.modifierTimerMultiplier = modifier.timerMultiplier; }
         M.saveSession(session); renderHistory();
       }
       showResult(resultItem, outcome);
       pendingResult = false;
-      $('spinMode').disabled = false;
-      spinBtn.disabled = !segments.length;
+      spinBtn.disabled = Boolean(session.pendingForfeit) || !segments.length;
       ['resetBtn', 'loadBtn'].forEach(id => $(id).disabled = false);
       $('sessionBadge').textContent = `Round ${session.spinCount + 1}`;
     }, 300);
@@ -580,7 +581,6 @@
   }
 
   function applyResult(item) {
-    const activeBefore = { ...session.activeLevels };
     const unlocked = [];
     session.spinCount++;
     Object.values(session.runtime).forEach(runtime => { if (runtime.cooldown > 0) runtime.cooldown--; });
@@ -593,17 +593,12 @@
     });
     evaluateRules(item.id).unlocked.forEach(name => { if (!unlocked.includes(name)) unlocked.push(name); });
 
-    config.forfeits.forEach(entry => {
-      const runtime = session.runtime[entry.id];
-      if (!runtime || !activeBefore[entry.levelId] || runtime.removed) return;
-      if (entry.lifetime.type === 'spins' && runtime.remainingSpins !== null) {
-        runtime.remainingSpins--;
-        if (runtime.remainingSpins <= 0) runtime.removed = true;
-      }
-    });
-
     const runtime = session.runtime[item.id];
     if (item.lifetime.type === 'once') runtime.removed = true;
+    if (item.lifetime.type === 'spins') {
+      runtime.remainingSpins = Math.max(0, Number(runtime.remainingSpins ?? item.lifetime.spins) - 1);
+      if (runtime.remainingSpins === 0) runtime.removed = true;
+    }
     if (!runtime.removed && item.cooldown > 0) runtime.cooldown = item.cooldown;
 
     let specialMessage = '';
@@ -993,7 +988,22 @@
     state('Last result', bits.join(' · '));
   }
 
+  function acceptPending() {
+    const pending = session.pendingForfeit;
+    if (!pending) return;
+    delete session.pendingForfeit;
+    const base = config.forfeits.find(item => item.id === pending.item.id);
+    if (!base) return;
+    applyResult(base);
+    if (pending.modifier) { const last=session.history.at(-1); last.modifierName=pending.modifier.name; last.modifierDescription=pending.modifier.description; }
+    M.saveSession(session); renderAll();
+  }
+  function discardPending() {
+    delete session.pendingForfeit; hideResult(); M.saveSession(session); renderAll();
+  }
+
   function continueAfterResult() {
+    acceptPending();
     const again = currentResult?.item.eventType === 'spinAgain';
     stopTimerLoop();
     hideResult();
@@ -1074,6 +1084,7 @@
     rotation = 0;
     state('Last spin undone', 'The previous wheel state, cooldowns, lifetimes, cards and unlocks have been restored.');
     renderAll();
+    if (session.pendingForfeit) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:'Accept this result to apply its effects.'});
     toast('Last spin restored.');
   }
 
@@ -1125,12 +1136,18 @@
       return active().filter(item => ['normal','unlock'].includes(item.eventType) && !exclude.includes(item.id) && (!groupId || item.levelId === groupId))
         .map(item => ({ ...M.deepClone(item), effectiveWeight: weight(item), groupName: config.levels.find(g => g.id === item.levelId)?.name || item.levelId }));
     },
-    beginDirect(keepCurrent) {
+    acceptPending, discardPending,
+    canTakeCard: () => Boolean(session.pendingForfeit && !session.pendingForfeit.cardUsed),
+    markCardUsed() { if (session.pendingForfeit) { session.pendingForfeit.cardUsed=true; M.saveSession(session); } },
+    pendingItem: () => session.pendingForfeit?.item || null,
+    beginDirect(keepCurrent, replaceCurrent = false) {
       if (spinning || pendingResult || directBatch) return null;
       const original = keepCurrent && currentResult ? M.deepClone(currentResult.item) : null;
       if (original && timerState) original.timerSeconds = timerState.remaining;
+      if (keepCurrent) acceptPending();
+      else if (replaceCurrent) discardPending();
       snapshot(); hideResult(); directBatch = true; pendingResult = true;
-      ['spinBtn','resetBtn','loadBtn','undoBtn','spinMode'].forEach(id => $(id).disabled = true);
+      ['spinBtn','resetBtn','loadBtn','undoBtn'].forEach(id => $(id).disabled = true);
       return { original };
     },
     async drawDirect(exclude, groupId, lowest, cardName) {
@@ -1143,6 +1160,8 @@
       const outcome = applyResult(item);
       const modifier = await window.FortuneModifierWheel.resolve(item);
       const result = window.FortuneFeatures.applyModifier(item, modifier);
+      result.removedFromWheel = session.runtime[item.id].removed;
+      result.remainingSelections = item.lifetime.type === 'spins' ? session.runtime[item.id].remainingSpins : null;
       const last = session.history.at(-1); last.cardName = cardName;
       if (modifier) { last.modifierName = modifier.name; last.modifierDescription = modifier.description; }
       M.saveSession(session); renderAll();
@@ -1150,7 +1169,7 @@
     },
     endDirect() {
       directBatch = false; pendingResult = false; renderAll();
-      ['resetBtn','loadBtn','spinMode'].forEach(id => $(id).disabled = false);
+      ['resetBtn','loadBtn'].forEach(id => $(id).disabled = false);
     },
     randomizeWeights() {
       if (spinning || pendingResult) return false;
@@ -1166,23 +1185,21 @@
     if (manualCruising) { stopRequested = true; spinBtn.disabled = true; spinBtn.querySelector('.spin-label').textContent = 'STOPPING'; return; }
     if (!modalOpen()) { ctx(); spin(); }
   });
-  try { $('spinMode').value = localStorage.getItem('fortune-spin-mode') === 'manual' ? 'manual' : 'auto'; } catch (_) {}
-  $('spinMode').addEventListener('change', () => { try { localStorage.setItem('fortune-spin-mode', $('spinMode').value); } catch (_) {} });
   $('saveBtn').addEventListener('click', () => M.downloadXml(config));
   $('loadBtn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => loadXml(fileInput.files?.[0]));
   $('undoBtn').addEventListener('click', undo);
   $('resetBtn').addEventListener('click', reset);
   $('resultCloseBtn').addEventListener('click', continueAfterResult);
-  $('resultSpinBtn').addEventListener('click', () => { hideResult(); setTimeout(spin, 100); });
-  overlay.addEventListener('click', event => { if (event.target.classList.contains('result-backdrop')) hideResult(); });
+  $('resultSpinBtn').addEventListener('click', () => { acceptPending(); hideResult(); setTimeout(spin, 100); });
+  overlay.addEventListener('click', event => { if (event.target.classList.contains('result-backdrop') && !session.pendingForfeit) hideResult(); });
   document.addEventListener('keydown', event => {
     if (event.code === 'Space' && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey &&
         !event.target.closest('input, textarea, select, button, a, [contenteditable]') && !modalOpen()) {
       event.preventDefault(); spinBtn.click(); return;
     }
     if (event.key !== 'Escape') return;
-    if (!overlay.hidden) hideResult();
+    if (!overlay.hidden && !session.pendingForfeit) hideResult();
   });
 
   if (!session.wheelOrder) session.wheelOrder = window.FortuneFeatures.shuffle(config.forfeits.map(item => item.id));
@@ -1190,4 +1207,5 @@
   ensureCardOverlay();
   ensureResultExtras();
   renderAll();
+  if (session.pendingForfeit) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:'Accept this result to apply its effects.'});
 })();

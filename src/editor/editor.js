@@ -199,11 +199,13 @@
   function renderSettings() {
     const s = draft.settings;
     window.FortuneDeckEditor.mount(s, markDirty);
+    $('spinMode').value = s.spinMode;
     $('minSpin').value = s.minSpinSeconds; $('maxSpin').value = s.maxSpinSeconds; $('minTurns').value = s.minTurns;
     $('soundEnabled').checked = s.soundEnabled; $('showTextOnWheel').checked = s.showTextOnWheel; $('gameTitle').value = s.title;
   }
 
   function bindSettings() {
+    $('spinMode').addEventListener('change', () => { draft.settings.spinMode = $('spinMode').value; markDirty(); });
     $('minSpin').addEventListener('input', () => { draft.settings.minSpinSeconds = clamp($('minSpin').value, 3, 20, 6.5); markDirty(); });
     $('maxSpin').addEventListener('input', () => { draft.settings.maxSpinSeconds = clamp($('maxSpin').value, 3, 25, 9.5); markDirty(); });
     $('minTurns').addEventListener('input', () => { draft.settings.minTurns = Math.round(clamp($('minTurns').value, 3, 20, 6)); markDirty(); });
@@ -216,7 +218,7 @@
     const search = $('forfeitSearchInput');
     if (search?.value) { search.value = ''; search.dispatchEvent(new Event('input', { bubbles:true })); }
     const group = draft.levels.find(level => level.id === groupId) || draft.levels[0];
-    draft.forfeits.push({ id: M.makeId('forfeit'), name: 'New Forfeit', icon: '🎯', color: '#5b8cff', weight: 1, levelId: group.id, category: 'Challenge', description: '', animation: 'zoom', lifetime: { type: 'forever', spins: 3 }, cooldown: 0, eventType: 'normal', mystery: false, enabled: true, unlockLevels: [] });
+    draft.forfeits.push({ id: M.makeId('forfeit'), name: 'New Forfeit', icon: '🎯', color: '#5b8cff', weight: 1, levelId: group.id, category: 'Challenge', description: '', animation: 'zoom', lifetime: { type: 'once', spins: 3 }, cooldown: 0, eventType: 'normal', mystery: false, enabled: true, unlockLevels: [] });
     renderForfeits(); renderSummary(); markDirty();
     const id = draft.forfeits.at(-1).id;
     setTimeout(() => {

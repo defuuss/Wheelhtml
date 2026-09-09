@@ -144,7 +144,7 @@
 
   let bypassSpin = false;
   spinBtn.addEventListener('click', event => {
-    if (bypassSpin || spinBtn.disabled || document.getElementById('spinMode')?.value === 'manual') return;
+    if (bypassSpin || spinBtn.disabled || M.loadConfig().settings.spinMode === 'manual') return;
     if (introRunning) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     event.preventDefault();
     event.stopImmediatePropagation();

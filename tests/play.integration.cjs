@@ -12,9 +12,11 @@ try{
  modal.querySelector('.group-actions button').click();await pause(20);modal.querySelector('.group-actions button').click();await pause(50);
  assert.equal(w.document.querySelector('.modifier-overlay'),null);assert.equal(w.document.getElementById('resultOverlay').hidden,false);
  assert.match(w.document.getElementById('resultDescription').textContent,/Shorter/);
+ assert.equal(w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history.length,0);
+ w.FortunePlay.acceptPending();
  const history=w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history;assert.equal(history.at(-1).modifierName,'Shorter');
  assert.match(w.document.getElementById('resultTimerPanel').textContent,/01:00|1:00/);
  const pending=w.FortuneModifierWheel.resolve({name:'Test',modifierWheel:{enabled:true,chance:100,outcomes:[{name:'X',weight:1}]}});
  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(await pending,null);assert.equal(w.document.querySelector('.modifier-overlay'),null);
  assert.deepEqual(errors,[]);console.log('PASS: full main-spin → modifier → result flow, timer adjustment, history, overlap guard and cancellation.');
-}finally{w.close();}})().catch(e=>{console.error(e);process.exitCode=1});
+}finally{await pause(150);w.close();}})().catch(e=>{console.error(e);process.exitCode=1});
