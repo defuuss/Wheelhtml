@@ -5,21 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#070a12">
   <title>Fortune Engine</title>
-  <link rel="stylesheet" href="styles/styles.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/spin-drama.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/mystery-reveal.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/wheel-visuals.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/game-cards.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/fate-deck-v3.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/fate-deck-overrides.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/pick-poison-direct.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/show-stage.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/gameshow-wheel-theme.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/centered-wheel.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/active-levels-panel.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/modifiers.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/experience.css?v=20260909-6">
-  <link rel="stylesheet" href="styles/deck-upgrade.css?v=20260909-6">
+  <link rel="stylesheet" href="styles/styles.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/spin-drama.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/mystery-reveal.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/wheel-visuals.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/game-cards.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/fate-deck-v3.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/fate-deck-overrides.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/show-stage.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/active-levels-panel.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/modifiers.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/experience.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/deck-upgrade.css?v=20260914-1">
+  <link rel="stylesheet" href="styles/midnight.css?v=20260914-1">
 </head>
 <body data-page="play">
   <div class="ambient ambient-a"></div>
@@ -30,7 +28,7 @@
       <span class="brand-mark">✦</span>
       <span>
         <strong>FORTUNE ENGINE</strong>
-        <small>Weighted challenge wheel</small>
+        <small>A game of choice and chance</small>
       </span>
     </a>
     <nav class="top-actions" aria-label="Main actions">
@@ -72,8 +70,9 @@
 
     <aside class="side-panel">
       <div class="level-strip-wrap levels-side-panel">
-        <div class="section-kicker">ACTIVE LEVELS</div>
+        <div class="section-kicker">YOUR CHAPTERS</div>
         <div id="levelLights" class="level-lights" aria-live="polite"></div>
+        <div id="sessionEffects" class="session-effects" hidden></div>
       </div>
 
       <div class="now-card">
@@ -88,16 +87,10 @@
 
     </aside>
 
-    <section class="history-panel">
-      <div class="history-heading">
-        <div>
-          <div class="section-kicker">SESSION</div>
-          <h3>Recent spins</h3>
-        </div>
-        <span id="historyHint" class="muted">Nothing selected yet</span>
-      </div>
+    <details class="history-panel">
+      <summary><span>Session history</span><span id="historyHint" class="muted">Nothing selected yet</span></summary>
       <div id="historyList" class="history-list"></div>
-    </section>
+    </details>
   </main>
 
   <div id="resultOverlay" class="result-overlay" hidden>
@@ -110,7 +103,8 @@
       <p id="resultDescription"></p>
       <div id="unlockNotice" class="unlock-notice" hidden></div>
       <div class="result-actions">
-        <button id="resultCloseBtn" class="btn primary large" type="button">OK</button>
+        <button id="resultCloseBtn" class="btn primary large" type="button">Accept</button>
+        <button id="resultDeclineBtn" class="btn ghost large" type="button">Decline</button>
         <button id="resultSpinBtn" class="btn ghost large" type="button" hidden aria-hidden="true" tabindex="-1">Spin again</button>
       </div>
     </section>
@@ -118,19 +112,19 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="src/core/features.js?v=20260909-6"></script>
-  <script src="src/core/model.js?v=20260909-6"></script>
-  <script src="src/core/dependency-model.js?v=20260909-6"></script>
-  <script src="src/core/progression-model.js?v=20260909-6"></script>
-  <script src="src/core/spin-settings.js?v=20260909-6"></script>
-  <script src="src/play/modifiers.js?v=20260909-6"></script>
-  <script src="src/play/app.js?v=20260909-6"></script>
-  <script src="src/play/batch-reveal.js?v=20260909-6"></script>
-  <script src="src/play/fate-deck.js?v=20260909-6"></script>
-  <script src="src/play/fate-card-assets.js?v=20260909-6"></script>
-  <script src="src/play/mystery-reveal.js?v=20260909-6"></script>
-  <script src="src/play/wheel-visuals.js?v=20260909-6"></script>
-  <script src="src/play/show-stage.js?v=20260909-6"></script>
-  <script src="src/play/progression-play.js?v=20260909-6"></script>
+  <script src="src/core/features.js?v=20260914-1"></script>
+  <script src="src/core/model.js?v=20260914-1"></script>
+  <script src="src/core/dependency-model.js?v=20260914-1"></script>
+  <script src="src/core/progression-model.js?v=20260914-1"></script>
+  <script src="src/core/spin-settings.js?v=20260914-1"></script>
+  <script src="src/play/modifiers.js?v=20260914-1"></script>
+  <script src="src/core/reveal-state.js?v=20260914-1"></script>
+  <script src="src/play/app.js?v=20260914-1"></script>
+  <script src="src/play/batch-reveal.js?v=20260914-1"></script>
+  <script src="src/play/fate-deck.js?v=20260914-1"></script>
+  <script src="src/play/mystery-reveal.js?v=20260914-1"></script>
+  <script src="src/play/wheel-visuals.js?v=20260914-1"></script>
+  <script src="src/play/show-stage.js?v=20260914-1"></script>
+  <script src="src/play/progression-play.js?v=20260914-1"></script>
 </body>
 </html>

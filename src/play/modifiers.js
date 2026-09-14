@@ -2,10 +2,14 @@
   'use strict';
   const F = window.FortuneFeatures;
   const colors = ['#8359b8', '#d58b35', '#329a9c', '#be557f', '#5d76ba', '#8e974c'];
-  window.FortuneModifierWheel = { async resolve(item) {
+  window.FortuneModifierWheel = { async resolve(item, draft = null, saveDraft = () => {}) {
     const settings = F.normalizeModifier(item.modifierWheel);
     settings.outcomes = F.modifierOutcomes(settings);
-    if (!settings.enabled || !settings.outcomes.length || Math.random() * 100 >= settings.chance) return null;
+    if (!draft) {
+      draft={enabled:settings.enabled && settings.outcomes.length>0 && Math.random()*100<settings.chance,chosen:null};
+      saveDraft(draft);
+    }
+    if (!draft.enabled) return null;
     const previousFocus = document.activeElement;
     const overlay = document.createElement('div'); overlay.className = 'modifier-overlay';
     const dialog = document.createElement('section'); dialog.className = 'modifier-dialog'; dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'modifierTitle');
@@ -52,7 +56,7 @@
         if (selected) return finish(selected);
         if (spinning) return;
         spinning = true; spin.disabled = true; result.textContent = 'Spinning…';
-        const chosen = F.choose(settings.outcomes); const segment = segments.find(s => s.entry === chosen);
+        const chosen = settings.outcomes[draft.index] || F.choose(settings.outcomes); draft.index=settings.outcomes.indexOf(chosen); saveDraft(draft); const segment = segments.find(s => s.entry === chosen);
         const rotation = 1440 + 360 - (segment.start + segment.end) / 2;
         const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
         try {

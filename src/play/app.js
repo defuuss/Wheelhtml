@@ -120,7 +120,7 @@
     const items = active();
     segments = makeSegments(items);
     rotor.innerHTML = '';
-    spinBtn.disabled = spinning || pendingResult || Boolean(session.pendingForfeit) || !segments.length;
+    spinBtn.disabled = spinning || pendingResult || Boolean(session.pendingForfeit || session.acceptedForfeit || session.revealBatch) || !segments.length;
 
     if (!segments.length) {
       rotor.innerHTML = '<div class="wheel-empty"><strong>No active forfeits</strong><span>Unlock a group or add entries in Edit.</span></div>';
@@ -135,7 +135,7 @@
       const path = svg('path', {
         d: arc(300, 300, 286, segment.start, segment.end),
         fill: segment.item.color,
-        class: `wheel-segment${eventClass}`,
+        class: `wheel-segment${eventClass}${(session.pendingForfeit?.item.id || session.history.at(-1)?.id) === segment.item.id ? ' is-selected' : ''}`,
         'data-index': index
       });
       const title = svg('title');
@@ -254,6 +254,9 @@
     $('activeCount').textContent = active().length;
     $('chanceHint').textContent = ensureCardState().chaosNext ? 'CHAOS' : (active().length ? 'WEIGHTED' : '—');
     M.saveSession(session);
+    ['resetBtn','loadBtn','undoBtn'].forEach(id => { if(session.revealBatch) $(id).disabled=true; });
+    if (!session.revealBatch) { $('resetBtn').disabled=spinning; $('loadBtn').disabled=spinning; }
+    window.dispatchEvent(new CustomEvent('fortune-state-change',{detail:{config,session}}));
   }
 
   function choose(list) {
@@ -456,7 +459,7 @@
   }
 
   async function spin() {
-    if (spinning || pendingResult || session.pendingForfeit || !segments.length) return;
+    if (spinning || pendingResult || session.pendingForfeit || session.acceptedForfeit || session.revealBatch || !segments.length) return;
 
     hideResult();
     hideCardOverlay();
@@ -526,7 +529,7 @@
 
     rotor.style.transform = `rotate(${rotation}deg)`;
     updateSpinPreview(pick.item, false);
-    const provisional = !CARD_EVENTS.has(pick.item.eventType);
+    const provisional = true;
     const outcome = provisional ? {unlocked:[],specialMessage:'Accept this result to apply its effects.'} : applyResult(pick.item);
     if (provisional) { session.pendingForfeit = { key:M.makeId('result'), item:M.deepClone(pick.item) }; M.saveSession(session); }
     restoreChaosAfterSpin();
@@ -580,7 +583,7 @@
     return { unlocked, rules };
   }
 
-  function applyResult(item) {
+  function applyResult(item, metadata = {}) {
     const unlocked = [];
     session.spinCount++;
     Object.values(session.runtime).forEach(runtime => { if (runtime.cooldown > 0) runtime.cooldown--; });
@@ -620,6 +623,7 @@
     if (forcedBefore > 0 && !CARD_EVENTS.has(item.eventType)) ensureCardState().forcedForfeits = Math.max(0, forcedBefore - 1);
 
     session.history.push({
+      ...metadata,
       id: item.id,
       name: item.name,
       icon: item.icon,
@@ -842,26 +846,31 @@
     $('timerShorten').hidden = ensureCardState().shorten <= 0 || timerState.shortened || timerState.complete;
     $('timerShorten').textContent = `⏱ Shorten ×${ensureCardState().shorten}`;
     $('timerFinish').hidden = timerState.complete;
-    $('resultCloseBtn').hidden = !timerState.complete;
+    $('resultCloseBtn').hidden = false;
+    $('resultCloseBtn').textContent = session.pendingForfeit ? 'Accept' : 'Done';
+    $('timerStartPause').disabled = Boolean(session.pendingForfeit);
+    $('timerFinish').disabled = Boolean(session.pendingForfeit);
   }
 
+  function persistTimer() {
+    if(session.acceptedForfeit && timerState){
+      session.acceptedForfeit.timer={remaining:timerState.remaining,deadline:timerState.running?timerState.deadline:0,started:timerState.started};
+      M.saveSession(session);
+    }
+  }
   function tickTimer() {
-    if (!timerState?.running) return;
-    const now = performance.now();
-    const delta = (now - timerState.lastAt) / 1000;
-    timerState.lastAt = now;
-    timerState.remaining = Math.max(0, timerState.remaining - delta);
-    if (timerState.remaining <= 0) completeTimer();
+    if(!timerState?.running)return;
+    timerState.remaining=Math.max(0,Math.ceil((timerState.deadline-Date.now())/1000));
+    if(!timerState.remaining)completeTimer();
     updateTimerUi();
   }
-
   function toggleTimer() {
-    if (!timerState || timerState.complete) return;
-    timerState.started = true;
-    timerState.running = !timerState.running;
-    timerState.lastAt = performance.now();
-    if (timerState.running && !timerTickHandle) timerTickHandle = setInterval(tickTimer, 100);
-    updateTimerUi();
+    if(!timerState || timerState.complete || session.pendingForfeit)return;
+    if(timerState.running)timerState.remaining=Math.max(0,Math.ceil((timerState.deadline-Date.now())/1000));
+    timerState.started=true;timerState.running=!timerState.running;
+    timerState.deadline=timerState.running?Date.now()+timerState.remaining*1000:0;
+    if(timerState.running && !timerTickHandle)timerTickHandle=setInterval(tickTimer,100);
+    persistTimer();updateTimerUi();
   }
 
   function useShorten() {
@@ -880,6 +889,7 @@
     timerState.remaining = 0;
     timerState.running = false;
     timerState.complete = true;
+    persistTimer();
     stopTimerLoop();
     updateTimerUi();
     tone();
@@ -913,8 +923,15 @@
       shortened: false,
       lastAt: performance.now()
     };
+    const saved=session.acceptedForfeit?.timer;
+    if(saved){
+      timerState.remaining=saved.deadline?Math.max(0,Math.ceil((saved.deadline-Date.now())/1000)):saved.remaining;
+      timerState.deadline=saved.deadline;timerState.running=Boolean(saved.deadline && timerState.remaining);timerState.started=saved.started;
+      timerState.complete=timerState.remaining===0;
+      if(timerState.running)timerTickHandle=setInterval(tickTimer,100);
+    }
     panel.hidden = false;
-    $('resultCloseBtn').hidden = true;
+    $('resultCloseBtn').hidden = false;
     M.saveSession(session);
     renderInventory();
     updateTimerUi();
@@ -937,16 +954,6 @@
   }
 
   function showResult(item, outcome) {
-    if (item.eventType === 'cardPick') {
-      if (window.FortuneFateDeck?.drawFromWheel()) { state('Fate card drawn', item.name); return; }
-      item = { ...item, eventType: 'normal', description: 'The fate deck is empty. Reset the session to refill it.' };
-    }
-    if (CARD_EVENTS.has(item.eventType)) {
-      showSpecialEvent(item);
-      state('Card drawn', item.name);
-      return;
-    }
-
     currentResult = { item, outcome };
     ensureResultExtras();
     overlay.hidden = false;
@@ -988,26 +995,45 @@
     state('Last result', bits.join(' · '));
   }
 
+  // The only path that consumes a selection, from either the wheel or a card.
+  function commitSelection(selection) {
+    const base = config.forfeits.find(item => item.id === selection.item.id);
+    if (!base || !active().some(item => item.id === base.id)) return false;
+    const modifier = selection.modifier;
+    const outcome = applyResult(base, {
+      ...(selection.cardName ? {cardName:selection.cardName} : {}),
+      ...(modifier ? {modifierName:modifier.name,modifierDescription:modifier.description} : {})
+    });
+    renderAll();
+    window.dispatchEvent(new CustomEvent('fortune-result-committed',{detail:{item:base,outcome}}));
+    return true;
+  }
   function acceptPending() {
     const pending = session.pendingForfeit;
-    if (!pending) return;
+    if (!pending || session.revealBatch) return false;
     delete session.pendingForfeit;
-    const base = config.forfeits.find(item => item.id === pending.item.id);
-    if (!base) return;
-    applyResult(base);
-    if (pending.modifier) { const last=session.history.at(-1); last.modifierName=pending.modifier.name; last.modifierDescription=pending.modifier.description; }
-    M.saveSession(session); renderAll();
+    if(pending.item.timerSeconds>0)session.acceptedForfeit={item:M.deepClone(pending.item),timer:{remaining:pending.item.timerSeconds,deadline:0,started:false}};
+    const accepted=commitSelection(pending);
+    if(timerState)updateTimerUi();
+    return accepted;
   }
   function discardPending() {
+    if (session.revealBatch || session.acceptedForfeit) return;
     delete session.pendingForfeit; hideResult(); M.saveSession(session); renderAll();
   }
 
   function continueAfterResult() {
-    acceptPending();
-    const again = currentResult?.item.eventType === 'spinAgain';
+    const item = currentResult?.item;
+    if(session.pendingForfeit){
+      if(!acceptPending())return;
+      if(timerState){updateTimerUi();return;}
+    }
+    delete session.acceptedForfeit;M.saveSession(session);renderAll();
     stopTimerLoop();
     hideResult();
-    if (again || ensureCardState().forcedForfeits > 0) setTimeout(spin, 130);
+    if (CARD_EVENTS.has(item?.eventType)) {
+      if (!window.FortuneFateDeck?.drawFromWheel()) state('Deck empty', 'The special entry was accepted. There are no cards left.');
+    } else if (item?.eventType === 'spinAgain') setTimeout(spin,130);
   }
 
   function hideResult() {
@@ -1074,7 +1100,7 @@
   }
 
   function undo() {
-    if (spinning || pendingResult || !session.undoStack.length) return;
+    if (spinning || pendingResult || session.revealBatch || !session.undoStack.length) return;
     hideResult();
     hideCardOverlay();
     const stack = session.undoStack;
@@ -1089,7 +1115,7 @@
   }
 
   function reset() {
-    if (spinning || pendingResult) return;
+    if (spinning || pendingResult || session.revealBatch) return;
     if (!confirm('Reset the current session? This clears spin history, cards, timers, cooldowns and unlocked groups. Your wheel configuration stays intact.')) return;
     hideResult();
     hideCardOverlay();
@@ -1110,7 +1136,7 @@
   }
 
   async function loadXml(file) {
-    if (!file || spinning || pendingResult) return;
+    if (!file || spinning || pendingResult || session.revealBatch) return;
     try {
       const imported = await M.readXmlFile(file);
       if (spinning || pendingResult) { toast('Wait for the spin to finish, then load XML again.'); return; }
@@ -1137,39 +1163,69 @@
         .map(item => ({ ...M.deepClone(item), effectiveWeight: weight(item), groupName: config.levels.find(g => g.id === item.levelId)?.name || item.levelId }));
     },
     acceptPending, discardPending,
-    canTakeCard: () => Boolean(session.pendingForfeit && !session.pendingForfeit.cardUsed),
+    canTakeCard: () => Boolean(session.pendingForfeit && !CARD_EVENTS.has(session.pendingForfeit.item.eventType) && !session.pendingForfeit.cardUsed && !session.revealBatch),
     markCardUsed() { if (session.pendingForfeit) { session.pendingForfeit.cardUsed=true; M.saveSession(session); } },
     pendingItem: () => session.pendingForfeit?.item || null,
-    beginDirect(keepCurrent, replaceCurrent = false) {
-      if (spinning || pendingResult || directBatch) return null;
-      const original = keepCurrent && currentResult ? M.deepClone(currentResult.item) : null;
-      if (original && timerState) original.timerSeconds = timerState.remaining;
-      if (keepCurrent) acceptPending();
-      else if (replaceCurrent) discardPending();
-      snapshot(); hideResult(); directBatch = true; pendingResult = true;
-      ['spinBtn','resetBtn','loadBtn','undoBtn'].forEach(id => $(id).disabled = true);
-      return { original };
+    settings: () => M.deepClone(config.settings),
+    batch: () => session.revealBatch || null,
+    saveReveal() { M.saveSession(session); },
+    startBatch(options) {
+      if (spinning || pendingResult || session.revealBatch || session.acceptedForfeit) return null;
+      const pending = session.pendingForfeit;
+      const exclude = pending && (options.keepCurrent || options.excludeCurrent || options.envelopes) ? [pending.item.id] : [];
+      let pool = this.candidates(exclude,options.groupId);
+      const revealSettings = window.FortuneFeatures.normalizeReveals(config.settings.reveals);
+      if (options.envelopes && revealSettings.envelopeGroups.length)
+        pool=pool.filter(item=>revealSettings.envelopeGroups.includes(item.levelId));
+      const count = options.envelopes ? revealSettings.envelopeCount : options.count;
+      const selection = window.FortuneRevealState.select(pool,count,options);
+      if (!selection.items.length) {
+        state('No eligible results', 'Your current result stays pending. Check the available groups.');
+        return null;
+      }
+      snapshot();
+      const batch = window.FortuneRevealState.create({
+        items:selection.items,title:options.title,groupId:selection.groupId || options.groupId || '',
+        requested:count,original:options.keepCurrent ? pending : null,envelopes:options.envelopes,
+        hint:revealSettings.envelopeHint,autoplay:revealSettings.autoplay
+      });
+      if (options.keepCurrent || options.replaceCurrent) delete session.pendingForfeit;
+      session.revealBatch=batch;
+      hideResult(); directBatch=true; renderAll();
+      return batch;
     },
-    async drawDirect(exclude, groupId, lowest, cardName) {
-      if (!directBatch) return null;
-      let options = this.candidates(exclude, groupId);
-      if (!options.length) return null;
-      if (lowest) { const min = Math.min(...options.map(x => x.effectiveWeight)); options = options.filter(x => Math.abs(x.effectiveWeight - min) < 1e-9); }
-      const picked = lowest ? options[Math.floor(Math.random()*options.length)] : window.FortuneFeatures.choose(options.map(x => ({...x,weight:x.effectiveWeight})));
-      const item = config.forfeits.find(x => x.id === picked.id);
-      const outcome = applyResult(item);
-      const modifier = await window.FortuneModifierWheel.resolve(item);
-      const result = window.FortuneFeatures.applyModifier(item, modifier);
-      result.removedFromWheel = session.runtime[item.id].removed;
-      result.remainingSelections = item.lifetime.type === 'spins' ? session.runtime[item.id].remainingSpins : null;
-      const last = session.history.at(-1); last.cardName = cardName;
-      if (modifier) { last.modifierName = modifier.name; last.modifierDescription = modifier.description; }
-      M.saveSession(session); renderAll();
-      return { item: result, outcome };
+    async revealEntry(entry) {
+      if (!session.revealBatch || !session.revealBatch.entries.includes(entry) || !['sealed','revealing'].includes(entry.status)) return;
+      entry.status='revealing'; M.saveSession(session);
+      if (!entry.modifierResolved) {
+        const modifier = await window.FortuneModifierWheel.resolve(entry.item, entry.modifierDraft, draft => {
+          entry.modifierDraft=draft; M.saveSession(session);
+        });
+        entry.modifier=modifier; entry.item=window.FortuneFeatures.applyModifier(entry.item,modifier);
+        entry.modifierResolved=true;
+      }
+      entry.status='revealed'; M.saveSession(session);
+    },
+    resolveEntry(entry, accept) {
+      if (!session.revealBatch || !session.revealBatch.entries.includes(entry) || entry.status!=='revealed') return false;
+      if (accept && !active().some(item=>item.id===entry.item.id)) {
+        entry.status='unavailable'; M.saveSession(session); return false;
+      }
+      // Mark before the commit saves: reload can never apply an accepted slot twice.
+      entry.status=accept ? 'accepted' : 'declined';
+      if (accept) {
+        entry.cardName=session.revealBatch.title;
+        if (entry.item.timerSeconds>0) entry.timer={remaining:entry.item.timerSeconds,deadline:0};
+        commitSelection(entry);
+      } else M.saveSession(session);
+      return true;
     },
     endDirect() {
-      directBatch = false; pendingResult = false; renderAll();
-      ['resetBtn','loadBtn'].forEach(id => $(id).disabled = false);
+      if (!session.revealBatch || window.FortuneRevealState.next(session.revealBatch)) return false;
+      session.lastReveal=M.deepClone(session.revealBatch);
+      delete session.revealBatch;
+      directBatch=false; pendingResult=false; renderAll();
+      return true;
     },
     randomizeWeights() {
       if (spinning || pendingResult) return false;
@@ -1191,6 +1247,7 @@
   $('undoBtn').addEventListener('click', undo);
   $('resetBtn').addEventListener('click', reset);
   $('resultCloseBtn').addEventListener('click', continueAfterResult);
+  $('resultDeclineBtn').addEventListener('click',discardPending);
   $('resultSpinBtn').addEventListener('click', () => { acceptPending(); hideResult(); setTimeout(spin, 100); });
   overlay.addEventListener('click', event => { if (event.target.classList.contains('result-backdrop') && !session.pendingForfeit) hideResult(); });
   document.addEventListener('keydown', event => {
@@ -1207,5 +1264,6 @@
   ensureCardOverlay();
   ensureResultExtras();
   renderAll();
-  if (session.pendingForfeit) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:'Accept this result to apply its effects.'});
+  if(session.acceptedForfeit && !session.revealBatch)showResult(session.acceptedForfeit.item,{unlocked:[],specialMessage:'Accepted. Start or resume the timer when ready.'});
+  if (session.pendingForfeit && !session.revealBatch) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:'Accept this result to apply its effects.'});
 })();

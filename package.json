@@ -1,0 +1,13 @@
+{
+  "name": "fortune-wheel",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/wheel.test.cjs tests/features.test.cjs && node tests/editor.integration.cjs && node tests/play.integration.cjs && node tests/simple-play.integration.cjs && node tests/specials.integration.cjs && node tests/result-lifecycle.integration.cjs && node tests/deck.integration.cjs && node tests/envelopes.integration.cjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0",
+    "playwright": "1.55.1"
+  }
+}

@@ -9,19 +9,20 @@
   if (!M) return;
 
   const STORAGE_KEY = 'fortune-fate-deck-v4';
-  const ASSET = name => `assets/fate-cards/${name}.webp?v=1`;
+  const ASSET = name => `assets/fate-cards/vector/${name}.svg?v=20260914`;
 
   const CARD_META = {
     nothing: { name:'Nothing', kind:'FATE CARD', className:'neutral', art:ASSET('nothing'), text:'Nice try. Nothing changes — the current forfeit still applies.' },
     skip: { name:'Lucky Skip', kind:'LUCKY CARD', className:'good', art:ASSET('lucky-skip'), text:'Lucky escape. The current forfeit is cancelled.' },
-    swap: { name:'Swap Fate', kind:'CHANCE CARD', className:'chance', art:ASSET('swap-fate'), text:'Trade the current forfeit for one new wheel result. The replacement must be accepted.' },
+    swap: { name:'Swap Fate', kind:'CHANCE CARD', className:'chance', art:ASSET('swap-fate'), text:'Trade the current forfeit for one new wheel result. Reveal the replacement, then accept or decline.' },
     doubleForfeit: { name:'Double Forfeit', kind:'BAD CARD', className:'bad', art:ASSET('double-forfeit'), text:'The current forfeit stays and one additional forfeit is added.' },
     doubleOrNothing: { name:'Double or Nothing', kind:'RISK CARD', className:'risk', art:ASSET('double-or-nothing'), text:'Spin the small wheel. Nothing cancels the current forfeit; Double reveals one more.' },
-    pickYourPoison: { name:'Pick Your Poison', kind:'CHOICE CARD', className:'poison', art:ASSET('pick-your-poison'), text:'Choose: keep the result you already know, or replace it with one unknown result you must accept.' },
+    pickYourPoison: { name:'Pick Your Poison', kind:'CHOICE CARD', className:'poison', art:ASSET('pick-your-poison'), text:'Choose: keep the result you already know, or replace it with one unknown result.' },
     fateRoulette: { name:'Fate Roulette', kind:'CHAOS CARD', className:'roulette', art:ASSET('fate-roulette'), text:'A mini roulette decides: Keep, Skip, Swap, or Double.' },
-    rarest: { name:'Rarest Fate', kind:'RARE CARD', className:'rare', glyph:'◇', text:'Replaces the current result with the eligible forfeit with the smallest current weight. Ties are chosen randomly.' },
-    chaosWeights: { name:'Chaos Weights', kind:'CHAOS CARD', className:'chaos', glyph:'⚡', text:'Randomly changes active weights for this session. The wheel updates immediately.' },
-    devilFive: { name:'Devil’s Five', kind:'DEVIL CARD', className:'devil', glyph:'♆', text:'Fate chooses an active group at random, then reveals up to five different available forfeits, one by one.' },
+    rarest: { name:'Rarest Fate', kind:'RARE CARD', className:'rare', art:ASSET('rarest'), text:'Replaces the current result with the eligible forfeit with the smallest current weight. Ties are chosen randomly.' },
+    chaosWeights: { name:'Chaos Weights', kind:'CHAOS CARD', className:'chaos', art:ASSET('chaos'), text:'Randomly changes active weights for this session. The wheel updates immediately.' },
+    devilFive: { name:'Devil’s Five', kind:'DEVIL CARD', className:'devil', art:ASSET('devil-five'), text:'Fate chooses an active group at random, then reveals up to five different available forfeits, one by one.' },
+    sealedEnvelopes: {name:'Sealed Envelopes',kind:'CHOICE CARD',className:'envelopes',art:ASSET('sealed-envelopes'),text:'Choose one sealed envelope. Only the result you choose and accept changes the wheel.'},
     tripleTrouble: { name:'Triple Trouble', kind:'VERY BAD CARD', className:'triple', art:ASSET('triple-trouble'), text:'The current forfeit stays and two additional forfeits are added.' }
   };
 
@@ -83,7 +84,7 @@
       </div>
       <div class="fate-deck-panel-copy">
         <span>FATE DECK</span><strong id="fateDeckCount">Loading deck…</strong>
-        <small>Don't like the result? Risk one card. Every card acts immediately.</small>
+        <small>Don't like the result? Risk one card. Reveal first. Accept to apply.</small>
       </div>`;
     document.querySelector('.wheel-stats')?.insertAdjacentElement('afterend', panel);
     return panel;
@@ -133,13 +134,14 @@
     button.disabled = cardsLeft === 0;
     button.innerHTML = cardsLeft ? `<span>✦</span> Take a Fate Card <small>${cardsLeft} left</small>` : '<span>✦</span> Fate Deck Empty';
     const accept = $('resultCloseBtn');
-    if (accept && resultVisible && accept.textContent !== 'Accept') accept.textContent = 'Accept';
+    if (accept && resultVisible && window.FortunePlay.pendingItem()) accept.textContent = 'Accept';
   }
-  function takeCard() {
+  function takeCard(context) {
     const state = loadState();
     if (!state.cards.length) return null;
     const index = Math.floor(Math.random() * state.cards.length);
     const id = state.cards.splice(index,1)[0];
+    state.draw={id,context,action:null};
     saveState(state);
     return id;
   }
@@ -190,15 +192,19 @@
     return overlay;
   }
 
+  function saveAction(action) { const state=loadState();if(state.draw){state.draw.action=action;saveState(state);} }
   function showCard(id, context) {
     const overlay = ensureOverlay(), meta = CARD_META[id];
     if (!meta) return;
     cardReady = false; const token = ++revealToken;
-    currentDraw = id; currentContext = context; pendingAction = null; coinResolved = false; rouletteResolved = false;
+    const savedAction=loadState().draw?.action;
+    currentDraw = id; currentContext = context; pendingAction = savedAction || null; coinResolved = false; rouletteResolved = false;
     const card = $('fateV4Card');
     card.dataset.kind = meta.className;
     card.classList.remove('revealed','dealing','evil-pop');
     $('fateV4FrontImage').hidden = Boolean(meta.glyph);
+    $('fateV4FrontImage').decoding='async';
+    overlay.querySelector('.fate-v4-front').setAttribute('aria-hidden','true');
     if (meta.art) $('fateV4FrontImage').src = meta.art;
     const art = $('fateCustomArt'); art.hidden = !meta.glyph; art.dataset.kind = meta.className; art.querySelector('span').textContent = meta.glyph || ''; art.querySelector('strong').textContent = meta.name;
     $('fateV4FrontImage').alt = meta.name;
@@ -222,9 +228,16 @@
       card.classList.add('revealed');
       const ready = () => {
         if (token !== revealToken) return;
-        cardReady=true;concealed.forEach((node,i)=>node.hidden=hiddenStates[i]);
+        cardReady=true;overlay.querySelector('.fate-v4-front').setAttribute('aria-hidden','false');concealed.forEach((node,i)=>node.hidden=hiddenStates[i]);
         overlay.querySelectorAll('button').forEach(button=>button.disabled=false);
         overlay.querySelector('.fate-v4-reveal-label').textContent='YOUR FATE IS REVEALED';
+        if(savedAction){
+          pendingAction=savedAction;coinResolved=true;rouletteResolved=true;
+          ['fateV4CoinArea','fateV4ChoiceArea','fateV4RouletteArea'].forEach(id=>$(id).hidden=true);
+          $('fateV4Continue').hidden=false;
+          $('fateV4Status').querySelector('small').textContent='Saved outcome: '+savedAction+'. Continue to resolve it.';
+        }
+        (overlay.querySelector('.fate-v4-actions button:not([hidden])') || overlay.querySelector('button:not([hidden])'))?.focus();
         if (['bad','triple','devil'].includes(meta.className)) card.classList.add('evil-pop');
       };
       if (matchMedia('(prefers-reduced-motion: reduce)').matches) ready(); else setTimeout(ready,900);
@@ -236,7 +249,7 @@
   function drawFromResult() {
     const key = resultKey();
     if (!key || usedResultKey === key || !window.FortunePlay.canTakeCard()) return;
-    const id = takeCard();
+    const id = takeCard('result');
     if (!id) return;
     usedResultKey = key;
     window.FortunePlay.markCardUsed();
@@ -245,7 +258,7 @@
     if (timerButton && timerButton.textContent === 'Pause') timerButton.click();
     showCard(id,'result');
   }
-  function drawFromWheel() { const id = takeCard(); closeOldCardOverlay(); if (id) showCard(id,'wheel'); return Boolean(id); }
+  function drawFromWheel() { if(loadState().draw || window.FortunePlay.batch())return false;const id = takeCard('wheel'); closeOldCardOverlay(); if (id) showCard(id,'wheel'); return Boolean(id); }
   window.FortuneFateDeck = { drawFromWheel };
   function closeOldCardOverlay() { const old = $('specialCardOverlay'); if (old) old.hidden = true; }
   function launchOnePendingSpin() {
@@ -256,6 +269,7 @@
   function performAction(action) {
     const resultContext = currentContext === 'result';
     if (action === 'skip') { if (resultContext) window.FortunePlay.discardPending(); }
+    else if(action === 'sealedEnvelopes') window.FortuneBatchReveal.open({count:3,title:'Sealed Envelopes',envelopes:true,replaceCurrent:resultContext,excludeCurrent:resultContext});
     else if (action === 'swap') window.FortuneBatchReveal.open({count:1,title:'Replacement Fate',replaceCurrent:resultContext,excludeCurrent:true});
     else if (action === 'double' || action === 'triple' || action === 'rarest' || action === 'devilFive') {
       const count = action === 'devilFive' ? 5 : action === 'rarest' ? 1 : (action === 'double' ? 2 : 3) - (resultContext ? 1 : 0);
@@ -264,7 +278,7 @@
     } else if (action === 'chaosWeights') window.FortunePlay.randomizeWeights();
   }
   function resolveChoice(action) {
-    pendingAction = action;
+    pendingAction = action; saveAction(action);
     $('fateV4ChoiceKeep').disabled = true; $('fateV4ChoiceSwap').disabled = true;
     $('fateV4Status').querySelector('small').textContent = action === 'swap' ? 'Unknown fate chosen. The replacement is final.' : 'Known fate chosen. The current forfeit stays.';
     $('fateV4Continue').hidden = false;
@@ -275,6 +289,7 @@
     coinResolved = true;
     const button = $('fateV4Flip'), wheel = $('fateV4Coin'), doubled = Math.random() < .5;
     button.disabled = true;
+    pendingAction=doubled?'double':'skip';saveAction(pendingAction);
     const angle = 1800 - (doubled ? 90 : 270);
     const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 2600;
     try { await wheel.animate([{transform:'rotate(0deg)'},{transform:`rotate(${angle}deg)`}],{duration,easing:'cubic-bezier(.15,.65,.2,1)',fill:'forwards'}).finished; } catch (_) { wheel.style.transform=`rotate(${angle}deg)`; }
@@ -289,6 +304,7 @@
     const action = outcomes[Math.floor(Math.random() * outcomes.length)];
     const labels = { keep:'KEEP', nothing:'NOTHING', skip:'SKIP', swap:'SWAP', double:'DOUBLE', triple:'TRIPLE' };
     const targetByAction = { keep:0, nothing:0, skip:-90, swap:-180, double:-270, triple:-270 };
+    pendingAction=action;saveAction(action);
     const wheel = $('fateV4Roulette'), button = $('fateV4RouletteSpin');
     button.disabled = true; wheel.style.transform = `rotate(${1440 + (targetByAction[action] || 0)}deg)`;
     setTimeout(() => { pendingAction = action; $('fateV4RouletteResult').textContent = labels[action]; button.hidden = true; $('fateV4Continue').hidden = false; $('fateV4Continue').textContent = 'Accept roulette'; },2100);
@@ -305,10 +321,11 @@
       else if (draw === 'swap') action = 'swap';
       else if (draw === 'doubleForfeit') action = 'double';
       else if (draw === 'tripleTrouble') action = 'triple';
-      else if (['rarest','chaosWeights','devilFive'].includes(draw)) action = draw;
+      else if (['rarest','chaosWeights','devilFive','sealedEnvelopes'].includes(draw)) action = draw;
     }
     overlay.hidden = true;
     if (action) performAction(action);
+    const state=loadState();delete state.draw;saveState(state);
     currentDraw = null; currentContext = null; pendingAction = null;
     if (action === 'swap') return;
     if (action === 'skip' && context === 'result') return;
@@ -334,4 +351,16 @@
   $('fileInput')?.addEventListener('change',() => setTimeout(renderDeckPanel,250));
 
   ensureOverlay(); ensureTemptButton(); renderDeckPanel();
+  const savedDraw=loadState().draw;
+  if(savedDraw && !window.FortunePlay.batch()){
+    if(savedDraw.context==='result')window.FortunePlay.markCardUsed();
+    showCard(savedDraw.id,savedDraw.context);
+  } else if(savedDraw){const state=loadState();delete state.draw;saveState(state);}
+  document.addEventListener('keydown',event=>{
+    const overlay=$('fateDeckOverlayV4');if(!overlay || overlay.hidden || event.key!=='Tab')return;
+    const buttons=[...overlay.querySelectorAll('button')].filter(node=>!node.disabled && !node.closest('[hidden]'));
+    if(!buttons.length){event.preventDefault();return;}
+    if(event.shiftKey && (document.activeElement===buttons[0] || !buttons.includes(document.activeElement))){event.preventDefault();buttons.at(-1).focus();}
+    else if(!event.shiftKey && (document.activeElement===buttons.at(-1) || !buttons.includes(document.activeElement))){event.preventDefault();buttons[0].focus();}
+  },true);
 })();
