@@ -55,8 +55,8 @@
     return { ...item, description: [item.description, `Modifier: ${modifier.name}`, modifier.description].filter(Boolean).join('\n\n'),
       timerSeconds: Number.isFinite(modifier.timerSeconds) ? Math.min(3600, Math.max(0, modifier.timerSeconds)) : item.timerSeconds ? Math.min(3600, Math.max(1, Math.round(item.timerSeconds * modifier.timerMultiplier))) : 0 };
   }
-  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1 };
-  const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five' };
+  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0 };
+  const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five', sealedEnvelopes:'Sealed Envelopes' };
   function normalizeDeck(raw) { return Object.fromEntries(Object.entries(deckDefaults).map(([id,count]) => [id, Math.round(number(raw?.[id] ?? count,0,30,count))])); }
   function shuffle(items, random = Math.random) {
     const out = [...items];
@@ -67,5 +67,11 @@
     const positions = new Map((session.wheelOrder || []).map((id,i) => [id,i]));
     return [...items].sort((a,b) => (positions.get(a.id) ?? Infinity) - (positions.get(b.id) ?? Infinity));
   }
-  window.FortuneFeatures = { deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier };
+  function normalizeReveals(raw = {}) {
+    return { envelopeCount: Math.round(number(raw.envelopeCount ?? 3, 2, 3, 3)),
+      envelopeHint: ['none','group','duration'].includes(raw.envelopeHint) ? raw.envelopeHint : 'none',
+      envelopeGroups: Array.isArray(raw.envelopeGroups) ? [...new Set(raw.envelopeGroups.map(String))] : [],
+      autoplay: raw.autoplay === true };
+  }
+  window.FortuneFeatures = { normalizeReveals, deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier };
 })();
