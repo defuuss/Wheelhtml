@@ -1,7 +1,5 @@
 name: Wheel checks
 on:
-  push:
-    branches: ['codex/midnight-reveals']
   pull_request:
     branches: [main]
 permissions:

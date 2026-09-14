@@ -56,7 +56,7 @@
         if (selected) return finish(selected);
         if (spinning) return;
         spinning = true; spin.disabled = true; result.textContent = 'Spinning…';
-        const chosen = draft.chosen || F.choose(settings.outcomes); draft.chosen=chosen; saveDraft(draft); const segment = segments.find(s => s.entry === chosen);
+        const chosen = settings.outcomes[draft.index] || F.choose(settings.outcomes); draft.index=settings.outcomes.indexOf(chosen); saveDraft(draft); const segment = segments.find(s => s.entry === chosen);
         const rotation = 1440 + 360 - (segment.start + segment.end) / 2;
         const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
         try {

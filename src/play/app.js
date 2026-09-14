@@ -1170,7 +1170,7 @@
     batch: () => session.revealBatch || null,
     saveReveal() { M.saveSession(session); },
     startBatch(options) {
-      if (spinning || pendingResult || session.revealBatch) return null;
+      if (spinning || pendingResult || session.revealBatch || session.acceptedForfeit) return null;
       const pending = session.pendingForfeit;
       const exclude = pending && (options.keepCurrent || options.excludeCurrent || options.envelopes) ? [pending.item.id] : [];
       let pool = this.candidates(exclude,options.groupId);

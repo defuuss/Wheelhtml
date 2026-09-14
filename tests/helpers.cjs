@@ -6,6 +6,9 @@ const deck=(type,count=5)=>Object.fromEntries(cardIds.map(id=>[id,id===type?coun
 async function setup(config={}, {page='index.html',saved=null}={}) {
  const dom=new JSDOM(fs.readFileSync(path.join(root,page),'utf8'),{url:'https://wheel.test/'+page,runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window,errors=[];
+ let closed=false;const observers=[],frames=new Set(),NativeObserver=w.MutationObserver,raf=w.requestAnimationFrame.bind(w);
+ w.MutationObserver=class extends NativeObserver{constructor(callback){super(callback);observers.push(this);}};
+ w.requestAnimationFrame=callback=>{const id=raf(time=>{frames.delete(id);if(!closed)callback(time);});frames.add(id);return id;};
  w.addEventListener('error',event=>errors.push(event.error||event.message));
  w.matchMedia=()=>({matches:true,addEventListener(){}});w.confirm=()=>true;
  w.HTMLElement.prototype.animate=function(){return{finished:Promise.resolve(),cancel(){}};};
@@ -19,7 +22,7 @@ async function setup(config={}, {page='index.html',saved=null}={}) {
  await wait(80);
  return {w,errors,session:()=>w.FortuneModel.loadSession(w.FortuneModel.loadConfig()),
    saved:()=>Object.fromEntries(Array.from({length:w.localStorage.length},(_,i)=>{const key=w.localStorage.key(i);return[key,w.localStorage.getItem(key)];})),
-   close:()=>w.close()};
+   close:()=>{if(closed)return;closed=true;observers.forEach(observer=>observer.disconnect());frames.forEach(id=>w.cancelAnimationFrame(id));w.close();}};
 }
 async function next(f,accept=true) {
  const button=f.w.document.getElementById('batchNext');
