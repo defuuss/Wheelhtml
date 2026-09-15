@@ -14,7 +14,7 @@
   const CARD_META = {
     nothing: { name:'Nothing', kind:'FATE CARD', className:'neutral', art:ASSET('nothing'), text:'Nice try. Nothing changes — the current forfeit still applies.' },
     skip: { name:'Lucky Skip', kind:'LUCKY CARD', className:'good', art:ASSET('lucky-skip'), text:'Lucky escape. The current forfeit is cancelled.' },
-    swap: { name:'Swap Fate', kind:'CHANCE CARD', className:'chance', art:ASSET('swap-fate'), text:'Trade the current forfeit for one new wheel result. Reveal the replacement, then accept or decline.' },
+    swap: { name:'Swap Fate', kind:'CHANCE CARD', className:'chance', art:ASSET('swap-fate'), text:'Trade the current forfeit for one new wheel result. Reveal the replacement, then accept it.' },
     doubleForfeit: { name:'Double Forfeit', kind:'BAD CARD', className:'bad', art:ASSET('double-forfeit'), text:'The current forfeit stays and one additional forfeit is added.' },
     doubleOrNothing: { name:'Double or Nothing', kind:'RISK CARD', className:'risk', art:ASSET('double-or-nothing'), text:'Spin the small wheel. Nothing cancels the current forfeit; Double reveals one more.' },
     pickYourPoison: { name:'Pick Your Poison', kind:'CHOICE CARD', className:'poison', art:ASSET('pick-your-poison'), text:'Choose: keep the result you already know, or replace it with one unknown result.' },
@@ -86,11 +86,17 @@
         <span>FATE DECK</span><strong id="fateDeckCount">Loading deck…</strong>
         <small>Don't like the result? Risk one card. Reveal first. Accept to apply.</small>
       </div>`;
+    panel.querySelectorAll('img').forEach(image=>window.FortuneFeatures.setCardImage(image,'back',M.loadConfig().settings));
     document.querySelector('.wheel-stats')?.insertAdjacentElement('afterend', panel);
     return panel;
   }
   function renderDeckPanel() {
     ensureDeckPanel();
+    const settings=M.loadConfig().settings;
+    document.querySelectorAll('#fateDeckPanel img,.fate-v4-back img').forEach(image=>{
+      const source=window.FortuneFeatures.cardImage('back',settings);
+      if(image.dataset.cardSource!==source){image.dataset.cardSource=source;window.FortuneFeatures.setCardImage(image,'back',settings);}
+    });
     const state = loadState();
     const count = state.cards.length;
     const label = $('fateDeckCount');
@@ -183,6 +189,7 @@
         </div>
         <div class="fate-v4-actions"><button id="fateV4Continue" class="btn primary large" type="button">Continue</button></div>
       </section>`;
+    window.FortuneFeatures.setCardImage(overlay.querySelector('.fate-v4-back img'),'back',M.loadConfig().settings);
     document.body.appendChild(overlay);
     $('fateV4Continue').addEventListener('click', finishCard);
     $('fateV4Flip').addEventListener('click', flipCoin);
@@ -205,7 +212,7 @@
     $('fateV4FrontImage').hidden = Boolean(meta.glyph);
     $('fateV4FrontImage').decoding='async';
     overlay.querySelector('.fate-v4-front').setAttribute('aria-hidden','true');
-    if (meta.art) $('fateV4FrontImage').src = meta.art;
+    window.FortuneFeatures.setCardImage($('fateV4FrontImage'),id,M.loadConfig().settings);
     const art = $('fateCustomArt'); art.hidden = !meta.glyph; art.dataset.kind = meta.className; art.querySelector('span').textContent = meta.glyph || ''; art.querySelector('strong').textContent = meta.name;
     $('fateV4FrontImage').alt = meta.name;
     $('fateV4Status').innerHTML = `<span>${meta.kind}</span><strong id="fateV4Title">${meta.name}</strong><small>${meta.text}</small>`;

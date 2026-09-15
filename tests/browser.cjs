@@ -10,7 +10,7 @@ const server=http.createServer((req,res)=>{
 });
 const ids=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes'];
 const config={settings:{soundEnabled:false,title:'The Midnight Collection',showTextOnWheel:true,fateDeck:Object.fromEntries(ids.map(id=>[id,id==='sealedEnvelopes'?3:0]))},
-levels:[{id:'a',name:'First chapter',icon:'✦',activeAtStart:true},{id:'b',name:'The next chapter',activeAtStart:false}],
+levels:[{id:'a',name:'Chaos',icon:'✦',activeAtStart:true},{id:'b',name:'The next chapter',activeAtStart:false}],
 forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A change of pace','Your choice','A moment of chance','The hidden path','A small surprise','Another possibility','The final seal','Next chapter'][i],description:'A custom result from your agreed collection.',levelId:i<8?'a':'b',icon:'✦',color:['#73516d','#7a5b55','#535d76','#6c6650'][i%4],weight:i+1,timerSeconds:60,lifetime:{type:'spins',spins:2}}))};
 (async()=>{
  await new Promise(resolve=>server.listen(8077,'127.0.0.1',resolve));
@@ -19,7 +19,7 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
   const browser=await engine.launch();const context=await browser.newContext({viewport});const page=await context.newPage(),errors=[],badAssets=[];
   page.on('pageerror',error=>errors.push(error.message));
   page.on('response',response=>{if(response.status()>=400 && /\.(js|css|svg|png)(\?|$)/.test(response.url()))badAssets.push(response.url());});
-  await page.addInitScript(config=>localStorage.setItem('fortune-engine-config-v1',JSON.stringify(config)),config);
+  await page.addInitScript(config=>{if(!localStorage.getItem('fortune-engine-config-v1'))localStorage.setItem('fortune-engine-config-v1',JSON.stringify(config));},config);
   try{
    await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});
    await page.waitForFunction(()=>window.FortunePlay && document.querySelector('.chapter-progress'));
@@ -28,6 +28,11 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
     return{dx:Math.abs((shell.left+shell.width/2)-(hub.left+hub.width/2)),dy:Math.abs((shell.top+shell.height/2)-(hub.top+hub.height/2)),overflow:document.documentElement.scrollWidth>innerWidth+1};
    });
    assert.ok(geometry.dx<1 && geometry.dy<1,JSON.stringify(geometry));assert.equal(geometry.overflow,false);
+   const chapters=await page.locator('.level-light.active').evaluateAll(cards=>cards.map(card=>{
+    const row=card.querySelector('.chapter-row').getBoundingClientRect(),title=card.querySelector('strong').getBoundingClientRect(),detail=card.querySelector('.chapter-detail').getBoundingClientRect();
+    return {titleWidth:title.width,overlap:detail.top<row.bottom};
+   }));assert.ok(chapters.every(card=>card.titleWidth>65 && !card.overlap),JSON.stringify(chapters));
+   assert.equal(await page.locator('#resultDeclineBtn').count(),0);
    await page.screenshot({path:'test-artifacts/'+name+'-wheel.png',fullPage:true});
    await page.evaluate(()=>window.FortuneFateDeck.drawFromWheel());
    await page.locator('#fateV4Continue').waitFor({state:'visible'});await page.locator('#fateV4Continue').click();
@@ -38,6 +43,7 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    await page.waitForTimeout(1100);
    await page.screenshot({path:'test-artifacts/'+name+'-opening.png',fullPage:true});
    await page.locator('#batchAccept').waitFor();
+   assert.equal(await page.locator('#batchDecline,.reveal-end').count(),0);
    assert.equal(await page.evaluate(()=>FortuneModel.loadSession(FortuneModel.loadConfig()).history.length),0);
    const chosen=await page.evaluate(()=>FortunePlay.batch().entries[FortunePlay.batch().chosen].item.id);
    await page.reload();await page.locator('#batchAccept').waitFor();
@@ -49,10 +55,25 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    await page.goto('http://127.0.0.1:8077/edit.html',{waitUntil:'networkidle'});
    await page.locator('[data-tab="settings"]').click();
    await page.locator('[data-card="sealedEnvelopes"]').fill('4');
+   const testImage=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=80;canvas.height=124;const context=canvas.getContext('2d');context.fillStyle='#aa5577';context.fillRect(0,0,80,124);return canvas.toDataURL('image/png');});
+   await page.locator('[data-card-image="sealedEnvelopes"]').setInputFiles({name:'custom-card.png',mimeType:'image/png',buffer:Buffer.from(testImage.split(',')[1],'base64')});
+   await page.locator('[data-art-card="sealedEnvelopes"] .card-image-status').filter({hasText:'Custom image'}).waitFor();
+   await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+   const applyBox=await page.locator('#applyBtn').boundingBox();assert.ok(applyBox.y>=0 && applyBox.y+applyBox.height<=viewport.height);
+   await page.screenshot({path:'test-artifacts/'+name+'-editor-savebar.png',fullPage:true});
    await page.locator('#applyBtn').click();
    assert.equal(await page.evaluate(()=>FortuneModel.loadConfig().settings.fateDeck.sealedEnvelopes),4);
+   const imageSaved=await page.evaluate(()=>{const M=FortuneModel,cfg=M.loadConfig();return {data:cfg.settings.cardImages.sealedEnvelopes,xml:M.xmlToConfig(M.configToXml(cfg)).settings.cardImages.sealedEnvelopes};});
+   assert.ok(imageSaved.data.startsWith('data:image/webp;base64,'));assert.equal(imageSaved.data,imageSaved.xml);
+   await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
+   await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.equal(await page.locator('#fateV4FrontImage').getAttribute('src'),imageSaved.data);
+   await page.goto('http://127.0.0.1:8077/edit.html',{waitUntil:'networkidle'});await page.locator('[data-tab="settings"]').click();
+   await page.getByRole('button',{name:'Use default image for Sealed Envelopes',exact:true}).click();await page.locator('#applyBtn').click();
+   assert.equal(await page.evaluate(()=>FortuneModel.loadConfig().settings.cardImages.sealedEnvelopes),undefined);
+   await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
+   await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.match(await page.locator('#fateV4FrontImage').getAttribute('src'),/sealed-envelopes\.svg/);
    assert.deepEqual(errors,[]);assert.deepEqual(badAssets,[]);
-   console.log('PASS '+name+': centered hub, no horizontal overflow, vector assets, animated envelopes, keyboard choice, reload recovery, acceptance and editor save.');
+   console.log('PASS '+name+': centered hub, no horizontal overflow, vector assets, animated envelopes, keyboard choice, reload recovery, acceptance chapter layout, persistent Apply, image upload/XML/play/default reset and no Decline.');
   }finally{await browser.close();}
  }
  }finally{await new Promise(resolve=>server.close(resolve));}

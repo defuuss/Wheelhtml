@@ -138,3 +138,32 @@ body[data-page=edit] button:hover,body[data-page=edit] input:hover,body[data-pag
 @media(max-width:1000px){body[data-page=play] .play-layout{grid-template-columns:minmax(0,1fr)}body[data-page=play] .side-panel{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){body[data-page=play] .play-layout{width:calc(100% - 24px);gap:14px}body[data-page=play] .stage-panel{padding:16px}body[data-page=play] .side-panel{grid-template-columns:1fr}.session-heading{align-items:start}.session-badge{padding:6px;font-size:.6rem}body[data-page=play] .batch-overlay{padding:8px}body[data-page=play] .midnight-reveal{padding:18px 14px;max-height:calc(100dvh - 16px);border-radius:16px}.envelope-table{gap:12px;padding-top:65px;padding-bottom:90px;min-height:295px}.fate-envelope{height:95px}.envelope-seal{width:32px;height:32px}.envelope-caption strong{font-size:.82rem}.envelope-caption small{font-size:.6rem}.reveal-topline .section-kicker{font-size:.55rem}.reveal-slot{width:52px;min-height:60px}.reveal-slots{gap:7px}.reveal-stage{min-height:270px}.reveal-sealed{min-height:260px}.reveal-face{padding:22px 15px!important}.history-panel #historyList{grid-template-columns:1fr}body[data-page=play] .fate-v4-card{width:190px}.reveal-controls .btn{min-width:125px}}
 @media(prefers-reduced-motion:reduce){.fate-envelope,.fate-envelope *,.reveal-face,.reveal-sealed{animation:none!important;transition:none!important}.fate-envelope:hover{translate:none}}
+
+/* Chapter structure: heading, progress and detail occupy separate rows. */
+body[data-page=play] .levels-side-panel .level-light{display:flex;flex-direction:column;gap:0;min-width:0;width:100%;overflow:hidden}
+body[data-page=play] .levels-side-panel .chapter-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-width:0}
+body[data-page=play] .chapter-row strong{min-width:0;overflow-wrap:anywhere;word-break:normal;line-height:1.4}
+body[data-page=play] .chapter-row b{white-space:nowrap;border:1px solid #d4b17a55;padding:4px 6px;border-radius:20px}
+body[data-page=play] .chapter-progress{width:100%;flex:none}
+body[data-page=play] .chapter-detail{width:100%;white-space:normal;overflow-wrap:break-word;font-weight:400;line-height:1.6}
+body[data-page=play] .level-light.locked{display:none}
+
+/* One save control, available in every tab and at every scroll position. */
+body[data-page=edit]{padding-bottom:110px;scroll-padding-bottom:115px}
+html:has(body[data-page=edit]){scroll-padding-bottom:115px}
+body[data-page=edit] .editor-savebar{position:fixed;z-index:100;bottom:max(12px,env(safe-area-inset-bottom));left:50%;translate:-50% 0;display:flex;align-items:center;justify-content:space-between;gap:18px;width:min(780px,calc(100% - 24px));padding:14px 18px;border:1px solid #d4b17a70;border-radius:16px;background:#201727;box-shadow:0 8px 40px #0009}
+body[data-page=edit] .editor-savebar .save-status{flex:1;min-width:0;font-size:.8rem}
+body[data-page=edit] .editor-savebar #applyBtn{flex:none;min-height:46px;padding-inline:22px}
+body[data-page=edit] #editorToast{bottom:105px}
+.deck-counts:has(.deck-card-setting){grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.deck-card-setting{min-width:0;padding:15px;border:1px solid #d4b17a26;border-radius:14px;background:#ffffff02}
+.deck-card-setting>.field{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:600;min-width:0}
+.deck-card-setting>.field input{width:65px;flex:none}
+.card-image-editor{display:flex;gap:16px;align-items:center;margin-top:15px}
+.card-image-preview{width:80px;height:124px;flex:none;object-fit:contain;background:#100d15;border:1px solid #d4b17a55;border-radius:7px}
+.card-image-controls{display:grid;gap:8px;min-width:0;flex:1}
+.card-image-controls .btn{padding:6px 10px;min-height:38px;font-size:.76rem}
+.card-image-status{color:#b9aebd;font-size:.69rem;overflow-wrap:anywhere}
+.card-back-setting{max-width:380px;margin-block:20px}
+.card-back-setting h4{margin:0}
+@media(max-width:600px){body[data-page=edit] .editor-savebar{padding:10px 12px;gap:10px}body[data-page=edit] .editor-savebar .save-status{font-size:.72rem;flex-basis:auto}body[data-page=edit] .editor-savebar #applyBtn{padding-inline:12px;font-size:.8rem}.deck-counts:has(.deck-card-setting){grid-template-columns:1fr}}

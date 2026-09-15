@@ -257,7 +257,9 @@
   }
 
   function applyChanges() {
-    draft = M.saveConfig(draft); M.resetSession(draft); renderAll(); document.body.classList.remove('dirty'); $('saveStatus').textContent = 'All changes applied'; toast('Saved. A fresh play session will use these settings.');
+    try {
+      draft = M.saveConfig(draft); M.resetSession(draft); renderAll(); document.body.classList.remove('dirty'); $('saveStatus').textContent = 'All changes applied'; toast('Saved. A fresh play session will use these settings.');
+    } catch(error) { markDirty(); toast('Could not save. Browser storage may be full; remove a custom image or export your XML.'); }
   }
   function markDirty() { document.body.classList.add('dirty'); $('saveStatus').textContent = 'Unapplied changes'; }
   function toast(message) { const node = $('editorToast'); node.textContent = message; node.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('show'), 2600); }
