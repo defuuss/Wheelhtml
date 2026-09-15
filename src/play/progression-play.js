@@ -31,7 +31,6 @@
     effects.hidden=!effects.children.length;
     const accept=document.getElementById('resultCloseBtn');accept.textContent=session.pendingForfeit?'Accept':'Done';
     accept.hidden=false;
-    document.getElementById('resultDeclineBtn').hidden=!session.pendingForfeit;
   }
   window.addEventListener('fortune-state-change',render);
   window.addEventListener('fortune-result-committed',({detail})=>{

@@ -78,3 +78,12 @@ test('deck quantities are bounded and shuffled wheel order is stable across redr
  const session=M.createSession(config);assert.equal(new Set(session.wheelOrder).size,config.forfeits.length);
  const next=M.createSession(config);assert.notEqual(next.sessionId,session.sessionId);
 });
+
+test('custom card images accept bounded embedded raster data and fall back to defaults',()=>{
+ const {F}=setup();
+ const image='data:image/png;base64,aGVsbG8=';
+ const clean=F.normalizeCardImages({rarest:image,back:image,skip:'https://example.com/card.png',swap:'data:image/svg+xml;base64,PHN2Zy8+',unknown:image,nothing:'data:image/png;base64,'+'A'.repeat(120001)});
+ assert.deepEqual(Object.keys(clean),['back','rarest']);
+ assert.equal(F.cardImage('rarest',{cardImages:clean}),image);
+ assert.match(F.cardImage('skip',{cardImages:clean}),/lucky-skip\.svg/);
+});

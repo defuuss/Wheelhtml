@@ -73,5 +73,21 @@
       envelopeGroups: Array.isArray(raw.envelopeGroups) ? [...new Set(raw.envelopeGroups.map(String))] : [],
       autoplay: raw.autoplay === true };
   }
-  window.FortuneFeatures = { normalizeReveals, deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier };
+  const cardArtFiles = {back:'card-back',nothing:'nothing',skip:'lucky-skip',swap:'swap-fate',doubleForfeit:'double-forfeit',doubleOrNothing:'double-or-nothing',pickYourPoison:'pick-your-poison',fateRoulette:'fate-roulette',tripleTrouble:'triple-trouble',rarest:'rarest',chaosWeights:'chaos',devilFive:'devil-five',sealedEnvelopes:'sealed-envelopes'};
+  const maxCardImageLength = 120000;
+  function normalizeCardImages(raw) {
+    const images={};
+    for(const id of Object.keys(cardArtFiles)) {
+      const value=raw?.[id];
+      if(typeof value==='string' && value.length<=maxCardImageLength && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value)) images[id]=value;
+    }
+    return images;
+  }
+  function defaultCardImage(id) { return 'assets/fate-cards/vector/'+(cardArtFiles[id] || 'card-back')+'.svg?v=20260915'; }
+  function cardImage(id, settings) { return normalizeCardImages(settings?.cardImages)[id] || defaultCardImage(id); }
+  function setCardImage(image,id,settings) {
+    image.onerror=()=>{image.onerror=null;image.src=defaultCardImage(id);};
+    image.src=cardImage(id,settings);
+  }
+  window.FortuneFeatures = { cardArtFiles,maxCardImageLength,normalizeCardImages,defaultCardImage,cardImage,setCardImage,normalizeReveals, deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier };
 })();

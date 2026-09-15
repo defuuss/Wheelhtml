@@ -158,8 +158,7 @@
         if(entry!==next)controls.append(button('Return to pending result','btn primary',()=>{batch.view=batch.entries.indexOf(next);save();render();}));
         else {
           const accept=button('Accept result','btn primary large',()=>resolve(true));accept.id='batchAccept';accept.dataset.focus='accept';
-          const decline=button('Decline','btn ghost large',()=>resolve(false));decline.id='batchDecline';
-          controls.append(accept,decline);
+          controls.append(accept);
         }
       } else if(next){
         const nextButton=button(busy?'Revealing…':'Reveal next','btn primary large',()=>reveal(next));
@@ -171,12 +170,6 @@
       }
       dialog.append(controls);
     }
-    const end=button('End remaining reveals','btn ghost reveal-end',()=>{
-      token++;busy=false;pauseTimers(batch);
-      batch.entries.forEach(entry=>{if(!['accepted','declined','discarded','unavailable'].includes(entry.status))entry.status='declined';});
-      if(batch.envelopes && batch.chosen===null)batch.chosen=0;
-      batch.paused=false;save();render();
-    });end.disabled=busy;dialog.append(end);
     overlay.append(dialog);
     const focus=focusKey && [...dialog.querySelectorAll('[data-focus]')].find(node=>node.dataset.focus===focusKey && !node.disabled);
     (focus || dialog.querySelector('#batchAccept,#batchNext,#batchDone') || dialog.querySelector('.fate-envelope,.reveal-paused button') || dialog.querySelector('.reveal-pause'))?.focus();

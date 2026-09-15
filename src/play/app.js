@@ -1247,7 +1247,6 @@
   $('undoBtn').addEventListener('click', undo);
   $('resetBtn').addEventListener('click', reset);
   $('resultCloseBtn').addEventListener('click', continueAfterResult);
-  $('resultDeclineBtn').addEventListener('click',discardPending);
   $('resultSpinBtn').addEventListener('click', () => { acceptPending(); hideResult(); setTimeout(spin, 100); });
   overlay.addEventListener('click', event => { if (event.target.classList.contains('result-backdrop') && !session.pendingForfeit) hideResult(); });
   document.addEventListener('keydown', event => {

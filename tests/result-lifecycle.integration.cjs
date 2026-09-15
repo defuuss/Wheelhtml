@@ -21,7 +21,7 @@ const replacement={levels:[{id:'a',activeAtStart:true},{id:'b',activeAtStart:fal
    assert.deepEqual(f.errors,[]);
   }finally{f.close();}
  }
- for(const accept of [true,false]){
+ for(const accept of [true]){
   const f=await setup(replacement);try{
    f.w.document.getElementById('spinBtn').click();await wait(750);
    assert.equal(f.session().pendingForfeit.item.id,'original');
@@ -43,8 +43,12 @@ const replacement={levels:[{id:'a',activeAtStart:true},{id:'b',activeAtStart:fal
  }
  {const f=await setup(replacement);try{
   f.w.document.getElementById('spinBtn').click();await wait(750);
-  f.w.document.getElementById('resultDeclineBtn').click();
-  assert.equal(f.session().history.length,0);assert.equal(f.session().runtime.original.removed,false);assert.equal(f.session().activeLevels.b,false);
+  assert.equal(f.w.document.getElementById('resultDeclineBtn'),null);
+  assert.equal(f.session().history.length,0);
+  f.w.document.getElementById('temptFateBtn').click();f.w.document.getElementById('fateV4Continue').click();
+  assert.equal(f.w.document.getElementById('batchDecline'),null);
+  assert.equal(f.w.document.querySelector('.reveal-end'),null);
+  assert.equal(f.session().history.length,0);
  }finally{f.close();}}
  {const f=await setup(replacement);let saved;try{
   f.w.document.getElementById('spinBtn').click();await wait(750);
@@ -56,5 +60,5 @@ const replacement={levels:[{id:'a',activeAtStart:true},{id:'b',activeAtStart:fal
   g.w.document.getElementById('fateV4Continue').click();await next(g);
   assert.deepEqual(Array.from(g.session().history,x=>x.id),['rare']);
  }finally{g.close();}}
- console.log('PASS: shared acceptance, decline, replacement isolation, three-use exhaustion, pending card recovery and duplicate-commit guards.');
+ console.log('PASS: shared acceptance, no decline controls, replacement isolation, three-use exhaustion, pending card recovery and duplicate-commit guards.');
 })().catch(error=>{console.error(error);process.exitCode=1});
