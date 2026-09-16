@@ -8,6 +8,14 @@ timers, group progression, cooldowns, XML import/export, session history and und
 Open `index.html` in a modern browser. No installation, server or build is needed.
 GitHub Pages publishes the repository root.
 
+## Generate XML with another AI
+
+Give the AI the [XML authoring guide](docs/XML-AUTHORING-GUIDE.md). It includes a
+copyable prompt, supported fields and limits, progression recipes, all Fate card
+IDs, artwork requirements, and a validation checklist. Start from the
+[complete importable example](docs/examples/ai-starter.xml), then use **Load XML**
+to review the generated game in the editor.
+
 ## Structure
 
 | Location | Responsibility |
