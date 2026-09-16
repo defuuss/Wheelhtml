@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fortuneEngine version="1">
+  <settings title="An Evening of Chance" spinMode="auto"
+            minSpinSeconds="6.5" maxSpinSeconds="9.5" minTurns="6"
+            soundEnabled="true" showTextOnWheel="true" showProbabilities="true"
+            maxTurns="9" spinUpMinSeconds="0.7" spinUpMaxSeconds="1.4"
+            spinDownMinSeconds="3" spinDownMaxSeconds="5"
+            dramaEnabled="true" dramaChance="35"
+            dramaCreepMinDegrees="30" dramaCreepMaxDegrees="80"
+            showSlowIcon="true" iconPreviewStartPercent="35" />
+  <reveals envelopeCount="3" envelopeHint="group" autoplay="false" />
+  <cardImages />
+  <fateDeck>
+    <card type="nothing" count="1" />
+    <card type="skip" count="0" />
+    <card type="swap" count="1" />
+    <card type="doubleForfeit" count="1" />
+    <card type="doubleOrNothing" count="1" />
+    <card type="pickYourPoison" count="1" />
+    <card type="fateRoulette" count="0" />
+    <card type="tripleTrouble" count="1" />
+    <card type="rarest" count="1" />
+    <card type="chaosWeights" count="1" />
+    <card type="devilFive" count="1" />
+    <card type="sealedEnvelopes" count="2" />
+  </fateDeck>
+  <groups>
+    <group id="opening" name="Opening" icon="✦" color="#73516d"
+           activeAtStart="true" completion="empty">
+      <onComplete><group ref="surprises" /></onComplete>
+    </group>
+    <group id="surprises" name="Surprises" icon="🎁" color="#be557f"
+           activeAtStart="false" completion="empty">
+      <onComplete><group ref="closing" /></onComplete>
+    </group>
+    <group id="closing" name="Closing" icon="☾" color="#535d76"
+           activeAtStart="false" completion="required" />
+  </groups>
+  <forfeits>
+    <forfeit id="first-key" name="First key" group="opening" icon="🔑"
+             color="#73516d" weight="3" lifetime="spins" lifetimeSpins="2"
+             eventType="normal" enabled="true">
+      <description>Choose a track together. This entry needs two accepted selections.</description>
+    </forfeit>
+    <forfeit id="second-key" name="Second key" group="opening" icon="🗝"
+             color="#7a5b55" weight="2" lifetime="once" eventType="normal"
+             mystery="true" enabled="true">
+      <description>Each player names one agreed option for the next chapter.</description>
+    </forfeit>
+    <forfeit id="opening-seal" name="Opening seal" group="opening" icon="✉"
+             color="#6c6650" weight="1" lifetime="once" eventType="normal">
+      <description>Available after both keys have appeared at least once. Finish the opening.</description>
+      <requires mode="all">
+        <forfeit ref="first-key" /><forfeit ref="second-key" />
+      </requires>
+    </forfeit>
+    <forfeit id="surprise-one" name="A quiet pause" group="surprises" icon="☕"
+             color="#73516d" weight="4" lifetime="once" timerSeconds="60">
+      <description>Take a quiet pause together. The modifier may replace its duration.</description>
+      <modifierWheel enabled="true" chance="100" type="minutes" min="1" max="3" step="1" />
+    </forfeit>
+    <forfeit id="surprise-two" name="A number from fate" group="surprises" icon="🎲"
+             color="#7a5b55" weight="3" lifetime="once" mystery="true">
+      <description>The small wheel selects a number for your agreed choice list.</description>
+      <modifierWheel enabled="true" chance="100" type="number" min="1" max="6" step="1" />
+    </forfeit>
+    <forfeit id="surprise-three" name="True or false" group="surprises" icon="❔"
+             color="#535d76" weight="2" lifetime="once">
+      <description>Use True or False to choose between two options agreed before play.</description>
+      <modifierWheel enabled="true" chance="100" type="binary" />
+    </forfeit>
+    <forfeit id="surprise-four" name="Change of pace" group="surprises" icon="⏱"
+             color="#6c6650" weight="2" lifetime="once" timerSeconds="120">
+      <description>Take a timed break with an optional change of duration.</description>
+      <modifierWheel enabled="true" chance="75" type="custom">
+        <outcome name="Half time" weight="2" timerMultiplier="0.5">A shorter break.</outcome>
+        <outcome name="Longer pause" weight="1" timerMultiplier="1.5">A longer break.</outcome>
+      </modifierWheel>
+    </forfeit>
+    <forfeit id="surprise-five" name="The rare seal" group="surprises" icon="✦"
+             color="#be557f" weight="0.5" lifetime="once" eventType="unlock">
+      <description>A rare choice. Accepting it also opens the closing chapter early.</description>
+      <unlocks><group ref="closing" /></unlocks>
+    </forfeit>
+    <forfeit id="closing-check" name="Closing check-in" group="closing" icon="☾"
+             color="#535d76" weight="3" lifetime="once" requiredForCompletion="true">
+      <description>Talk about the session together. Accepting this completes the closing group.</description>
+    </forfeit>
+    <forfeit id="closing-music" name="One more song" group="closing" icon="♫"
+             color="#73516d" weight="1" lifetime="forever" cooldown="0">
+      <description>An optional repeatable choice until the closing check-in completes this group.</description>
+    </forfeit>
+  </forfeits>
+  <rules>
+    <rule id="early-surprises" name="Both keys open surprises" mode="all"
+          minOccurrences="1" enabled="true">
+      <conditions><forfeit ref="first-key" /><forfeit ref="second-key" /></conditions>
+      <unlocks><group ref="surprises" /></unlocks>
+    </rule>
+  </rules>
+</fortuneEngine>
