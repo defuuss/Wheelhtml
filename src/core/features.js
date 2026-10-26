@@ -76,8 +76,8 @@
     if (current==='watching') return roll<.55?'devilish':'watching';
     return roll<.65?'watching':'calm';
   }
-  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0, miniGame:1 };
-  const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five', sealedEnvelopes:'Sealed Envelopes', miniGame:'Mini-game Challenge' };
+  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0, threeSeals:2, miniGame:0, miniHigher:1, miniDice:1, miniMeter:1 };
+  const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five', sealedEnvelopes:'Sealed Envelopes', threeSeals:'Three Sealed Fates', miniGame:'Mini-game Challenge', miniHigher:'Higher or Lower', miniDice:'Dice Duel', miniMeter:'Stop the Meter' };
   function normalizeDeck(raw) { return Object.fromEntries(Object.entries(deckDefaults).map(([id,count]) => [id, Math.round(number(raw?.[id] ?? count,0,30,count))])); }
   function shuffle(items, random = Math.random) {
     const out = [...items];
@@ -94,7 +94,7 @@
       envelopeGroups: Array.isArray(raw.envelopeGroups) ? [...new Set(raw.envelopeGroups.map(String))] : [],
       autoplay: raw.autoplay === true };
   }
-  const cardArtFiles = {back:'card-back',nothing:'nothing',skip:'lucky-skip',swap:'swap-fate',doubleForfeit:'double-forfeit',doubleOrNothing:'double-or-nothing',pickYourPoison:'pick-your-poison',fateRoulette:'fate-roulette',tripleTrouble:'triple-trouble',rarest:'rarest',chaosWeights:'chaos',devilFive:'devil-five',sealedEnvelopes:'sealed-envelopes',miniGame:'fate-roulette'};
+  const cardArtFiles = {back:'card-back',nothing:'nothing',skip:'lucky-skip',swap:'swap-fate',doubleForfeit:'double-forfeit',doubleOrNothing:'double-or-nothing',pickYourPoison:'pick-your-poison',fateRoulette:'fate-roulette',tripleTrouble:'triple-trouble',rarest:'rarest',chaosWeights:'chaos',devilFive:'devil-five',sealedEnvelopes:'sealed-envelopes',threeSeals:'sealed-envelopes',miniGame:'fate-roulette',miniHigher:'fate-roulette',miniDice:'fate-roulette',miniMeter:'fate-roulette'};
   // Every Fate type has a matching pair of built-in portraits. A draw fixes its variant
   // so the image does not unexpectedly switch on a page reload. User uploads still win.
   const defaultCardPortraits = {
@@ -103,7 +103,7 @@
     pickYourPoison:'silver-undercut-suit', fateRoulette:'undercut-swimsuit',
     tripleTrouble:'bald-purple-pierced-throne', rarest:'bald-pearl-swimsuit',
     chaosWeights:'turquoise-mohawk-orange-wheel', devilFive:'devil-mohawk-red-wheel',
-    sealedEnvelopes:'platinum-undercut-teal-latex', miniGame:'lime-braids-swimsuit'
+    sealedEnvelopes:'platinum-undercut-teal-latex', threeSeals:'platinum-undercut-teal-latex', miniGame:'lime-braids-swimsuit', miniHigher:'lime-braids-swimsuit', miniDice:'cobalt-short-curls-swimsuit', miniMeter:'undercut-swimsuit'
   };
   const alternateCardPortraits = {
     nothing:'nothing-pink-buzzcut-v2', skip:'skip-bald-blue-v2',
@@ -114,7 +114,7 @@
     tripleTrouble:'triple-german-silver-mohawk-v2',
     rarest:'rarest-french-pearl-v2', chaosWeights:'chaos-african-orange-braids-v2',
     devilFive:'devil-indian-black-bald-v2',
-    sealedEnvelopes:'envelopes-brazilian-sapphire-v2', miniGame:'cobalt-short-curls-swimsuit'
+    sealedEnvelopes:'envelopes-brazilian-sapphire-v2', threeSeals:'envelopes-brazilian-sapphire-v2', miniGame:'cobalt-short-curls-swimsuit', miniHigher:'cobalt-short-curls-swimsuit', miniDice:'lime-braids-swimsuit', miniMeter:'violet-bob-swimsuit'
   };
   const maxCardImageLength = 120000;
   function normalizeCardImages(raw) {
