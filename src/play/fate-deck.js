@@ -24,6 +24,10 @@
     devilFive: { name:'Devil’s Five', kind:'DEVIL CARD', className:'devil', art:ASSET('devil-five'), text:'Fate chooses an active group at random, then reveals up to five different available forfeits, one by one.' },
     sealedEnvelopes: {name:'Sealed Envelopes',kind:'CHOICE CARD',className:'envelopes',art:ASSET('sealed-envelopes'),text:'Choose one sealed envelope. The revealed selection applies automatically.'},
     tripleTrouble: { name:'Triple Trouble', kind:'VERY BAD CARD', className:'triple', art:ASSET('triple-trouble'), text:'The current forfeit stays and two additional forfeits are added.' },
+    threeSeals: { name:'Three Sealed Fates', kind:'CHOICE CARD', className:'envelopes', art:ASSET('sealed-envelopes'), text:'One reward, one extra challenge, one double penalty. Pick one of three sealed cards.' },
+    miniHigher: { name:'Higher or Lower', kind:'MINI-GAME CARD', className:'minigame', art:ASSET('fate-roulette'), text:'Predict the next number. Win Luck or timer relief; lose an extra challenge.' },
+    miniDice: { name:'Dice Duel', kind:'MINI-GAME CARD', className:'minigame', art:ASSET('fate-roulette'), text:'Beat the house in one dice roll. Win Luck or timer relief; lose an extra challenge.' },
+    miniMeter: { name:'Stop the Meter', kind:'MINI-GAME CARD', className:'minigame', art:ASSET('fate-roulette'), text:'Stop inside the target zone. Win Luck or timer relief; lose an extra challenge.' },
     miniGame: { name:'Mini-game Challenge', kind:'RARE MINI-GAME CARD', className:'minigame', art:ASSET('fate-roulette'), text:'One quick round. Win to halve the current timer or earn Luck. Lose or give up and face one additional wheel challenge.' }
   };
 
@@ -153,8 +157,9 @@
     const id = state.cards.splice(index,1)[0];
     const looks=window.FortuneFeatures.cardArtworkVariants(id);
     const artVariant=looks.length ? Math.floor(Math.random()*looks.length) : 0;
-    const miniGameId=id==='miniGame'?['higher','dice','meter'][Math.floor(Math.random()*3)]:null;
-    state.draw={id,context,action:null,artVariant,miniGameId};
+    const miniGameId=({miniHigher:'higher',miniDice:'dice',miniMeter:'meter'})[id] || (id==='miniGame'?['higher','dice','meter'][Math.floor(Math.random()*3)]:null);
+    const sealedOrder=id==='threeSeals' ? ['good','bad','veryBad'].sort(()=>Math.random()-.5) : null;
+    state.draw={id,context,action:null,artVariant,miniGameId,sealedOrder};
     saveState(state);
     return id;
   }
@@ -188,6 +193,14 @@
             <button id="fateV4ChoiceWager" class="fate-v4-choice wager" type="button"><span>THE DEVIL'S WAGER</span><strong>RISK IT</strong><small>⅓ Luck boost · ⅔ an extra challenge</small></button>
           </div>
         </div>
+        <div id="fateV4SealsArea" class="fate-v4-choice-area" hidden>
+          <p class="fate-v4-mini-result">One good · One bad · One very bad. Choose your sealed fate.</p>
+          <div class="fate-v4-choice-grid">
+            <button class="fate-v4-choice" data-seal="0" type="button"><span>SEALED</span><strong>Ⅰ</strong><small>Reveal this card</small></button>
+            <button class="fate-v4-choice" data-seal="1" type="button"><span>SEALED</span><strong>Ⅱ</strong><small>Reveal this card</small></button>
+            <button class="fate-v4-choice" data-seal="2" type="button"><span>SEALED</span><strong>Ⅲ</strong><small>Reveal this card</small></button>
+          </div>
+        </div>
         <div id="fateV4RouletteArea" class="fate-v4-roulette-area" hidden>
           <div class="fate-v4-roulette-stage"><div class="fate-v4-roulette-pointer">▼</div><div id="fateV4Roulette" class="fate-v4-roulette">
             <span class="r-keep">KEEP</span><span class="r-skip">SKIP</span><span class="r-swap">SWAP</span><span class="r-double">DOUBLE</span>
@@ -205,6 +218,7 @@
     $('fateV4ChoiceSwap').addEventListener('click', () => resolveChoice('swap'));
     $('fateV4ChoiceWager').addEventListener('click', resolveWager);
     $('fateV4RouletteSpin').addEventListener('click', spinRoulette);
+    overlay.querySelectorAll('[data-seal]').forEach(button=>button.addEventListener('click',()=>resolveSeal(Number(button.dataset.seal))));
     return overlay;
   }
 
@@ -236,13 +250,15 @@
       $('fateV4ChoiceSwap').querySelector('small').textContent=context==='wheel'?'One unknown challenge':'Replace with one unknown challenge';
     }
     $('fateV4RouletteArea').hidden = id !== 'fateRoulette';
-    $('fateV4Continue').hidden = ['doubleOrNothing','pickYourPoison','fateRoulette'].includes(id);
-    $('fateV4Continue').textContent = id==='miniGame'?'Play mini-game':'Continue';
+    $('fateV4SealsArea').hidden = id !== 'threeSeals';
+    overlay.querySelectorAll('[data-seal]').forEach(button=>{button.disabled=false;button.querySelector('small').textContent='Reveal this card';});
+    $('fateV4Continue').hidden = ['doubleOrNothing','pickYourPoison','fateRoulette','threeSeals'].includes(id);
+    $('fateV4Continue').textContent = ['miniGame','miniHigher','miniDice','miniMeter'].includes(id)?'Play mini-game':'Continue';
     $('fateV4Flip').hidden = false; $('fateV4Flip').disabled = false; $('fateV4CoinResult').textContent = 'FATE IS WAITING'; $('fateV4Coin').getAnimations?.().forEach(animation=>animation.cancel()); $('fateV4Coin').className = 'risk-wheel'; $('fateV4Coin').style.transform = 'rotate(0deg)';
     $('fateV4ChoiceKeep').disabled = false; $('fateV4ChoiceSwap').disabled = false;
     $('fateV4ChoiceWager').disabled = false;
     $('fateV4RouletteSpin').hidden = false; $('fateV4RouletteSpin').disabled = false; $('fateV4RouletteResult').textContent = 'SPIN THE MINI WHEEL'; $('fateV4Roulette').style.transform = 'rotate(0deg)';
-    const concealed = [$('fateV4Status'),$('fateV4CoinArea'),$('fateV4ChoiceArea'),$('fateV4RouletteArea'),overlay.querySelector('.fate-v4-actions')];
+    const concealed = [$('fateV4Status'),$('fateV4CoinArea'),$('fateV4ChoiceArea'),$('fateV4RouletteArea'),$('fateV4SealsArea'),overlay.querySelector('.fate-v4-actions')];
     const hiddenStates = concealed.map(node=>node.hidden);
     concealed.forEach(node=>node.hidden=true);
     overlay.classList.remove('fate-reveal-complete');
@@ -260,7 +276,7 @@
         overlay.classList.add('fate-reveal-complete');
         if(savedAction){
           pendingAction=savedAction;coinResolved=true;rouletteResolved=true;
-          ['fateV4CoinArea','fateV4ChoiceArea','fateV4RouletteArea'].forEach(id=>$(id).hidden=true);
+          ['fateV4CoinArea','fateV4ChoiceArea','fateV4RouletteArea','fateV4SealsArea'].forEach(id=>$(id).hidden=true);
           $('fateV4Continue').hidden=false;
           $('fateV4Status').querySelector('small').textContent='Saved outcome: '+savedAction+'. Continue to resolve it.';
         }
@@ -305,6 +321,7 @@
     if (action === 'skip') { if (resultContext) window.FortunePlay.discardPending(); }
     else if(action === 'sealedEnvelopes') window.FortuneBatchReveal.open({count:3,title:'Sealed Envelopes',envelopes:true,replaceCurrent:resultContext,excludeCurrent:resultContext});
     else if(action==='wagerWin') window.FortunePlay.rewardMiniGame();
+    else if(action==='sealBad' || action==='sealVeryBad') { const count=action==='sealVeryBad'?2:1; for(let i=0;i<count;i++)queuePenalty('Three Sealed Fates · Extra Challenge'); setTimeout(launchOnePendingSpin,120); }
     else if(action==='wagerLose'){queuePenalty('Devil’s Wager · Extra Challenge');setTimeout(launchOnePendingSpin,120);}
     else if (action === 'swap') window.FortuneBatchReveal.open({count:1,title:'Replacement Fate',replaceCurrent:resultContext,excludeCurrent:true});
     else if (action === 'double' || action === 'triple' || action === 'rarest' || action === 'devilFive') {
@@ -312,6 +329,21 @@
       const title = action === 'devilFive' ? 'Devil’s Five' : action === 'rarest' ? 'Rarest Fate' : action === 'double' ? 'Double Forfeit' : 'Triple Trouble';
       window.FortuneBatchReveal.open({count,title,lowest:action === 'rarest',randomGroup:action === 'devilFive',replaceCurrent:resultContext && action === 'rarest',keepCurrent:resultContext && action !== 'rarest'});
     } else if (action === 'chaosWeights') window.FortunePlay.randomizeWeights();
+  }
+  function resolveSeal(index) {
+    if(currentDraw!=='threeSeals' || pendingAction || !Number.isInteger(index) || index<0 || index>2)return;
+    const order=loadState().draw?.sealedOrder;
+    if(!Array.isArray(order) || order.length!==3)return;
+    const type=order[index], actions={good:'wagerWin',bad:'sealBad',veryBad:'sealVeryBad'};
+    pendingAction=actions[type];saveAction(pendingAction);
+    const label={good:'GOOD · You earn one Luck boost.',bad:'BAD · One additional challenge.',veryBad:'VERY BAD · Two additional challenges.'}[type];
+    document.querySelectorAll('#fateV4SealsArea [data-seal]').forEach(btn=>{
+      btn.disabled=true;
+      btn.querySelector('small').textContent=Number(btn.dataset.seal)===index?label:'Unopened';
+    });
+    $('fateV4Status').querySelector('small').textContent=label;
+    $('fateV4Continue').hidden=false;
+    $('fateV4Continue').textContent='Resolve chosen fate';
   }
   function resolveChoice(action) {
     pendingAction = action; saveAction(action);
@@ -361,13 +393,13 @@
     if (!overlay || !cardReady || !currentDraw) return;
     cardReady=false; ++revealToken;
     const draw = currentDraw, context = currentContext;
-    if (draw === 'miniGame') {
+    if (['miniGame','miniHigher','miniDice','miniMeter'].includes(draw)) {
       const gameId=loadState().draw?.miniGameId || 'dice';
       overlay.hidden=true;
       const opened=window.FortuneArcade?.openFateRound(gameId,won=>{
         if (won) window.FortunePlay.rewardMiniGame();
         else queuePenalty('Mini-game Loss · Extra Challenge');
-        const state=loadState();if(state.draw?.id==='miniGame'){delete state.draw;saveState(state);}
+        const state=loadState();if(['miniGame','miniHigher','miniDice','miniMeter'].includes(state.draw?.id)){delete state.draw;saveState(state);}
         currentDraw=null;currentContext=null;pendingAction=null;updateTemptButton();
         if(!won)setTimeout(launchOnePendingSpin,120);
       });
