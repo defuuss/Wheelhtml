@@ -35,5 +35,13 @@ const {setup,wait}=require('./helpers.cjs');
   assert.equal(g.session().history.length,0);assert.equal(g.session().runtime.timed.remainingSpins,3);
   assert.deepEqual(g.errors,[]);
  }finally{g.close();}
+ const luck=await setup(config);try{
+  assert.equal(luck.w.FortunePlay.grantMiniLuck(),1);
+  assert.equal(luck.session().cardState.miniLuck,1,'mini-game bonus is saved in the session');
+  luck.w.document.getElementById('spinBtn').click();await wait(750);
+  assert.equal(luck.session().cardState.miniLuck,0,'only one timed wheel challenge consumes the bonus');
+  assert.equal(luck.session().acceptedForfeit.timer.remaining,30,'the next timed challenge is halved');
+  assert.equal(luck.session().history.length,1,'the bonus does not create extra challenge results');
+ }finally{luck.close();}
  console.log('PASS: automatic wheel and batch results, finite uses, unchanged unlock rules, timer recovery, reload idempotence and undo.');
 })().catch(error=>{console.error(error);process.exitCode=1});

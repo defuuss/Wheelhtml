@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="styles/experience.css?v=20260915-1">
   <link rel="stylesheet" href="styles/deck-upgrade.css?v=20260915-1">
   <link rel="stylesheet" href="styles/midnight.css?v=20260915-1">
-  <link rel="stylesheet" href="styles/lounge.css?v=20261026">
+  <link rel="stylesheet" href="styles/lounge.css?v=20261026-5">
 </head>
 <body data-page="play">
   <div class="ambient ambient-a"></div>
@@ -63,10 +63,19 @@
           </button>
         </div>
 
+        <details class="wheel-entry-guide" id="wheelEntryGuide">
+          <summary><span>See every wheel outcome</span><small id="wheelEntryCount">Loading entries…</small></summary>
+          <div id="wheelEntryList" class="wheel-entry-list"></div>
+        </details>
+
         <div class="wheel-stats" aria-label="Wheel statistics">
           <div><span>SPINS</span><strong id="spinCount">0</strong></div>
           <div><span>ACTIVE</span><strong id="activeCount">0</strong></div>
           <div><span>CHANCE</span><strong id="chanceHint">—</strong></div>
+        </div>
+        <div class="fate-omen" id="fateOmen" data-mood="calm" role="status" aria-live="polite">
+          <span class="fate-omen-symbol" aria-hidden="true">✧</span>
+          <span><strong id="fateOmenTitle">Fate is quiet</strong><small id="fateOmenDetail">Surprises appear occasionally.</small></span>
         </div>
       </div>
     </section>
@@ -114,20 +123,20 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="src/core/features.js?v=20260915-1"></script>
-  <script src="src/core/model.js?v=20260915-1"></script>
+  <script src="src/core/features.js?v=20261026-5"></script>
+  <script src="src/core/model.js?v=20261026-5"></script>
   <script src="src/core/dependency-model.js?v=20260915-1"></script>
   <script src="src/core/progression-model.js?v=20260915-1"></script>
   <script src="src/core/spin-settings.js?v=20260915-1"></script>
   <script src="src/play/modifiers.js?v=20260915-1"></script>
   <script src="src/core/reveal-state.js?v=20260915-1"></script>
-  <script src="src/play/app.js?v=20260915-1"></script>
+  <script src="src/play/app.js?v=20261026-5"></script>
   <script src="src/play/batch-reveal.js?v=20260915-1"></script>
-  <script src="src/play/fate-deck.js?v=20260915-1"></script>
+  <script src="src/play/fate-deck.js?v=20261026-5"></script>
   <script src="src/play/mystery-reveal.js?v=20260915-1"></script>
   <script src="src/play/wheel-visuals.js?v=20260915-1"></script>
   <script src="src/play/show-stage.js?v=20260915-1"></script>
   <script src="src/play/progression-play.js?v=20260915-1"></script>
-  <script src="src/play/arcade.js?v=20261026"></script>
+  <script src="src/play/arcade.js?v=20261026-5"></script>
 </body>
 </html>

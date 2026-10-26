@@ -78,6 +78,23 @@ test('deck quantities are bounded and shuffled wheel order is stable across redr
  const session=M.createSession(config);assert.equal(new Set(session.wheelOrder).size,config.forfeits.length);
  const next=M.createSession(config);assert.notEqual(next.sessionId,session.sessionId);
 });
+test('Fate mood changes actual, disclosed surprise odds without permanent progression',()=>{
+ const {F,M}=setup();
+ assert.equal(F.normalizeFateSurprise('unknown'),'rare');
+ assert.equal(F.fateSurpriseChance('rare','calm'),.04);
+ assert.equal(F.fateSurpriseChance('rare','devilish'),.14);
+ assert.equal(F.fateSurpriseChance('frequent','watching'),.16);
+ assert.equal(F.fateSurpriseChance('off','devilish'),0);
+ assert.equal(F.fateSurpriseChance('frequent','devilish',2),0);
+ assert.equal(F.fateSurpriseChance('frequent','devilish',0,false),0);
+ assert.equal(F.nextFateOmen('calm',.2),'watching');
+ assert.equal(F.nextFateOmen('watching',.8),'watching');
+ assert.equal(F.nextFateOmen('devilish',.1),'watching');
+ let cfg=M.loadConfig();cfg.settings.fateSurprise='frequent';cfg=M.saveConfig(cfg);
+ assert.equal(M.loadConfig().settings.fateSurprise,'frequent');
+ const session=M.createSession(cfg);
+ assert.equal(session.cardState.fateOmen,'calm');assert.equal(session.cardState.fateCooldown,0);
+});
 
 test('custom card images accept bounded embedded raster data and fall back to defaults',()=>{
  const {F}=setup();
@@ -85,10 +102,39 @@ test('custom card images accept bounded embedded raster data and fall back to de
  const clean=F.normalizeCardImages({rarest:image,back:image,skip:'https://example.com/card.png',swap:'data:image/svg+xml;base64,PHN2Zy8+',unknown:image,nothing:'data:image/png;base64,'+'A'.repeat(120001)});
  assert.deepEqual(Object.keys(clean),['back','rarest']);
  assert.equal(F.cardImage('rarest',{cardImages:clean}),image);
- assert.match(F.cardImage('skip',{cardImages:clean}),/cobalt-short-curls-swimsuit\.webp/);
+ assert.equal(F.cardImage('rarest',{cardImages:clean},1),image,'uploaded artwork overrides both built-in looks');
+ assert.match(F.cardImage('skip',{cardImages:clean}),/sad-blue-wheel-emblem\.webp/);
  const defaults=Object.keys(F.deckNames).map(id=>F.defaultCardImage(id));
- assert.equal(new Set(defaults).size,10,'the default deck should offer ten portraits');
+ assert.equal(new Set(defaults).size,13,'each Fate card type should have a unique portrait');
  for(const artwork of defaults) assert.ok(fs.existsSync(path.join(__dirname,'..',artwork)),`${artwork} is missing`);
+ const alternates=Object.keys(F.deckNames).map(id=>F.defaultCardImage(id,1));
+ assert.equal(new Set(alternates).size,13,'the alternate portraits should all be different');
+ for(const [index,artwork] of alternates.entries()) {
+   assert.notEqual(artwork,defaults[index]);
+   assert.ok(fs.existsSync(path.join(__dirname,'..',artwork)),`${artwork} is missing`);
+ }
+ assert.match(F.defaultCardImage('pickYourPoison',1),/poison-chinese-green-undercut-v2\.webp/);
+ assert.match(F.defaultCardImage('fateRoulette',1),/roulette-japanese-yellow-sidecut-v2\.webp/);
+ assert.match(F.defaultCardImage('tripleTrouble',1),/triple-german-silver-mohawk-v2\.webp/);
+ assert.match(F.defaultCardImage('rarest',1),/rarest-french-pearl-v2\.webp/);
+ assert.match(F.defaultCardImage('miniGame'),/lime-braids-swimsuit\.webp/);
+ assert.equal(F.deckDefaults.miniGame,1,'mini-game cards should be rare by default');
+ assert.equal(F.defaultCardImage('skip',2),F.defaultCardImage('skip',0));
  assert.match(F.defaultCardImage('doubleOrNothing'),/pink-side-shaved-mohawk-swimsuit\.webp/);
+ assert.match(F.defaultCardImage('doubleForfeit'),/black-swimsuit-overknee-boots\.webp/);
+ assert.match(F.defaultCardImage('devilFive'),/devil-mohawk-red-wheel\.webp/);
+ assert.match(F.defaultCardImage('tripleTrouble'),/bald-purple-pierced-throne\.webp/);
+ assert.match(F.defaultCardImage('chaosWeights'),/turquoise-mohawk-orange-wheel\.webp/);
  assert.match(F.defaultCardImage('back'),/card-back\.svg/);
+});
+
+test('a successful Fate mini-game saves one Luck boost for the next timed result',()=>{
+ const {F}=setup();
+ const original={name:'Timed challenge',description:'Original',timerSeconds:91};
+ const result=F.consumeMiniLuck(original,2);
+ assert.equal(result.item.timerSeconds,46);
+ assert.equal(result.remaining,1);
+ assert.match(result.item.description,/Mini-game luck/);
+ assert.equal(original.timerSeconds,91,'the original challenge must remain untouched');
+ assert.deepEqual(F.consumeMiniLuck({...original,timerSeconds:0},1).remaining,1,'an untimed result does not waste a boost');
 });

@@ -1,7 +1,7 @@
 const {JSDOM}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),wait=ms=>new Promise(r=>setTimeout(r,ms));
-const cardIds=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes'];
+const cardIds=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes','miniGame'];
 const deck=(type,count=5)=>Object.fromEntries(cardIds.map(id=>[id,id===type?count:0]));
 async function setup(config={}, {page='index.html',saved=null}={}) {
  const dom=new JSDOM(fs.readFileSync(path.join(root,page),'utf8'),{url:'https://wheel.test/'+page,runScripts:'outside-only',pretendToBeVisual:true});
@@ -14,7 +14,7 @@ async function setup(config={}, {page='index.html',saved=null}={}) {
  w.HTMLElement.prototype.animate=function(){return{finished:Promise.resolve(),cancel(){}};};
  w.HTMLElement.prototype.scrollIntoView=function(){};
  w.fetch=()=>Promise.reject(Error('Network disabled in tests'));w.Math.random=()=>.99;
- w.localStorage.setItem('fortune-engine-config-v1',JSON.stringify({...config,settings:{soundEnabled:false,fateDeck:deck('rarest'),...config.settings}}));
+ w.localStorage.setItem('fortune-engine-config-v1',JSON.stringify({...config,settings:{soundEnabled:false,fateSurprise:'off',fateDeck:deck('rarest'),...config.settings}}));
  if(saved)Object.entries(saved).forEach(([k,v])=>w.localStorage.setItem(k,v));
  for(const script of w.document.querySelectorAll('script')){
    w.eval(script.src?fs.readFileSync(path.join(root,script.getAttribute('src').split('?')[0]),'utf8'):script.textContent);

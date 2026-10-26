@@ -71,6 +71,9 @@
     const s = session.cardState;
     s.respin = Math.max(0, Math.round(Number(s.respin) || 0));
     s.shorten = Math.max(0, Math.round(Number(s.shorten) || 0));
+    s.miniLuck = Math.max(0, Math.min(3,Math.round(Number(s.miniLuck) || 0)));
+    s.fateOmen = ['calm','watching','devilish'].includes(s.fateOmen)?s.fateOmen:'calm';
+    s.fateCooldown = Math.max(0,Math.min(3,Math.round(Number(s.fateCooldown)||0)));
     s.chaosNext = Boolean(s.chaosNext);
     s.doubleTimeNext = Boolean(s.doubleTimeNext);
     s.forcedForfeits = Math.max(0, Math.round(Number(s.forcedForfeits) || 0));
@@ -119,6 +122,7 @@
   function renderWheel() {
     const items = active();
     segments = makeSegments(items);
+    renderEntryGuide(segments);
     rotor.innerHTML = '';
     spinBtn.disabled = spinning || pendingResult || Boolean(session.pendingForfeit || session.acceptedForfeit || session.revealBatch) || !segments.length;
 
@@ -164,7 +168,7 @@
         if (config.settings.showTextOnWheel && segment.span >= 20) {
           const label = svg('text', { x: 0, y: 25, 'text-anchor': 'middle', class: 'wheel-label' });
           const raw = segment.item.mystery ? 'MYSTERY' : segment.item.name;
-          const limit = segment.span >= 35 ? 16 : 10;
+          const limit = segment.span >= 35 ? 18 : 11;
           label.textContent = raw.length > limit ? raw.slice(0, limit - 1) + '…' : raw;
           group.appendChild(label);
         }
@@ -175,6 +179,21 @@
     root.appendChild(svg('circle', { cx: 300, cy: 300, r: 286, class: 'wheel-rim' }));
     rotor.appendChild(root);
     rotor.style.transform = `rotate(${rotation}deg)`;
+  }
+
+  function renderEntryGuide(list) {
+    const container=$('wheelEntryList');if(!container)return;
+    const count=$('wheelEntryCount');
+    if(count)count.textContent=`${list.length} active · full names & odds`;
+    container.replaceChildren();
+    for(const segment of list){
+      const row=document.createElement('div');row.className='wheel-entry-row';
+      const icon=document.createElement('span');icon.className='wheel-entry-icon';icon.textContent=segment.item.mystery?'❓':segment.item.icon;
+      icon.style.setProperty('--entry-color',segment.item.color);
+      const name=document.createElement('strong');name.textContent=segment.item.mystery?'Mystery':segment.item.name;
+      const chance=document.createElement('small');chance.textContent=`${(segment.weight/segment.total*100).toFixed(1)}%`;
+      row.append(icon,name,chance);container.append(row);
+    }
   }
 
   function renderLevels() {
@@ -241,6 +260,46 @@
     if (s.forcedForfeits > 0) add('risk active', '×2', `${s.forcedForfeits} forced`, '', 'Double or Nothing still has forfeits to resolve.');
   }
 
+  function fateCardsAvailable() {
+    return window.FortuneFateDeck?.hasCards?.() ?? Object.values(config.settings.fateDeck || {}).some(count=>count>0);
+  }
+
+  function renderFateOmen() {
+    const panel=$('fateOmen');
+    if (!panel) return;
+    const mode=config.settings.fateSurprise;
+    panel.hidden=mode==='off';
+    if(panel.hidden)return;
+    const s=ensureCardState(),cards=fateCardsAvailable();
+    const chance=window.FortuneFeatures.fateSurpriseChance(mode,s.fateOmen,s.fateCooldown,cards);
+    const moods={calm:['Fate is quiet','✧'],watching:['Fate is watching','◈'],devilish:['The devil is watching','♠']};
+    const [title,symbol]=moods[s.fateOmen];
+    panel.dataset.mood=s.fateOmen;
+    document.body.dataset.fateMood=s.fateOmen;
+    $('fateOmenTitle').textContent=title;
+    panel.querySelector('.fate-omen-symbol').textContent=symbol;
+    $('fateOmenDetail').textContent=!cards?'Fate deck empty — no surprise draws.'
+      :s.fateCooldown?`Fate rests for ${s.fateCooldown} more ordinary result${s.fateCooldown===1?'':'s'}.`
+      :`${Math.round(chance*100)}% chance of a surprise Fate card after an ordinary result.`;
+  }
+
+  // Surprise rolls happen after a completed normal result, never mid-spin or
+  // after another special event. The cooldown prevents consecutive surprises.
+  function maybeSurpriseFate(item) {
+    if (!['normal','unlock'].includes(item?.eventType)) return false;
+    const s=ensureCardState(),f=window.FortuneFeatures;
+    if(config.settings.fateSurprise==='off'||!fateCardsAvailable()) {renderFateOmen();return false;}
+    if(s.fateCooldown>0){s.fateCooldown--;s.fateOmen=f.nextFateOmen(s.fateOmen);M.saveSession(session);renderFateOmen();return false;}
+    const chance=f.fateSurpriseChance(config.settings.fateSurprise,s.fateOmen,0,true);
+    if(Math.random()<chance){
+      s.fateCooldown=2;s.fateOmen='calm';M.saveSession(session);renderFateOmen();
+      setTimeout(()=>{if(!spinning&&!session.revealBatch&&window.FortuneFateDeck?.hasCards?.())window.FortuneFateDeck.drawFromWheel();},280);
+      return true;
+    }
+    s.fateOmen=f.nextFateOmen(s.fateOmen);
+    M.saveSession(session);renderFateOmen();return false;
+  }
+
   function renderAll() {
     ensureCardState();
     $('gameHeading').textContent = config.settings.title || 'Fortune Engine';
@@ -250,6 +309,7 @@
     renderWheel();
     renderHistory();
     renderInventory();
+    renderFateOmen();
     $('spinCount').textContent = session.spinCount;
     $('activeCount').textContent = active().length;
     $('chanceHint').textContent = ensureCardState().chaosNext ? 'CHAOS' : (active().length ? 'WEIGHTED' : '—');
@@ -465,6 +525,8 @@
     hideCardOverlay();
     hideSpinPreview();
     spinning = true;
+    $('wheelShell')?.classList.remove('wheel-landed','wheel-tease');
+    $('wheelShell')?.classList.add('wheel-spinning');
     stopRequested = false;
     const manual = config.settings.spinMode === 'manual';
     manualCruising = manual;
@@ -519,14 +581,19 @@
       const fakeStop = final - creepDegrees;
       await animateMotionProfile(start, fakeStop, profile, list, previewAfter);
       rotation = fakeStop;
+      $('wheelShell')?.classList.add('wheel-tease');
       updateSpinPreview(list[pointerIndex(rotation, list)]?.item, false);
       state('Almost…', 'The wheel finished its normal slowdown… but drama mode is not finished.');
       dramaSignal();
       await wait(280 + Math.random() * 420);
       await animateCreep(fakeStop, final, 1500 + Math.random() * 1300, list);
       rotation = final;
+      $('wheelShell')?.classList.remove('wheel-tease');
     }
 
+    $('wheelShell')?.classList.remove('wheel-spinning','wheel-tease');
+    $('wheelShell')?.classList.add('wheel-landed');
+    setTimeout(()=>$('wheelShell')?.classList.remove('wheel-landed'),850);
     rotor.style.transform = `rotate(${rotation}deg)`;
     updateSpinPreview(pick.item, false);
     const provisional = true;
@@ -546,7 +613,9 @@
       let modifier = null;
       try { modifier = await window.FortuneModifierWheel.resolve(pick.item); }
       catch (error) { console.warn('Modifier wheel could not open:', error); }
-      const resultItem = window.FortuneFeatures.applyModifier(pick.item, modifier);
+      let resultItem = window.FortuneFeatures.applyModifier(pick.item, modifier);
+      const luck = window.FortuneFeatures.consumeMiniLuck(resultItem,ensureCardState().miniLuck);
+      resultItem=luck.item;session.cardState.miniLuck=luck.remaining;
       if (session.pendingForfeit) { session.pendingForfeit.item = M.deepClone(resultItem); session.pendingForfeit.modifier = modifier; M.saveSession(session); }
       if (modifier && !session.pendingForfeit) {
         const last = session.history.at(-1);
@@ -959,7 +1028,8 @@
     ensureResultExtras();
     overlay.hidden = false;
     overlay.classList.add('show');
-    card.className = `result-card result-${item.animation}`;
+    const impact=CARD_EVENTS.has(item.eventType)?'special':item.mystery?'mystery':item.animation==='confetti'?'lucky':'normal';
+    card.className = `result-card result-${item.animation} result-impact-${impact}`;
     card.style.setProperty('--result-color', item.color);
     rCategory.textContent = item.category || 'RESULT';
     rTitle.textContent = item.mystery ? 'Mystery revealed…' : item.name;
@@ -974,7 +1044,7 @@
     respin.hidden = ensureCardState().respin <= 0;
     respin.textContent = `↻ Use Re-spin ×${ensureCardState().respin}`;
     setupTimer(item);
-    tone();
+    resultTone(impact);
 
     if (item.mystery) {
       setTimeout(() => {
@@ -1025,6 +1095,7 @@
 
   function continueAfterResult() {
     const item = currentResult?.item;
+    if(!item)return;
     if(session.pendingForfeit){
       if(!acceptPending())return;
       if(timerState){updateTimerUi();return;}
@@ -1035,6 +1106,7 @@
     if (CARD_EVENTS.has(item?.eventType)) {
       if (!window.FortuneFateDeck?.drawFromWheel()) state('Deck empty', 'The special entry was accepted. There are no cards left.');
     } else if (item?.eventType === 'spinAgain') setTimeout(spin,130);
+    else maybeSurpriseFate(item);
   }
 
   function hideResult() {
@@ -1098,6 +1170,11 @@
 
   function tone() {
     [440, 660, 880].forEach((freq, i) => beep(freq, .16, .055, i * .08));
+  }
+  function resultTone(impact='normal') {
+    if(impact==='special'||impact==='mystery') [320,290,220].forEach((freq,i)=>beep(freq,.18,.055,i*.12));
+    else if(impact==='lucky') [540,720,960].forEach((freq,i)=>beep(freq,.15,.05,i*.095));
+    else tone();
   }
 
   function undo() {
@@ -1166,6 +1243,25 @@
     acceptPending, discardPending,
     canTakeCard: () => Boolean(session.pendingForfeit && !CARD_EVENTS.has(session.pendingForfeit.item.eventType) && !session.pendingForfeit.cardUsed && !session.revealBatch),
     markCardUsed() { if (session.pendingForfeit) { session.pendingForfeit.cardUsed=true; M.saveSession(session); } },
+    grantMiniLuck() {const cards=ensureCardState();cards.miniLuck=Math.min(3,cards.miniLuck+1);M.saveSession(session);return cards.miniLuck;},
+    rewardMiniGame() {
+      if(timerState && !timerState.complete && !timerState.shortened){
+        if(timerState.running)timerState.remaining=Math.max(1,Math.ceil((timerState.deadline-Date.now())/1000));
+        timerState.remaining=Math.max(1,Math.ceil(timerState.remaining/2));
+        timerState.shortened=true;
+        if(timerState.running)timerState.deadline=Date.now()+timerState.remaining*1000;
+        persistTimer();updateTimerUi();
+        return 'Current timer halved';
+      }
+      this.grantMiniLuck();
+      return 'Luck saved for the next timed result';
+    },
+    hasBlockingForfeit:()=>Boolean(spinning||pendingResult||session.pendingForfeit||session.acceptedForfeit||session.revealBatch),
+    playFateCue(kind) {
+      if(['bad','triple','devil','risk','poison'].includes(kind)) [390,280,190].forEach((freq,i)=>beep(freq,.17,.06,i*.12));
+      else if(kind==='good') [570,760,960].forEach((freq,i)=>beep(freq,.13,.06,i*.095));
+      else beep(570,.11,.045);
+    },
     pendingItem: () => session.pendingForfeit?.item || null,
     settings: () => M.deepClone(config.settings),
     batch: () => session.revealBatch || null,
@@ -1249,6 +1345,7 @@
   $('undoBtn').addEventListener('click', undo);
   $('resetBtn').addEventListener('click', reset);
   $('resultCloseBtn').addEventListener('click', continueAfterResult);
+  window.addEventListener('fortune-fate-deck-changed',renderFateOmen);
   $('resultSpinBtn').addEventListener('click', () => { acceptPending(); hideResult(); setTimeout(spin, 100); });
   overlay.addEventListener('click', event => { if (event.target.classList.contains('result-backdrop') && !session.pendingForfeit) hideResult(); });
   document.addEventListener('keydown', event => {
