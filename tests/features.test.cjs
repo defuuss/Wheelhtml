@@ -104,11 +104,12 @@ test('custom card images accept bounded embedded raster data and fall back to de
  assert.equal(F.cardImage('rarest',{cardImages:clean}),image);
  assert.equal(F.cardImage('rarest',{cardImages:clean},1),image,'uploaded artwork overrides both built-in looks');
  assert.match(F.cardImage('skip',{cardImages:clean}),/sad-blue-wheel-emblem\.webp/);
+ const originalCards=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes','miniGame'];
  const defaults=Object.keys(F.deckNames).map(id=>F.defaultCardImage(id));
- assert.equal(new Set(defaults.slice(0,13)).size,13,'original Fate card portraits remain unique');
+ assert.equal(new Set(originalCards.map(id=>F.defaultCardImage(id))).size,13,'original Fate card portraits remain unique');
  for(const artwork of defaults) assert.ok(fs.existsSync(path.join(__dirname,'..',artwork)),`${artwork} is missing`);
  const alternates=Object.keys(F.deckNames).map(id=>F.defaultCardImage(id,1));
- assert.equal(new Set(alternates.slice(0,13)).size,13,'original alternate portraits remain unique');
+ assert.equal(new Set(originalCards.map(id=>F.defaultCardImage(id,1))).size,13,'original alternate portraits remain unique');
  for(const [index,artwork] of alternates.entries()) {
    assert.notEqual(artwork,defaults[index]);
    assert.ok(fs.existsSync(path.join(__dirname,'..',artwork)),`${artwork} is missing`);
