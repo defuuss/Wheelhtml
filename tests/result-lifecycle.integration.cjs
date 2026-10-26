@@ -1,64 +1,39 @@
 const assert=require('node:assert/strict');
-const {setup,deck,next,finish,wait}=require('./helpers.cjs');
-const replacement={levels:[{id:'a',activeAtStart:true},{id:'b',activeAtStart:false}],forfeits:[
- {id:'rare',name:'Rare',weight:1,levelId:'a',lifetime:{type:'once'}},
- {id:'original',name:'Original',weight:10,levelId:'a',unlockLevels:['b'],lifetime:{type:'once'}},
- {id:'locked',name:'Locked',weight:.1,levelId:'b'}],rules:[]};
+const {setup,wait}=require('./helpers.cjs');
 (async()=>{
  for(const direct of [false,true]){
   const config={levels:[{id:'a',activeAtStart:true,completionUnlockLevels:['b']},{id:'b'}],forfeits:[{id:'repeat',name:'Three times',levelId:'a',lifetime:{type:'spins',spins:3}},{id:'next',levelId:'b'}]};
   const f=await setup(config);try{
    for(let n=1;n<=3;n++){
-    if(direct){f.w.FortuneFateDeck.drawFromWheel();f.w.document.getElementById('fateV4Continue').click();f.w.document.getElementById('batchNext').click();await wait(20);}
+    if(direct){f.w.FortuneFateDeck.drawFromWheel();f.w.document.getElementById('fateV4Continue').click();f.w.document.getElementById('batchNext').click();await wait(30);}
     else{f.w.document.getElementById('spinBtn').click();await wait(750);}
-    assert.equal(f.session().runtime.repeat.remainingSpins,4-n,'Revealing never consumes a selection');
-    f.w.document.getElementById(direct?'batchAccept':'resultCloseBtn').click();
-    if(direct)f.w.document.getElementById('batchDone').click();
-    assert.equal(f.session().runtime.repeat.remainingSpins,3-n);
+    assert.equal(f.session().runtime.repeat.remainingSpins,3-n,'Reveal commits exactly one use');
+    assert.equal(f.session().history.length,n);
+    assert.equal(f.w.document.getElementById('batchAccept'),null);
+    f.w.document.getElementById(direct?'batchDone':'resultCloseBtn').click();
+    assert.equal(f.session().history.length,n,'Closing does not commit again');
     assert.equal(Boolean(f.session().completedLevels.a),n===3);
     assert.equal(Boolean(f.session().activeLevels.b),n===3);
-   }
-   assert.deepEqual(f.errors,[]);
+   }assert.deepEqual(f.errors,[]);
   }finally{f.close();}
  }
- for(const accept of [true]){
-  const f=await setup(replacement);try{
-   f.w.document.getElementById('spinBtn').click();await wait(750);
-   assert.equal(f.session().pendingForfeit.item.id,'original');
-   f.w.document.getElementById('temptFateBtn').click();f.w.document.getElementById('fateV4Continue').click();
-   assert.equal(f.session().history.length,0);
-   f.w.document.getElementById('batchNext').click();await wait(20);
-   assert.equal(f.session().history.length,0);
-   const saved=f.saved();f.close();
-   const g=await setup(replacement,{saved});try{
-    assert.equal(g.w.document.getElementById('batchAccept').textContent,'Accept result');
-    const button=g.w.document.getElementById(accept?'batchAccept':'batchDecline');button.click();button.click();
-    assert.equal(g.session().history.length,accept?1:0,'Double click and reload cannot duplicate a commit');
-    assert.equal(g.session().runtime.rare.removed,accept);
-    assert.equal(g.session().runtime.original.removed,false);
-    assert.equal(g.session().activeLevels.b,false,'Discarded original never unlocks a group');
-    assert.deepEqual(g.errors,[]);
-   }finally{g.close();}
-  }finally{f.close();}
- }
- {const f=await setup(replacement);try{
+ const config={levels:[{id:'a',activeAtStart:true}],forfeits:[{id:'timed',name:'Timed',levelId:'a',timerSeconds:60,lifetime:{type:'spins',spins:3}}]};
+ let saved;
+ const f=await setup(config);try{
   f.w.document.getElementById('spinBtn').click();await wait(750);
-  assert.equal(f.w.document.getElementById('resultDeclineBtn'),null);
-  assert.equal(f.session().history.length,0);
-  f.w.document.getElementById('temptFateBtn').click();f.w.document.getElementById('fateV4Continue').click();
-  assert.equal(f.w.document.getElementById('batchDecline'),null);
-  assert.equal(f.w.document.querySelector('.reveal-end'),null);
-  assert.equal(f.session().history.length,0);
- }finally{f.close();}}
- {const f=await setup(replacement);let saved;try{
-  f.w.document.getElementById('spinBtn').click();await wait(750);
-  f.w.document.getElementById('temptFateBtn').click();saved=f.saved();
+  assert.equal(f.session().history.length,1);assert.equal(f.session().pendingForfeit,undefined);
+  assert.equal(f.w.document.getElementById('timerStartPause').disabled,false);
+  assert.equal(f.w.document.getElementById('resultCloseBtn').textContent,'Continue');
+  f.w.document.getElementById('timerStartPause').click();saved=f.saved();
  }finally{f.close();}
- const g=await setup(replacement,{saved});try{
-  assert.equal(g.w.document.getElementById('fateDeckOverlayV4').hidden,false,'An unfinished Fate card restores on reload');
-  assert.equal(g.w.FortunePlay.canTakeCard(),false);
-  g.w.document.getElementById('fateV4Continue').click();await next(g);
-  assert.deepEqual(Array.from(g.session().history,x=>x.id),['rare']);
- }finally{g.close();}}
- console.log('PASS: shared acceptance, no decline controls, replacement isolation, three-use exhaustion, pending card recovery and duplicate-commit guards.');
+ const g=await setup(config,{saved});try{
+  assert.equal(g.session().history.length,1,'Reload does not duplicate the automatic result');
+  assert.equal(g.w.document.getElementById('resultOverlay').hidden,false);
+  assert.equal(g.w.document.getElementById('timerStartPause').textContent,'Pause');
+  g.w.document.getElementById('resultCloseBtn').click();
+  g.w.document.getElementById('undoBtn').click();
+  assert.equal(g.session().history.length,0);assert.equal(g.session().runtime.timed.remainingSpins,3);
+  assert.deepEqual(g.errors,[]);
+ }finally{g.close();}
+ console.log('PASS: automatic wheel and batch results, finite uses, unchanged unlock rules, timer recovery, reload idempotence and undo.');
 })().catch(error=>{console.error(error);process.exitCode=1});

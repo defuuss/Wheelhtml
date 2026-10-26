@@ -15,7 +15,7 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
 (async()=>{
  await new Promise(resolve=>server.listen(8077,'127.0.0.1',resolve));
  try{
- for(const [engine,name,viewport] of [[chromium,'desktop',{width:1440,height:1100}],[chromium,'mobile',{width:390,height:844}],[firefox,'firefox',{width:1440,height:1100}]]){
+ for(const [engine,name,viewport] of [[chromium,'desktop',{width:1440,height:1100}],[chromium,'mobile',{width:390,height:844}],...(process.env.WHEEL_CHROMIUM_ONLY ? [] : [[firefox,'firefox',{width:1440,height:1100}]])]){
   const browser=await engine.launch();const context=await browser.newContext({viewport});const page=await context.newPage(),errors=[],badAssets=[];
   page.on('pageerror',error=>errors.push(error.message));
   page.on('response',response=>{if(response.status()>=400 && /\.(js|css|svg|png)(\?|$)/.test(response.url()))badAssets.push(response.url());});
@@ -34,6 +34,21 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    }));assert.ok(chapters.every(card=>card.titleWidth>65 && !card.overlap),JSON.stringify(chapters));
    assert.equal(await page.locator('#resultDeclineBtn').count(),0);
    await page.screenshot({path:'test-artifacts/'+name+'-wheel.png',fullPage:true});
+   await page.locator('#arcadeBtn').click();
+   await page.getByRole('button',{name:/Higher or Lower/}).click();
+   await page.getByRole('button',{name:'↑ Higher',exact:true}).click();
+   await page.getByRole('button',{name:'All games',exact:true}).click();
+   await page.getByRole('button',{name:/Dice Duel/}).click();
+   await page.getByRole('button',{name:'Roll the dice',exact:true}).click();
+   assert.match(await page.locator('.arcade-body').textContent(),/You:/);
+   await page.getByRole('button',{name:'All games',exact:true}).click();
+   await page.getByRole('button',{name:/Stop the Meter/}).click();
+   await page.getByRole('button',{name:'Start',exact:true}).click();
+   await page.waitForTimeout(400);await page.getByRole('button',{name:'Stop',exact:true}).click();
+   await page.screenshot({path:'test-artifacts/'+name+'-arcade.png',fullPage:true});
+   assert.equal(await page.evaluate(()=>FortuneModel.loadSession(FortuneModel.loadConfig()).history.length),0);
+   await page.keyboard.press('Escape');
+   await page.locator('#arcadeBtn').click();await page.getByRole('button',{name:'Close mini-games'}).click();
    await page.evaluate(()=>window.FortuneFateDeck.drawFromWheel());
    await page.locator('#fateV4Continue').waitFor({state:'visible'});await page.locator('#fateV4Continue').click();
    await page.locator('.fate-envelope').first().waitFor();
@@ -42,14 +57,14 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    await page.locator('.fate-envelope').nth(1).focus();await page.keyboard.press('Enter');
    await page.waitForTimeout(1100);
    await page.screenshot({path:'test-artifacts/'+name+'-opening.png',fullPage:true});
-   await page.locator('#batchAccept').waitFor();
+   await page.locator('#batchDone').waitFor();
    assert.equal(await page.locator('#batchDecline,.reveal-end').count(),0);
-   assert.equal(await page.evaluate(()=>FortuneModel.loadSession(FortuneModel.loadConfig()).history.length),0);
+   assert.equal(await page.evaluate(()=>FortuneModel.loadSession(FortuneModel.loadConfig()).history.length),1);
    const chosen=await page.evaluate(()=>FortunePlay.batch().entries[FortunePlay.batch().chosen].item.id);
-   await page.reload();await page.locator('#batchAccept').waitFor();
+   await page.reload();await page.locator('#batchDone').waitFor();
    assert.equal(await page.evaluate(()=>FortunePlay.batch().entries[FortunePlay.batch().chosen].item.id),chosen);
    await page.screenshot({path:'test-artifacts/'+name+'-reveal.png',fullPage:true});
-   await page.locator('#batchAccept').click();
+   assert.equal(await page.locator('#batchAccept').count(),0);
    assert.equal(await page.evaluate(()=>FortuneModel.loadSession(FortuneModel.loadConfig()).history.length),1);
    await page.locator('#batchDone').click();
    await page.goto('http://127.0.0.1:8077/edit.html',{waitUntil:'networkidle'});
@@ -71,9 +86,9 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    await page.getByRole('button',{name:'Use default image for Sealed Envelopes',exact:true}).click();await page.locator('#applyBtn').click();
    assert.equal(await page.evaluate(()=>FortuneModel.loadConfig().settings.cardImages.sealedEnvelopes),undefined);
    await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
-   await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.match(await page.locator('#fateV4FrontImage').getAttribute('src'),/sealed-envelopes\.svg/);
+   await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.match(await page.locator('#fateV4FrontImage').getAttribute('src'),/undercut-swimsuit\.webp/);
    assert.deepEqual(errors,[]);assert.deepEqual(badAssets,[]);
-   console.log('PASS '+name+': centered hub, no horizontal overflow, vector assets, animated envelopes, keyboard choice, reload recovery, acceptance chapter layout, persistent Apply, image upload/XML/play/default reset and no Decline.');
+   console.log('PASS '+name+': centered hub, no horizontal overflow, manga assets, animated envelopes, keyboard choice, reload recovery, automatic results and chapter layout, persistent Apply, image upload/XML/play/default reset and no Decline.');
   }finally{await browser.close();}
  }
  }finally{await new Promise(resolve=>server.close(resolve));}

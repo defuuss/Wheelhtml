@@ -84,7 +84,7 @@
       </div>
       <div class="fate-deck-panel-copy">
         <span>FATE DECK</span><strong id="fateDeckCount">Loading deck…</strong>
-        <small>Don't like the result? Risk one card. Reveal first. Accept to apply.</small>
+        <small>Draw a card. Reveal your next fate.</small>
       </div>`;
     panel.querySelectorAll('img').forEach(image=>window.FortuneFeatures.setCardImage(image,'back',M.loadConfig().settings));
     document.querySelector('.wheel-stats')?.insertAdjacentElement('afterend', panel);
@@ -140,7 +140,7 @@
     button.disabled = cardsLeft === 0;
     button.innerHTML = cardsLeft ? `<span>✦</span> Take a Fate Card <small>${cardsLeft} left</small>` : '<span>✦</span> Fate Deck Empty';
     const accept = $('resultCloseBtn');
-    if (accept && resultVisible && window.FortunePlay.pendingItem()) accept.textContent = 'Accept';
+    if (accept && resultVisible && window.FortunePlay.pendingItem()) accept.textContent = 'Continue';
   }
   function takeCard(context) {
     const state = loadState();
@@ -176,7 +176,7 @@
         </div>
         <div id="fateV4ChoiceArea" class="fate-v4-choice-area" hidden>
           <div class="fate-v4-choice-grid">
-            <button id="fateV4ChoiceKeep" class="fate-v4-choice" type="button"><span>KNOWN</span><strong>KEEP IT</strong><small>Accept the current result</small></button>
+            <button id="fateV4ChoiceKeep" class="fate-v4-choice" type="button"><span>KNOWN</span><strong>KEEP IT</strong><small>Keep the current result</small></button>
             <button id="fateV4ChoiceSwap" class="fate-v4-choice unknown" type="button"><span>UNKNOWN</span><strong>SWAP IT</strong><small>One replacement. No second Fate card.</small></button>
           </div>
         </div>
@@ -289,7 +289,7 @@
     $('fateV4ChoiceKeep').disabled = true; $('fateV4ChoiceSwap').disabled = true;
     $('fateV4Status').querySelector('small').textContent = action === 'swap' ? 'Unknown fate chosen. The replacement is final.' : 'Known fate chosen. The current forfeit stays.';
     $('fateV4Continue').hidden = false;
-    $('fateV4Continue').textContent = action === 'swap' ? 'Reveal replacement' : 'Accept current result';
+    $('fateV4Continue').textContent = action === 'swap' ? 'Reveal replacement' : 'Keep current result';
   }
   async function flipCoin() {
     if (currentDraw !== 'doubleOrNothing' || coinResolved) return;
@@ -314,7 +314,7 @@
     pendingAction=action;saveAction(action);
     const wheel = $('fateV4Roulette'), button = $('fateV4RouletteSpin');
     button.disabled = true; wheel.style.transform = `rotate(${1440 + (targetByAction[action] || 0)}deg)`;
-    setTimeout(() => { pendingAction = action; $('fateV4RouletteResult').textContent = labels[action]; button.hidden = true; $('fateV4Continue').hidden = false; $('fateV4Continue').textContent = 'Accept roulette'; },2100);
+    setTimeout(() => { pendingAction = action; $('fateV4RouletteResult').textContent = labels[action]; button.hidden = true; $('fateV4Continue').hidden = false; $('fateV4Continue').textContent = 'Continue'; },2100);
   }
   function finishCard() {
     const overlay = $('fateDeckOverlayV4');

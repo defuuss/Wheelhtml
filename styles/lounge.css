@@ -1,0 +1,20 @@
+/* Shared final component styles; progression presentation intentionally unchanged. */
+:root{--lounge-gold:#e4c38d;--lounge-line:#e4c38d28}
+body{background-color:#100f16}
+body .topbar{max-width:1440px;margin:auto;padding:20px 28px;gap:18px}
+body .brand small{letter-spacing:.08em}
+body .btn{font-size:.86rem;font-weight:600;border-radius:12px}
+.game-menu{position:relative}.game-menu summary{list-style:none;cursor:pointer;display:flex;align-items:center}.game-menu summary::-webkit-details-marker{display:none}.game-menu-items{position:absolute;right:0;top:calc(100% + 10px);min-width:190px;display:grid;gap:8px;padding:12px;background:#241c2b;border:1px solid var(--lounge-line);border-radius:16px;box-shadow:0 20px 50px #0008;z-index:500}
+body[data-page=play] .stage-panel{border-radius:30px;background:radial-gradient(ellipse at 50% 30%,#39273c88,transparent 65%),#1b1621}
+body[data-page=play] .spin-button{border-radius:100px;min-height:70px;box-shadow:0 8px 40px #c39d6b20}
+body[data-page=play] .now-card h2{font-family:Georgia,serif;font-size:1.6rem;font-weight:400}body[data-page=play] .now-card p{line-height:1.7}
+body[data-page=play] .result-card{border-radius:26px;padding:32px;max-height:90dvh;overflow:auto}body[data-page=play] .result-card h2{font-size:clamp(1.8rem,5vw,2.8rem)}
+body[data-page=edit] .editor-card{border-radius:18px}body[data-page=edit] input,body[data-page=edit] select,body[data-page=edit] textarea{border-radius:9px;min-height:42px}
+.arcade-dialog{width:min(720px,calc(100% - 28px));max-height:90dvh;overflow:auto;padding:28px;border:1px solid #c9aa7755;border-radius:26px;background:radial-gradient(ellipse at top,#39263e,#18121e 75%);color:#f3eadc;box-shadow:0 30px 100px #0009}.arcade-dialog::backdrop{background:#08060cdd;backdrop-filter:blur(8px)}.arcade-dialog header{display:flex;justify-content:space-between;align-items:start;gap:12px}.arcade-dialog h2{font:400 clamp(1.6rem,4vw,2.3rem) Georgia,serif;margin:10px 0 20px}.arcade-dialog h3{font-size:1.2rem}.arcade-score{padding:14px 0;color:#d9be94;border-block:1px solid var(--lounge-line);font-size:.8rem}.arcade-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.arcade-tile{cursor:pointer;display:flex;flex-direction:column;gap:14px;align-items:start;text-align:left;min-height:190px;padding:20px;color:#f5e9d8;background:#ffffff05;border:1px solid var(--lounge-line);border-radius:18px}.arcade-tile:hover{background:#d4b17a12;border-color:#d4b17a88}.arcade-tile>span{font-size:2.8rem;color:var(--lounge-gold)}.arcade-tile small{color:#bdafc3}.arcade-number{text-align:center;font:400 5rem Georgia,serif;margin:28px 0;color:var(--lounge-gold)}.dice-numbers{font-size:clamp(1.5rem,5vw,3rem)}.arcade-actions{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}.arcade-message{line-height:1.6;color:#d3c4d7}.arcade-meter{position:relative;height:42px;margin:40px 10px;background:#ffffff12;border-radius:10px}.meter-target{position:absolute;left:42%;width:16%;height:100%;background:#d4b17a66;border-inline:2px solid #e4c38d}.meter-cursor{position:absolute;left:0;top:-5px;width:6px;height:52px;transform:translateX(-50%);background:#fff;border-radius:4px}
+@media(max-width:600px){body .topbar{padding:15px 12px;flex-wrap:wrap}.top-actions{width:100%;justify-content:space-between}.arcade-dialog{padding:20px}.arcade-grid{grid-template-columns:1fr}.arcade-tile{min-height:100px;display:grid;grid-template-columns:48px 1fr;gap:8px 14px}.arcade-tile>span{grid-row:span 2}.arcade-tile small{grid-column:2}.arcade-actions .btn{flex:1}body[data-page=play] .result-card{padding:22px}}
+
+body[data-page=play] .wheel-zone{grid-template-columns:minmax(0,1fr);min-width:0}
+body[data-page=play] .wheel-stats{gap:0;max-width:100%;width:100%}
+body[data-page=play] .wheel-stats>div{min-width:0;padding:12px 4px}
+body[data-page=play] .wheel-stats strong{font-size:clamp(.8rem,2vw,1.2rem);overflow-wrap:anywhere}
+body[data-page=play] .fate-deck-panel{width:100%;min-width:0;box-sizing:border-box}

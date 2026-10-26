@@ -12,7 +12,7 @@ try{
  modal.querySelector('.group-actions button').click();await pause(20);modal.querySelector('.group-actions button').click();await pause(50);
  assert.equal(w.document.querySelector('.modifier-overlay'),null);assert.equal(w.document.getElementById('resultOverlay').hidden,false);
  assert.match(w.document.getElementById('resultDescription').textContent,/Shorter/);
- assert.equal(w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history.length,0);
+ assert.equal(w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history.length,1);
  w.FortunePlay.acceptPending();
  const history=w.FortuneModel.loadSession(w.FortuneModel.loadConfig()).history;assert.equal(history.at(-1).modifierName,'Shorter');
  assert.match(w.document.getElementById('resultTimerPanel').textContent,/01:00|1:00/);

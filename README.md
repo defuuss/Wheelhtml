@@ -130,15 +130,28 @@ Additional integration check: `tests/deck.integration.cjs` covers direct cards,
 unique/eligible selections, whole-batch undo, keeping the current result, changed
 weights, the risk wheel and deck quantities through editor save and XML.
 
-## Accepted results and selection limits
+## Automatic results and selection limits
 
-Ordinary wheel results are provisional until **Accept** is pressed or a retaining
-card commits them. Pending results survive reloads. They do not yet remove an entry,
-consume a use, enter committed history, complete groups or unlock prerequisites.
-Swap, Pick Your Poison and Rarest Fate replace through the same controller; skipped
-and replaced originals never apply those effects. If no replacement exists, the
-original remains pending. A pending result can use only one Fate card, even after
-reloading. Direct card reveals are final and commit through the same result logic.
+Wheel challenges are final when revealed, after any modifier resolves. There is no
+acceptance step. Continue closes the result; timers can start immediately. Direct
+card and envelope reveals also commit once revealed. Reloading does not consume
+another use. Undo remains available. Existing chapter completion and unlock rules
+are unchanged; they still operate on committed selections.
+
+Fate cards are drawn from the deck between challenges. The former pending-result
+replacement button is hidden because challenges are already committed. Cards still
+work as standalone draws. A previously saved pending result commits on recovery.
+
+## Simplified play and mini-games
+
+The Game menu contains load, export and editing. Mini-games opens a keyboard-accessible
+dialog containing Higher or Lower, Dice Duel and Stop the Meter. Arcade points are
+saved in this browser, independently of wheel history, timers and chapter progression.
+No onboarding screen is shown. Closing a running meter cancels its animation.
+
+Two manga portraits alternate across the default Fate deck; custom uploaded card
+images retain priority. The card back stays concealed. Artwork sources and prompts
+are recorded in `docs/card-artwork.md`.
 
 **Remove after selected X times** counts selections of that specific forfeit, from
 the wheel or from cards. The historical XML token `lifetime="spins"` and

@@ -530,7 +530,7 @@
     rotor.style.transform = `rotate(${rotation}deg)`;
     updateSpinPreview(pick.item, false);
     const provisional = true;
-    const outcome = provisional ? {unlocked:[],specialMessage:'Accept this result to apply its effects.'} : applyResult(pick.item);
+    const outcome = provisional ? {unlocked:[],specialMessage:''} : applyResult(pick.item);
     if (provisional) { session.pendingForfeit = { key:M.makeId('result'), item:M.deepClone(pick.item) }; M.saveSession(session); }
     restoreChaosAfterSpin();
     spinning = false;
@@ -847,7 +847,7 @@
     $('timerShorten').textContent = `⏱ Shorten ×${ensureCardState().shorten}`;
     $('timerFinish').hidden = timerState.complete;
     $('resultCloseBtn').hidden = false;
-    $('resultCloseBtn').textContent = session.pendingForfeit ? 'Accept' : 'Done';
+    $('resultCloseBtn').textContent = 'Continue';
     $('timerStartPause').disabled = Boolean(session.pendingForfeit);
     $('timerFinish').disabled = Boolean(session.pendingForfeit);
   }
@@ -954,6 +954,7 @@
   }
 
   function showResult(item, outcome) {
+    if (session.pendingForfeit && !session.revealBatch) acceptPending();
     currentResult = { item, outcome };
     ensureResultExtras();
     overlay.hidden = false;
@@ -1110,7 +1111,7 @@
     rotation = 0;
     state('Last spin undone', 'The previous wheel state, cooldowns, lifetimes, cards and unlocks have been restored.');
     renderAll();
-    if (session.pendingForfeit) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:'Accept this result to apply its effects.'});
+    if (session.pendingForfeit) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:''});
     toast('Last spin restored.');
   }
 
@@ -1205,6 +1206,7 @@
         entry.modifierResolved=true;
       }
       entry.status='revealed'; M.saveSession(session);
+      this.resolveEntry(entry, true);
     },
     resolveEntry(entry, accept) {
       if (!session.revealBatch || !session.revealBatch.entries.includes(entry) || entry.status!=='revealed') return false;
@@ -1264,5 +1266,5 @@
   ensureResultExtras();
   renderAll();
   if(session.acceptedForfeit && !session.revealBatch)showResult(session.acceptedForfeit.item,{unlocked:[],specialMessage:'Accepted. Start or resume the timer when ready.'});
-  if (session.pendingForfeit && !session.revealBatch) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:'Accept this result to apply its effects.'});
+  if (session.pendingForfeit && !session.revealBatch) showResult(session.pendingForfeit.item, {unlocked:[],specialMessage:''});
 })();

@@ -40,10 +40,11 @@ forfeits:Array.from({length:13},(_,i)=>({id:'f'+i,name:'Entry '+i,levelId:i<6?'a
   }finally{g.close();}
  }
  {const f=await setup({...base,settings:{fateDeck:deck('doubleForfeit')}});
- try{f.w.document.getElementById('spinBtn').click();await wait(750);const id=f.session().pendingForfeit.item.id;
-  f.w.document.getElementById('temptFateBtn').click();f.w.document.getElementById('fateV4Continue').click();
-  assert.equal(f.session().history.length,0,'Retained original waits for acceptance too');
-  await finish(f);assert.equal(f.session().history[0].id,id);assert.equal(f.session().history.length,2);
+ try{f.w.document.getElementById('spinBtn').click();await wait(750);const id=f.session().history[0].id;
+  assert.equal(f.w.FortunePlay.canTakeCard(),false,'Committed challenges cannot be replaced as pending results');
+  f.w.document.getElementById('resultCloseBtn').click();
+  f.w.FortuneFateDeck.drawFromWheel();f.w.document.getElementById('fateV4Continue').click();
+  await finish(f);assert.equal(f.session().history[0].id,id);assert.equal(f.session().history.length,3);
  }finally{f.close();}}
  {const f=await setup({...base,settings:{fateDeck:deck('devilFive')}},{page:'edit.html'});try{
   const input=f.w.document.querySelector('[data-card=sealedEnvelopes]');input.value=3;input.dispatchEvent(new f.w.Event('input',{bubbles:true}));
