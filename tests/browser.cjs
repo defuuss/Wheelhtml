@@ -86,7 +86,7 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    await page.getByRole('button',{name:'Use default image for Sealed Envelopes',exact:true}).click();await page.locator('#applyBtn').click();
    assert.equal(await page.evaluate(()=>FortuneModel.loadConfig().settings.cardImages.sealedEnvelopes),undefined);
    await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
-   await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.match(await page.locator('#fateV4FrontImage').getAttribute('src'),/undercut-swimsuit\.webp/);
+   await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.match(await page.locator('#fateV4FrontImage').getAttribute('src'),/platinum-undercut-teal-latex\.webp/);
    assert.deepEqual(errors,[]);assert.deepEqual(badAssets,[]);
    console.log('PASS '+name+': centered hub, no horizontal overflow, manga assets, animated envelopes, keyboard choice, reload recovery, automatic results and chapter layout, persistent Apply, image upload/XML/play/default reset and no Decline.');
   }finally{await browser.close();}
