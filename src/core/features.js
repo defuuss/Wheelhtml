@@ -76,7 +76,7 @@
     if (current==='watching') return roll<.55?'devilish':'watching';
     return roll<.65?'watching':'calm';
   }
-  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0, threeSeals:2, miniGame:0, miniHigher:1, miniDice:1, miniMeter:1 };
+  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0, threeSeals:2, miniGame:1, miniHigher:1, miniDice:1, miniMeter:1 };
   const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five', sealedEnvelopes:'Sealed Envelopes', threeSeals:'Three Sealed Fates', miniGame:'Mini-game Challenge', miniHigher:'Higher or Lower', miniDice:'Dice Duel', miniMeter:'Stop the Meter' };
   function normalizeDeck(raw) { return Object.fromEntries(Object.entries(deckDefaults).map(([id,count]) => [id, Math.round(number(raw?.[id] ?? count,0,30,count))])); }
   function shuffle(items, random = Math.random) {
