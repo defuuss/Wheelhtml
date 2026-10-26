@@ -18,3 +18,15 @@ body[data-page=play] .wheel-stats{gap:0;max-width:100%;width:100%}
 body[data-page=play] .wheel-stats>div{min-width:0;padding:12px 4px}
 body[data-page=play] .wheel-stats strong{font-size:clamp(.8rem,2vw,1.2rem);overflow-wrap:anywhere}
 body[data-page=play] .fate-deck-panel{width:100%;min-width:0;box-sizing:border-box}
+
+/* Show full-figure Fate artwork on a genuinely large reveal, but preserve room
+   for the outcome text and controls on short/mobile viewports. */
+body[data-page=play] .fate-v4-card{
+  width:min(410px,88vw,calc(65dvh - 135px));
+  aspect-ratio:2/3;
+}
+body[data-page=play] .fate-v4-front img{
+  object-fit:contain;
+  object-position:center;
+  background:#100b15;
+}

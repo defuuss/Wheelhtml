@@ -87,6 +87,10 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    assert.equal(await page.evaluate(()=>FortuneModel.loadConfig().settings.cardImages.sealedEnvelopes),undefined);
    await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
    await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.match(await page.locator('#fateV4FrontImage').getAttribute('src'),/platinum-undercut-teal-latex\.webp/);
+   const fateArt=await page.evaluate(()=>{const card=document.querySelector('#fateV4Card').getBoundingClientRect();return {width:card.width,ratio:card.height/card.width,fit:getComputedStyle(document.querySelector('#fateV4FrontImage')).objectFit};});
+   assert.equal(fateArt.fit,'contain','full Fate illustrations must never be cropped');
+   assert.ok(fateArt.ratio>1.45&&fateArt.ratio<1.55,'full artwork should keep its tall card aspect ratio');
+   assert.ok(fateArt.width>=(name==='mobile'?220:320),'Fate card should be visibly large on '+name);
    assert.deepEqual(errors,[]);assert.deepEqual(badAssets,[]);
    console.log('PASS '+name+': centered hub, no horizontal overflow, manga assets, animated envelopes, keyboard choice, reload recovery, automatic results and chapter layout, persistent Apply, image upload/XML/play/default reset and no Decline.');
   }finally{await browser.close();}

@@ -76,11 +76,11 @@
   const cardArtFiles = {back:'card-back',nothing:'nothing',skip:'lucky-skip',swap:'swap-fate',doubleForfeit:'double-forfeit',doubleOrNothing:'double-or-nothing',pickYourPoison:'pick-your-poison',fateRoulette:'fate-roulette',tripleTrouble:'triple-trouble',rarest:'rarest',chaosWeights:'chaos',devilFive:'devil-five',sealedEnvelopes:'sealed-envelopes'};
   // Each Fate card has one stable illustration; user-uploaded card art still wins.
   const defaultCardPortraits = {
-    nothing:'orange-freckles-swimsuit', skip:'cobalt-short-curls-swimsuit', swap:'violet-bob-swimsuit',
-    doubleForfeit:'violet-undercut-red-latex', doubleOrNothing:'pink-side-shaved-mohawk-swimsuit',
-    pickYourPoison:'emerald-bald-swimsuit', fateRoulette:'undercut-swimsuit',
-    tripleTrouble:'violet-undercut-red-latex', rarest:'platinum-undercut-teal-latex',
-    chaosWeights:'copper-undercut-swimsuit', devilFive:'bald-latex',
+    nothing:'orange-freckles-swimsuit', skip:'sad-blue-wheel-emblem', swap:'violet-bob-swimsuit',
+    doubleForfeit:'black-swimsuit-overknee-boots', doubleOrNothing:'pink-side-shaved-mohawk-swimsuit',
+    pickYourPoison:'silver-undercut-suit', fateRoulette:'undercut-swimsuit',
+    tripleTrouble:'bald-purple-pierced-throne', rarest:'bald-pearl-swimsuit',
+    chaosWeights:'turquoise-mohawk-orange-wheel', devilFive:'devil-mohawk-red-wheel',
     sealedEnvelopes:'platinum-undercut-teal-latex'
   };
   const maxCardImageLength = 120000;

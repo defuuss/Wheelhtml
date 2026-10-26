@@ -149,9 +149,12 @@ dialog containing Higher or Lower, Dice Duel and Stop the Meter. Arcade points a
 saved in this browser, independently of wheel history, timers and chapter progression.
 No onboarding screen is shown. Closing a running meter cancels its animation.
 
-Ten manga portraits are distributed across the default Fate deck; custom uploaded card
-images retain priority. The card back stays concealed. Artwork sources and prompts
-are recorded in `docs/card-artwork.md`.
+The default Fate deck now gives each of its twelve card types a distinct manga
+portrait, with expressions and poses chosen to match the outcome (including a
+disappointed Lucky Skip with a small golden wheel emblem on her shiny leotard,
+and gleeful bad-card characters). The play reveal uses a
+larger card and fits the whole source image. Custom uploaded images retain priority;
+the card back stays concealed. Artwork is documented in `docs/card-artwork.md`.
 
 **Remove after selected X times** counts selections of that specific forfeit, from
 the wheel or from cards. The historical XML token `lifetime="spins"` and
