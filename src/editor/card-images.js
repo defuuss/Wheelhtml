@@ -31,10 +31,19 @@
     const controls=document.createElement('div');controls.className='card-image-controls';
     const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp';input.hidden=true;input.dataset.cardImage=id;
     const upload=document.createElement('button');upload.type='button';upload.className='btn ghost';upload.textContent='Upload image';upload.setAttribute('aria-label','Upload image for '+name);upload.onclick=()=>input.click();
+    const looks=F.cardArtworkVariants(id);
+    let previewVariant=0;
+    const nextLook=document.createElement('button');nextLook.type='button';nextLook.className='btn ghost';nextLook.textContent='Next look';
+    nextLook.setAttribute('aria-label','Preview next artwork for '+name);
     const reset=document.createElement('button');reset.type='button';reset.className='btn ghost';reset.textContent='Use default';reset.setAttribute('aria-label','Use default image for '+name);
     const status=document.createElement('small');status.className='card-image-status';status.setAttribute('role','status');
-    const refresh=()=>{F.setCardImage(preview,id,settings);reset.disabled=!settings.cardImages[id];status.textContent=settings.cardImages[id]?'Custom image':'Default artwork';};
-    reset.onclick=()=>{delete settings.cardImages[id];input.value='';refresh();changed();};
+    const refresh=()=>{
+      F.setCardImage(preview,id,settings,previewVariant);
+      reset.disabled=!settings.cardImages[id];nextLook.disabled=Boolean(settings.cardImages[id]) || looks.length<2;
+      status.textContent=settings.cardImages[id]?'Custom image':`Built-in look ${previewVariant+1} of ${looks.length} · rotates each draw`;
+    };
+    nextLook.onclick=()=>{previewVariant=(previewVariant+1)%looks.length;refresh();};
+    reset.onclick=()=>{delete settings.cardImages[id];previewVariant=0;input.value='';refresh();changed();};
     input.onchange=async()=>{
       const file=input.files?.[0];if(!file)return;
       pending++;syncBusy();upload.disabled=true;reset.disabled=true;status.textContent='Preparing image…';
@@ -45,7 +54,7 @@
       } catch(error) {if(editor.isConnected){status.textContent=error.message;reset.disabled=!settings.cardImages[id];}}
       finally {input.value='';upload.disabled=false;pending--;syncBusy();}
     };
-    controls.append(upload,reset,input,status);editor.append(preview,controls);container.append(editor);refresh();
+    controls.append(upload,nextLook,reset,input,status);editor.append(preview,controls);container.append(editor);refresh();
   }
   window.FortuneCardImageEditor={mount};
 })();

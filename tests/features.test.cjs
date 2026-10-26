@@ -85,14 +85,39 @@ test('custom card images accept bounded embedded raster data and fall back to de
  const clean=F.normalizeCardImages({rarest:image,back:image,skip:'https://example.com/card.png',swap:'data:image/svg+xml;base64,PHN2Zy8+',unknown:image,nothing:'data:image/png;base64,'+'A'.repeat(120001)});
  assert.deepEqual(Object.keys(clean),['back','rarest']);
  assert.equal(F.cardImage('rarest',{cardImages:clean}),image);
+ assert.equal(F.cardImage('rarest',{cardImages:clean},1),image,'uploaded artwork overrides both built-in looks');
  assert.match(F.cardImage('skip',{cardImages:clean}),/sad-blue-wheel-emblem\.webp/);
  const defaults=Object.keys(F.deckNames).map(id=>F.defaultCardImage(id));
- assert.equal(new Set(defaults).size,12,'each of the twelve Fate card types should have a unique portrait');
+ assert.equal(new Set(defaults).size,13,'each Fate card type should have a unique portrait');
  for(const artwork of defaults) assert.ok(fs.existsSync(path.join(__dirname,'..',artwork)),`${artwork} is missing`);
+ const alternates=Object.keys(F.deckNames).map(id=>F.defaultCardImage(id,1));
+ assert.equal(new Set(alternates).size,13,'the alternate portraits should all be different');
+ for(const [index,artwork] of alternates.entries()) {
+   assert.notEqual(artwork,defaults[index]);
+   assert.ok(fs.existsSync(path.join(__dirname,'..',artwork)),`${artwork} is missing`);
+ }
+ assert.match(F.defaultCardImage('pickYourPoison',1),/poison-chinese-green-undercut-v2\.webp/);
+ assert.match(F.defaultCardImage('fateRoulette',1),/roulette-japanese-yellow-sidecut-v2\.webp/);
+ assert.match(F.defaultCardImage('tripleTrouble',1),/triple-german-silver-mohawk-v2\.webp/);
+ assert.match(F.defaultCardImage('rarest',1),/rarest-french-pearl-v2\.webp/);
+ assert.match(F.defaultCardImage('miniGame'),/lime-braids-swimsuit\.webp/);
+ assert.equal(F.deckDefaults.miniGame,1,'mini-game cards should be rare by default');
+ assert.equal(F.defaultCardImage('skip',2),F.defaultCardImage('skip',0));
  assert.match(F.defaultCardImage('doubleOrNothing'),/pink-side-shaved-mohawk-swimsuit\.webp/);
  assert.match(F.defaultCardImage('doubleForfeit'),/black-swimsuit-overknee-boots\.webp/);
  assert.match(F.defaultCardImage('devilFive'),/devil-mohawk-red-wheel\.webp/);
  assert.match(F.defaultCardImage('tripleTrouble'),/bald-purple-pierced-throne\.webp/);
  assert.match(F.defaultCardImage('chaosWeights'),/turquoise-mohawk-orange-wheel\.webp/);
  assert.match(F.defaultCardImage('back'),/card-back\.svg/);
+});
+
+test('a successful Fate mini-game saves one Luck boost for the next timed result',()=>{
+ const {F}=setup();
+ const original={name:'Timed challenge',description:'Original',timerSeconds:91};
+ const result=F.consumeMiniLuck(original,2);
+ assert.equal(result.item.timerSeconds,46);
+ assert.equal(result.remaining,1);
+ assert.match(result.item.description,/Mini-game luck/);
+ assert.equal(original.timerSeconds,91,'the original challenge must remain untouched');
+ assert.deepEqual(F.consumeMiniLuck({...original,timerSeconds:0},1).remaining,1,'an untimed result does not waste a boost');
 });

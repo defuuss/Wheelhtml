@@ -149,12 +149,23 @@ dialog containing Higher or Lower, Dice Duel and Stop the Meter. Arcade points a
 saved in this browser, independently of wheel history, timers and chapter progression.
 No onboarding screen is shown. Closing a running meter cancels its animation.
 
-The default Fate deck now gives each of its twelve card types a distinct manga
-portrait, with expressions and poses chosen to match the outcome (including a
-disappointed Lucky Skip with a small golden wheel emblem on her shiny leotard,
-and gleeful bad-card characters). The play reveal uses a
-larger card and fits the whole source image. Custom uploaded images retain priority;
-the card back stays concealed. Artwork is documented in `docs/card-artwork.md`.
+The default Fate deck now gives each of its thirteen card types **two** distinct
+full-body manga portraits. The newer set includes diverse adult characters,
+shiny high-leg swimwear and bolder haircuts, with expressions and poses chosen to
+match each outcome. A built-in look is chosen for each draw and remains unchanged
+after reload; the editor's **Next look** button previews the alternatives.
+The play reveal uses a larger card that fits the entire source image.
+Custom uploaded images always take priority; the card back stays concealed.
+Artwork is documented in `docs/card-artwork.md`.
+
+One rare **Mini-game Challenge** Fate card is included per default deck. Drawing
+it starts one mandatory one-round Higher or Lower, Dice Duel, or Stop the Meter
+game. A win earns a saved Luck boost that automatically halves the next timed
+challenge; a loss leaves the accepted challenge unchanged. Free-play mini-games
+remain in the Arcade menu. On the wheel, **See every wheel outcome** expands a
+readable full-name list with each active entry's chance, especially useful on mobile.
+The editor groups artwork customization and advanced envelope controls into
+collapsible sections for easier everyday editing.
 
 **Remove after selected X times** counts selections of that specific forfeit, from
 the wheel or from cards. The historical XML token `lifetime="spins"` and

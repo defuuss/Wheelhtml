@@ -8,7 +8,7 @@ const server=http.createServer((req,res)=>{
  fs.readFile(file,(error,data)=>{if(error){res.writeHead(404);res.end();return;}
  res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png'})[path.extname(file)]||'application/octet-stream');res.end(data);});
 });
-const ids=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes'];
+const ids=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes','miniGame'];
 const config={settings:{soundEnabled:false,title:'The Midnight Collection',showTextOnWheel:true,fateDeck:Object.fromEntries(ids.map(id=>[id,id==='sealedEnvelopes'?3:0]))},
 levels:[{id:'a',name:'Chaos',icon:'✦',activeAtStart:true},{id:'b',name:'The next chapter',activeAtStart:false}],
 forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A change of pace','Your choice','A moment of chance','The hidden path','A small surprise','Another possibility','The final seal','Next chapter'][i],description:'A custom result from your agreed collection.',levelId:i<8?'a':'b',icon:'✦',color:['#73516d','#7a5b55','#535d76','#6c6650'][i%4],weight:i+1,timerSeconds:60,lifetime:{type:'spins',spins:2}}))};
@@ -70,6 +70,11 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    await page.goto('http://127.0.0.1:8077/edit.html',{waitUntil:'networkidle'});
    await page.locator('[data-tab="settings"]').click();
    await page.locator('[data-card="sealedEnvelopes"]').fill('4');
+   await page.locator('.deck-art-gallery summary').click();
+   const portrait=page.locator('[data-art-card="sealedEnvelopes"] .card-image-preview');
+   const firstLook=await portrait.getAttribute('src');
+   await page.getByRole('button',{name:'Preview next artwork for Sealed Envelopes'}).click();
+   assert.notEqual(await portrait.getAttribute('src'),firstLook,'the editor should preview the other included look');
    const testImage=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=80;canvas.height=124;const context=canvas.getContext('2d');context.fillStyle='#aa5577';context.fillRect(0,0,80,124);return canvas.toDataURL('image/png');});
    await page.locator('[data-card-image="sealedEnvelopes"]').setInputFiles({name:'custom-card.png',mimeType:'image/png',buffer:Buffer.from(testImage.split(',')[1],'base64')});
    await page.locator('[data-art-card="sealedEnvelopes"] .card-image-status').filter({hasText:'Custom image'}).waitFor();
@@ -83,14 +88,35 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
    await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.equal(await page.locator('#fateV4FrontImage').getAttribute('src'),imageSaved.data);
    await page.goto('http://127.0.0.1:8077/edit.html',{waitUntil:'networkidle'});await page.locator('[data-tab="settings"]').click();
+   await page.locator('.deck-art-gallery summary').click();
    await page.getByRole('button',{name:'Use default image for Sealed Envelopes',exact:true}).click();await page.locator('#applyBtn').click();
    assert.equal(await page.evaluate(()=>FortuneModel.loadConfig().settings.cardImages.sealedEnvelopes),undefined);
    await page.goto('http://127.0.0.1:8077/',{waitUntil:'networkidle'});await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
-   await page.locator('#fateV4Continue').waitFor({state:'visible'});assert.match(await page.locator('#fateV4FrontImage').getAttribute('src'),/platinum-undercut-teal-latex\.webp/);
+   await page.locator('#fateV4Continue').waitFor({state:'visible'});
+   const shownLook=await page.locator('#fateV4FrontImage').getAttribute('src');
+   assert.ok(await page.evaluate(src=>FortuneFeatures.cardArtworkVariants('sealedEnvelopes').includes(src),shownLook));
+   await page.reload();await page.locator('#fateV4Continue').waitFor({state:'visible'});
+   assert.equal(await page.locator('#fateV4FrontImage').getAttribute('src'),shownLook,'a drawn card keeps its artwork after reload');
    const fateArt=await page.evaluate(()=>{const card=document.querySelector('#fateV4Card').getBoundingClientRect();return {width:card.width,ratio:card.height/card.width,fit:getComputedStyle(document.querySelector('#fateV4FrontImage')).objectFit};});
    assert.equal(fateArt.fit,'contain','full Fate illustrations must never be cropped');
    assert.ok(fateArt.ratio>1.45&&fateArt.ratio<1.55,'full artwork should keep its tall card aspect ratio');
    assert.ok(fateArt.width>=(name==='mobile'?220:320),'Fate card should be visibly large on '+name);
+   await page.evaluate(()=>{const M=FortuneModel,cfg=M.loadConfig();cfg.settings.fateDeck=Object.fromEntries(Object.keys(FortuneFeatures.deckDefaults).map(id=>[id,id==='miniGame'?1:0]));M.saveConfig(cfg);M.resetSession(cfg);});
+   await page.reload();
+   assert.ok((await page.locator('#wheelEntryList .wheel-entry-row').count())>0,'full wheel-entry names should be accessible');
+   await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
+   await page.locator('#fateV4Continue').filter({hasText:'Play mini-game'}).waitFor({state:'visible'});
+   await page.locator('#fateV4Continue').click();
+   await page.locator('.arcade-dialog[open]').waitFor();
+   assert.match(await page.locator('.arcade-dialog .section-kicker').textContent(),/FATE CARD/);
+   const miniHeading=await page.locator('.arcade-body h3').textContent();
+   if(miniHeading.includes('Higher'))await page.getByRole('button',{name:'↓ Lower'}).click();
+   else if(miniHeading.includes('Dice'))await page.getByRole('button',{name:'Roll the dice'}).click();
+   else {await page.getByRole('button',{name:'Start',exact:true}).click();await page.waitForTimeout(220);await page.getByRole('button',{name:'Stop',exact:true}).click();}
+   await page.locator('.arcade-dialog .arcade-actions button').filter({hasText:'Continue'}).click();
+   assert.equal(await page.locator('.arcade-dialog[open]').count(),0);
+   await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('fortune-fate-deck-v4'))?.draw);
+   assert.equal(await page.evaluate(()=>Boolean(JSON.parse(localStorage.getItem('fortune-fate-deck-v4'))?.draw)),false,'mini-game Fate card must resolve exactly once');
    assert.deepEqual(errors,[]);assert.deepEqual(badAssets,[]);
    console.log('PASS '+name+': centered hub, no horizontal overflow, manga assets, animated envelopes, keyboard choice, reload recovery, automatic results and chapter layout, persistent Apply, image upload/XML/play/default reset and no Decline.');
   }finally{await browser.close();}

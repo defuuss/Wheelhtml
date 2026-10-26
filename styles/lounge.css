@@ -30,3 +30,36 @@ body[data-page=play] .fate-v4-front img{
   object-position:center;
   background:#100b15;
 }
+/* Wheel outcomes remain readable when segments become too narrow for labels. */
+.wheel-entry-guide{width:min(100%,620px);margin:14px auto 0;border:1px solid #c9aa773d;border-radius:14px;background:#201725;color:#f3e6d6}
+.wheel-entry-guide summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;font-size:.88rem;font-weight:750}
+.wheel-entry-guide summary small{color:#d0b68e;font-size:.68rem;font-weight:500;text-align:right}
+.wheel-entry-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:0 12px 12px}
+.wheel-entry-row{display:flex;align-items:center;gap:8px;min-width:0;border-radius:9px;background:#ffffff09;padding:7px 9px}
+.wheel-entry-icon{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:8px;background:var(--entry-color);font-size:1rem}
+.wheel-entry-row strong{min-width:0;flex:1;font-size:.73rem;line-height:1.3;overflow-wrap:anywhere}
+.wheel-entry-row small{white-space:nowrap;font-size:.65rem;color:#eacb9e}
+
+/* Editing ordinary deck counts no longer requires scrolling past all artwork controls. */
+.deck-count-row{padding:10px 14px}
+.deck-art-gallery,.deck-advanced-settings{margin-top:18px;padding:0 14px;border:1px solid #d4b17a3d;border-radius:15px;background:#ffffff04}
+.deck-art-gallery>summary,.deck-advanced-settings>summary{padding:17px 4px;cursor:pointer;font-size:.92rem;font-weight:800;color:#f2d39f}
+.deck-art-grid{padding:0 0 16px}
+.deck-art-grid h4{margin:0 0 4px;font-size:.85rem}
+.deck-advanced-settings>*:not(summary){margin-block:12px}
+
+/* Outcome-colored spotlight and readable card descriptions preserve the full artwork. */
+.fate-v4-overlay{--fate-flare:#e7c77a}
+.fate-v4-overlay[data-kind="good"]{--fate-flare:#68e9ac}
+.fate-v4-overlay[data-kind="bad"],.fate-v4-overlay[data-kind="triple"],.fate-v4-overlay[data-kind="devil"]{--fate-flare:#fc6d8f}
+.fate-v4-overlay[data-kind="minigame"]{--fate-flare:#78dfff}
+.fate-v4-overlay.fate-reveal-complete .fate-v4-backdrop::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 36%,color-mix(in srgb,var(--fate-flare) 22%,transparent),transparent 58%);pointer-events:none;animation:fateFlare 1.1s ease-out both}
+.fate-v4-overlay.fate-reveal-complete .fate-v4-reveal-label{color:var(--fate-flare);text-shadow:0 0 24px var(--fate-flare)}
+.fate-v4-status{border-color:color-mix(in srgb,var(--fate-flare) 46%,transparent);box-shadow:0 14px 38px #0006,0 0 30px color-mix(in srgb,var(--fate-flare) 13%,transparent);gap:6px}
+.fate-v4-status span{color:var(--fate-flare);font-size:.68rem}
+.fate-v4-status strong{font-size:clamp(1.12rem,3vw,1.48rem)}
+.fate-v4-status small{color:#d9d0df;font-size:.79rem;line-height:1.5}
+.fate-v4-card[data-kind="minigame"]{filter:drop-shadow(0 28px 55px #38c3ff3a) drop-shadow(0 22px 48px #0009)}
+@keyframes fateFlare{from{opacity:0;transform:scale(.7)}40%{opacity:1}to{opacity:.65;transform:scale(1)}}
+@media(max-width:620px){.wheel-entry-list{grid-template-columns:1fr}.wheel-entry-guide summary{font-size:.77rem}.wheel-entry-guide summary small{font-size:.62rem}.fate-v4-status strong{font-size:1.05rem}.fate-v4-status small{font-size:.73rem}}
+@media(prefers-reduced-motion:reduce){.fate-v4-overlay.fate-reveal-complete .fate-v4-backdrop::after{animation:none}}

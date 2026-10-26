@@ -23,7 +23,8 @@
     chaosWeights: { name:'Chaos Weights', kind:'CHAOS CARD', className:'chaos', art:ASSET('chaos'), text:'Randomly changes active weights for this session. The wheel updates immediately.' },
     devilFive: { name:'Devil’s Five', kind:'DEVIL CARD', className:'devil', art:ASSET('devil-five'), text:'Fate chooses an active group at random, then reveals up to five different available forfeits, one by one.' },
     sealedEnvelopes: {name:'Sealed Envelopes',kind:'CHOICE CARD',className:'envelopes',art:ASSET('sealed-envelopes'),text:'Choose one sealed envelope. Only the result you choose and accept changes the wheel.'},
-    tripleTrouble: { name:'Triple Trouble', kind:'VERY BAD CARD', className:'triple', art:ASSET('triple-trouble'), text:'The current forfeit stays and two additional forfeits are added.' }
+    tripleTrouble: { name:'Triple Trouble', kind:'VERY BAD CARD', className:'triple', art:ASSET('triple-trouble'), text:'The current forfeit stays and two additional forfeits are added.' },
+    miniGame: { name:'Mini-game Challenge', kind:'RARE MINI-GAME CARD', className:'minigame', art:ASSET('fate-roulette'), text:'A quick game of skill starts next. Win for a Luck boost that halves the next timed challenge; lose and your current challenge stays unchanged.' }
   };
 
   function deckSettings() { return window.FortuneFeatures.normalizeDeck(M.loadConfig().settings.fateDeck); }
@@ -100,7 +101,8 @@
     const state = loadState();
     const count = state.cards.length;
     const label = $('fateDeckCount');
-    if (label) label.textContent = count ? `${count} card${count === 1 ? '' : 's'} left` : 'DECK EMPTY';
+    const luck=M.loadSession(M.loadConfig()).cardState?.miniLuck || 0;
+    if (label) label.textContent = (count ? `${count} card${count === 1 ? '' : 's'} left` : 'DECK EMPTY') + (luck?` · ${luck} Luck boost${luck===1?'':'s'}`:'');
     $('fateDeckPanel')?.classList.toggle('empty', count === 0);
     updateTemptButton();
   }
@@ -147,7 +149,10 @@
     if (!state.cards.length) return null;
     const index = Math.floor(Math.random() * state.cards.length);
     const id = state.cards.splice(index,1)[0];
-    state.draw={id,context,action:null};
+    const looks=window.FortuneFeatures.cardArtworkVariants(id);
+    const artVariant=looks.length ? Math.floor(Math.random()*looks.length) : 0;
+    const miniGameId=id==='miniGame'?['higher','dice','meter'][Math.floor(Math.random()*3)]:null;
+    state.draw={id,context,action:null,artVariant,miniGameId};
     saveState(state);
     return id;
   }
@@ -204,15 +209,17 @@
     const overlay = ensureOverlay(), meta = CARD_META[id];
     if (!meta) return;
     cardReady = false; const token = ++revealToken;
-    const savedAction=loadState().draw?.action;
+    const savedDraw=loadState().draw;
+    const savedAction=savedDraw?.action;
     currentDraw = id; currentContext = context; pendingAction = savedAction || null; coinResolved = false; rouletteResolved = false;
     const card = $('fateV4Card');
     card.dataset.kind = meta.className;
+    overlay.dataset.kind=meta.className;
     card.classList.remove('revealed','dealing','evil-pop');
     $('fateV4FrontImage').hidden = Boolean(meta.glyph);
     $('fateV4FrontImage').decoding='async';
     overlay.querySelector('.fate-v4-front').setAttribute('aria-hidden','true');
-    window.FortuneFeatures.setCardImage($('fateV4FrontImage'),id,M.loadConfig().settings);
+    window.FortuneFeatures.setCardImage($('fateV4FrontImage'),id,M.loadConfig().settings,savedDraw?.id===id?savedDraw.artVariant:0);
     const art = $('fateCustomArt'); art.hidden = !meta.glyph; art.dataset.kind = meta.className; art.querySelector('span').textContent = meta.glyph || ''; art.querySelector('strong').textContent = meta.name;
     $('fateV4FrontImage').alt = meta.name;
     $('fateV4Status').innerHTML = `<span>${meta.kind}</span><strong id="fateV4Title">${meta.name}</strong><small>${meta.text}</small>`;
@@ -220,13 +227,14 @@
     $('fateV4ChoiceArea').hidden = id !== 'pickYourPoison';
     $('fateV4RouletteArea').hidden = id !== 'fateRoulette';
     $('fateV4Continue').hidden = ['doubleOrNothing','pickYourPoison','fateRoulette'].includes(id);
-    $('fateV4Continue').textContent = 'Continue';
+    $('fateV4Continue').textContent = id==='miniGame'?'Play mini-game':'Continue';
     $('fateV4Flip').hidden = false; $('fateV4Flip').disabled = false; $('fateV4CoinResult').textContent = 'FATE IS WAITING'; $('fateV4Coin').getAnimations?.().forEach(animation=>animation.cancel()); $('fateV4Coin').className = 'risk-wheel'; $('fateV4Coin').style.transform = 'rotate(0deg)';
     $('fateV4ChoiceKeep').disabled = false; $('fateV4ChoiceSwap').disabled = false;
     $('fateV4RouletteSpin').hidden = false; $('fateV4RouletteSpin').disabled = false; $('fateV4RouletteResult').textContent = 'SPIN THE MINI WHEEL'; $('fateV4Roulette').style.transform = 'rotate(0deg)';
     const concealed = [$('fateV4Status'),$('fateV4CoinArea'),$('fateV4ChoiceArea'),$('fateV4RouletteArea'),overlay.querySelector('.fate-v4-actions')];
     const hiddenStates = concealed.map(node=>node.hidden);
     concealed.forEach(node=>node.hidden=true);
+    overlay.classList.remove('fate-reveal-complete');
     overlay.querySelector('.fate-v4-reveal-label').textContent='FATE IS CHOOSING…';
     overlay.querySelectorAll('button').forEach(button=>button.disabled=true);
     overlay.hidden = false;
@@ -238,6 +246,7 @@
         cardReady=true;overlay.querySelector('.fate-v4-front').setAttribute('aria-hidden','false');concealed.forEach((node,i)=>node.hidden=hiddenStates[i]);
         overlay.querySelectorAll('button').forEach(button=>button.disabled=false);
         overlay.querySelector('.fate-v4-reveal-label').textContent='YOUR FATE IS REVEALED';
+        overlay.classList.add('fate-reveal-complete');
         if(savedAction){
           pendingAction=savedAction;coinResolved=true;rouletteResolved=true;
           ['fateV4CoinArea','fateV4ChoiceArea','fateV4RouletteArea'].forEach(id=>$(id).hidden=true);
@@ -321,6 +330,17 @@
     if (!overlay || !cardReady || !currentDraw) return;
     cardReady=false; ++revealToken;
     const draw = currentDraw, context = currentContext;
+    if (draw === 'miniGame') {
+      const gameId=loadState().draw?.miniGameId || 'dice';
+      overlay.hidden=true;
+      const opened=window.FortuneArcade?.openFateRound(gameId,won=>{
+        if (won) window.FortunePlay.grantMiniLuck();
+        const state=loadState();if(state.draw?.id==='miniGame'){delete state.draw;saveState(state);}
+        currentDraw=null;currentContext=null;pendingAction=null;updateTemptButton();
+      });
+      if(!opened){overlay.hidden=false;cardReady=true;}
+      return;
+    }
     let action = pendingAction;
     if (!action) {
       if (draw === 'nothing') action = 'nothing';
@@ -356,6 +376,7 @@
     setTimeout(() => { const after = M.loadSession(M.loadConfig()); if (before.sessionId !== after.sessionId) resetDeck(); },90);
   });
   $('fileInput')?.addEventListener('change',() => setTimeout(renderDeckPanel,250));
+  window.addEventListener('fortune-result-committed',renderDeckPanel);
 
   ensureOverlay(); ensureTemptButton(); renderDeckPanel();
   const savedDraw=loadState().draw;

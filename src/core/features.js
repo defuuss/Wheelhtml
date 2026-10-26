@@ -55,8 +55,14 @@
     return { ...item, description: [item.description, `Modifier: ${modifier.name}`, modifier.description].filter(Boolean).join('\n\n'),
       timerSeconds: Number.isFinite(modifier.timerSeconds) ? Math.min(3600, Math.max(0, modifier.timerSeconds)) : item.timerSeconds ? Math.min(3600, Math.max(1, Math.round(item.timerSeconds * modifier.timerMultiplier))) : 0 };
   }
-  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0 };
-  const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five', sealedEnvelopes:'Sealed Envelopes' };
+  function consumeMiniLuck(item, tokens=0) {
+    const saved=Math.max(0,Math.min(3,Math.floor(Number(tokens)||0)));
+    if (!saved || !Number.isFinite(item?.timerSeconds) || item.timerSeconds <= 0) return {item,remaining:saved};
+    return { item:{...item,timerSeconds:Math.max(1,Math.ceil(item.timerSeconds/2)),
+      description:[item.description,'Mini-game luck: challenge timer reduced by half.'].filter(Boolean).join('\n\n')},remaining:saved-1 };
+  }
+  const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0, miniGame:1 };
+  const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five', sealedEnvelopes:'Sealed Envelopes', miniGame:'Mini-game Challenge' };
   function normalizeDeck(raw) { return Object.fromEntries(Object.entries(deckDefaults).map(([id,count]) => [id, Math.round(number(raw?.[id] ?? count,0,30,count))])); }
   function shuffle(items, random = Math.random) {
     const out = [...items];
@@ -73,15 +79,27 @@
       envelopeGroups: Array.isArray(raw.envelopeGroups) ? [...new Set(raw.envelopeGroups.map(String))] : [],
       autoplay: raw.autoplay === true };
   }
-  const cardArtFiles = {back:'card-back',nothing:'nothing',skip:'lucky-skip',swap:'swap-fate',doubleForfeit:'double-forfeit',doubleOrNothing:'double-or-nothing',pickYourPoison:'pick-your-poison',fateRoulette:'fate-roulette',tripleTrouble:'triple-trouble',rarest:'rarest',chaosWeights:'chaos',devilFive:'devil-five',sealedEnvelopes:'sealed-envelopes'};
-  // Each Fate card has one stable illustration; user-uploaded card art still wins.
+  const cardArtFiles = {back:'card-back',nothing:'nothing',skip:'lucky-skip',swap:'swap-fate',doubleForfeit:'double-forfeit',doubleOrNothing:'double-or-nothing',pickYourPoison:'pick-your-poison',fateRoulette:'fate-roulette',tripleTrouble:'triple-trouble',rarest:'rarest',chaosWeights:'chaos',devilFive:'devil-five',sealedEnvelopes:'sealed-envelopes',miniGame:'fate-roulette'};
+  // Every Fate type has a matching pair of built-in portraits. A draw fixes its variant
+  // so the image does not unexpectedly switch on a page reload. User uploads still win.
   const defaultCardPortraits = {
     nothing:'orange-freckles-swimsuit', skip:'sad-blue-wheel-emblem', swap:'violet-bob-swimsuit',
     doubleForfeit:'black-swimsuit-overknee-boots', doubleOrNothing:'pink-side-shaved-mohawk-swimsuit',
     pickYourPoison:'silver-undercut-suit', fateRoulette:'undercut-swimsuit',
     tripleTrouble:'bald-purple-pierced-throne', rarest:'bald-pearl-swimsuit',
     chaosWeights:'turquoise-mohawk-orange-wheel', devilFive:'devil-mohawk-red-wheel',
-    sealedEnvelopes:'platinum-undercut-teal-latex'
+    sealedEnvelopes:'platinum-undercut-teal-latex', miniGame:'lime-braids-swimsuit'
+  };
+  const alternateCardPortraits = {
+    nothing:'nothing-pink-buzzcut-v2', skip:'skip-bald-blue-v2',
+    swap:'swap-violet-asian-undercut-v2', doubleForfeit:'double-forfeit-black-pompadour-v2',
+    doubleOrNothing:'double-or-nothing-fuchsia-mohawk-v2',
+    pickYourPoison:'poison-chinese-green-undercut-v2',
+    fateRoulette:'roulette-japanese-yellow-sidecut-v2',
+    tripleTrouble:'triple-german-silver-mohawk-v2',
+    rarest:'rarest-french-pearl-v2', chaosWeights:'chaos-african-orange-braids-v2',
+    devilFive:'devil-indian-black-bald-v2',
+    sealedEnvelopes:'envelopes-brazilian-sapphire-v2', miniGame:'cobalt-short-curls-swimsuit'
   };
   const maxCardImageLength = 120000;
   function normalizeCardImages(raw) {
@@ -92,11 +110,19 @@
     }
     return images;
   }
-  function defaultCardImage(id) { if(defaultCardPortraits[id]) return 'assets/fate-cards/manga/'+defaultCardPortraits[id]+'.webp'; return 'assets/fate-cards/vector/'+(cardArtFiles[id] || 'card-back')+'.svg?v=20260915'; }
-  function cardImage(id, settings) { return normalizeCardImages(settings?.cardImages)[id] || defaultCardImage(id); }
-  function setCardImage(image,id,settings) {
-    image.onerror=()=>{image.onerror=null;image.src=defaultCardImage(id);};
-    image.src=cardImage(id,settings);
+  function cardArtworkVariants(id) {
+    return [defaultCardPortraits[id],alternateCardPortraits[id]].filter(Boolean)
+      .map(name=>'assets/fate-cards/manga/'+name+'.webp');
   }
-  window.FortuneFeatures = { cardArtFiles,maxCardImageLength,normalizeCardImages,defaultCardImage,cardImage,setCardImage,normalizeReveals, deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier };
+  function defaultCardImage(id, variant=0) {
+    const portraits=cardArtworkVariants(id);
+    if(portraits.length) return portraits[Number.isInteger(variant) && variant>=0 ? variant%portraits.length : 0];
+    return 'assets/fate-cards/vector/'+(cardArtFiles[id] || 'card-back')+'.svg?v=20260915';
+  }
+  function cardImage(id, settings, variant=0) { return normalizeCardImages(settings?.cardImages)[id] || defaultCardImage(id,variant); }
+  function setCardImage(image,id,settings,variant=0) {
+    image.onerror=()=>{image.onerror=null;image.src=defaultCardImage(id);};
+    image.src=cardImage(id,settings,variant);
+  }
+  window.FortuneFeatures = { cardArtFiles,maxCardImageLength,normalizeCardImages,cardArtworkVariants,defaultCardImage,cardImage,setCardImage,normalizeReveals, deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier, consumeMiniLuck };
 })();

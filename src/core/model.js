@@ -106,6 +106,7 @@
     if(!session.cardState||typeof session.cardState!=='object') session.cardState={};
     const s=session.cardState;
     s.respin=Math.max(0,Math.round(Number(s.respin)||0)); s.shorten=Math.max(0,Math.round(Number(s.shorten)||0));
+    s.miniLuck=Math.max(0,Math.min(3,Math.round(Number(s.miniLuck)||0)));
     s.chaosNext=Boolean(s.chaosNext); s.doubleTimeNext=Boolean(s.doubleTimeNext);
     s.forcedForfeits=Math.max(0,Math.round(Number(s.forcedForfeits)||0));
     s.chaosBackup=s.chaosBackup&&typeof s.chaosBackup==='object'?s.chaosBackup:{};
@@ -126,7 +127,7 @@
   function createSession(config){
     const cfg=sanitizeConfig(config); const activeLevels={}; cfg.levels.forEach(level=>{activeLevels[level.id]=Boolean(level.activeAtStart);});
     const runtime={}; cfg.forfeits.forEach(item=>{runtime[item.id]={removed:false,cooldown:0,remainingSpins:item.lifetime.type==='spins'?item.lifetime.spins:null,weightMultiplier:1};});
-    return ensureCardState({version:1,sessionId:makeId('session'),configSignature:signature(cfg),spinCount:0,wheelOrder:window.FortuneFeatures.shuffle(cfg.forfeits.map(item=>item.id)),activeLevels,runtime,history:[],undoStack:[],immunityTokens:0,doubleSpinTokens:0,cardState:{respin:0,shorten:0,chaosNext:false,doubleTimeNext:false,forcedForfeits:0,chaosBackup:{}}});
+    return ensureCardState({version:1,sessionId:makeId('session'),configSignature:signature(cfg),spinCount:0,wheelOrder:window.FortuneFeatures.shuffle(cfg.forfeits.map(item=>item.id)),activeLevels,runtime,history:[],undoStack:[],immunityTokens:0,doubleSpinTokens:0,cardState:{respin:0,shorten:0,miniLuck:0,chaosNext:false,doubleTimeNext:false,forcedForfeits:0,chaosBackup:{}}});
   }
   function loadSession(config){
     const cfg=sanitizeConfig(config); const sig=signature(cfg);

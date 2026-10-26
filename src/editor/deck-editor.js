@@ -8,19 +8,27 @@
     const title = document.createElement('h3'); title.textContent = 'Fate deck';
     const note = document.createElement('p'); note.textContent = 'Copies of each card per fresh session. Set 0 to exclude a card. Apply changes to start with the new deck.';
     const list = document.createElement('div'); list.className = 'deck-counts';
+    const gallery=document.createElement('details');gallery.className='deck-art-gallery';
+    const galleryTitle=document.createElement('summary');galleryTitle.textContent='Card artwork gallery · Preview or upload images';
+    const artwork=document.createElement('div');artwork.className='deck-counts deck-art-grid';gallery.append(galleryTitle,artwork);
     const total = document.createElement('p'); total.className = 'deck-total';
     const update = () => { const count = Object.values(settings.fateDeck).reduce((a,b)=>a+b,0); total.textContent = count ? `${count} cards in the deck` : 'Deck disabled: all quantities are zero.'; };
     Object.entries(F.deckNames).forEach(([id,name]) => {
       const label = document.createElement('label'); label.className = 'field'; label.textContent = name;
       const input = document.createElement('input'); input.type = 'number'; input.min = 0; input.max = 30; input.step = 1; input.value = settings.fateDeck[id]; input.dataset.card = id;
       input.oninput = () => { settings.fateDeck[id] = Math.max(0,Math.min(30,Math.round(Number(input.value)||0))); update(); changed(); };
-      const row=document.createElement('article');row.className='deck-card-setting';
-      label.append(input);row.append(label);window.FortuneCardImageEditor.mount(row,id,name,settings,changed);list.append(row);
+      const row=document.createElement('article');row.className='deck-card-setting deck-count-row';
+      label.append(input);row.append(label);list.append(row);
+      const artRow=document.createElement('article');artRow.className='deck-card-setting';
+      const artTitle=document.createElement('h4');artTitle.textContent=name;artRow.append(artTitle);
+      window.FortuneCardImageEditor.mount(artRow,id,name,settings,changed);artwork.append(artRow);
     });
     const back=document.createElement('section');back.className='deck-card-setting card-back-setting';
     const backTitle=document.createElement('h4');backTitle.textContent='Card back';back.append(backTitle);
     window.FortuneCardImageEditor.mount(back,'back','Card back',settings,changed);
     const revealTitle=document.createElement('h3'); revealTitle.textContent='Sealed envelopes & reveals';
+    const advanced=document.createElement('details');advanced.className='deck-advanced-settings';
+    const advancedTitle=document.createElement('summary');advancedTitle.textContent='Advanced reveal settings · Envelopes and hints';
     settings.reveals=F.normalizeReveals(settings.reveals);
     const revealControls=document.createElement('div'); revealControls.className='deck-counts';
     const select=(key,title,choices)=>{
@@ -46,6 +54,8 @@
       label.append(input,document.createTextNode(group.name));groups.append(label);
     });
     const info=document.createElement('p');info.textContent='Set Sealed Envelopes above to at least 1 copy to include it. Only the chosen, accepted result changes the wheel. Hints describe the base entry before any modifier.';
-    panel.append(title,note,list,total,back,revealTitle,revealControls,auto,groups,info); document.querySelector('#tab-settings .settings-grid').append(panel); update();
+    artwork.append(back);
+    advanced.append(advancedTitle,revealTitle,revealControls,auto,groups,info);
+    panel.append(title,note,list,total,gallery,advanced); document.querySelector('#tab-settings .settings-grid').append(panel); update();
   } };
 })();

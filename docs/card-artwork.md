@@ -1,9 +1,12 @@
 # Manga card artwork
 
 Generated with the built-in image-generation tool for this project. All subjects
-are fictional adult women, age 30 or older. Twenty portraits are available; twelve distinct portraits are assigned to the twelve default card types;
-card identities and effects remain in the existing title and description UI.
-User-uploaded artwork overrides the defaults. The existing card back is retained.
+are fictional adult women. Thirty-two portraits are available. Each of the thirteen Fate
+card types has two different built-in looks, picked when that card is drawn and
+kept stable through a reload. In the editor, **Next look** previews each option;
+the looks rotate automatically during play. Card identities and effects remain
+in the existing title and description UI.
+User-uploaded artwork overrides both built-in looks. The existing card back is retained.
 Each vertical PNG was converted into a lightweight WebP asset for fast loading.
 
 - `assets/fate-cards/manga/bald-latex.webp`: Premium portrait manga playing-card
@@ -74,6 +77,37 @@ Each vertical PNG was converted into a lightweight WebP asset for fast loading.
   orange latex-style leotard with golden wheel crest, laughing by roulette with
   hands free of props.
 
+The twelve second-look artworks have high-legged, glossy, opaque 1980s-inspired
+one-pieces, wheel motifs, tall boots and full-length framing. They introduce
+additional skin tones, facial features, haircuts and physiques; the backgrounds
+share an Art Deco casino style. They are distinct fictional people rather than
+nationality costumes:
+
+- `nothing-pink-buzzcut-v2.webp` — coral buzzcut, warm brown skin, pink outfit,
+  cheerful shrug for a non-event.
+- `skip-bald-blue-v2.webp` — fuller-figured Black bald woman, disappointed look,
+  glossy blue outfit and gold piercings.
+- `swap-violet-asian-undercut-v2.webp` — freckled violet undercut, purple outfit,
+  two floating choices and mischievous smile.
+- `double-forfeit-black-pompadour-v2.webp` — muscular dark-haired pompadour,
+  black shiny outfit and a gleeful two-card pose.
+- `double-or-nothing-fuchsia-mohawk-v2.webp` — dramatic pink side-shaved mohawk,
+  coin toss and matching shiny fuchsia attire.
+- `poison-chinese-green-undercut-v2.webp` — contemporary Chinese character,
+  cropped black undercut and emerald outfit, presenting two mysterious boxes.
+- `roulette-japanese-yellow-sidecut-v2.webp` — contemporary Japanese character,
+  black/turquoise sidecut, joyful dance and shiny yellow outfit.
+- `triple-german-silver-mohawk-v2.webp` — strong fuller-figured German character,
+  short platinum mohawk, red outfit and triumphant seated throne pose.
+- `rarest-french-pearl-v2.webp` — French character with curly black asymmetrical
+  undercut, pearl-white outfit and emotional, regal expression.
+- `chaos-african-orange-braids-v2.webp` — dark-skinned African woman with
+  elaborate blue/black braids, orange outfit and exuberant roulette pose.
+- `devil-indian-black-bald-v2.webp` — Indian woman with shaved head, piercings,
+  shiny black outfit, red boots and a devil-mask card.
+- `envelopes-brazilian-sapphire-v2.webp` — Brazilian character with shaved-side
+  natural curls, sapphire outfit and three sealed envelopes.
+
 Card defaults deliberately match the characters' expressions to their outcomes.
 Bad cards have amused or dominant opponents; the Lucky Skip character looks
 upset by the player's good fortune. The reveal uses `object-fit: contain` and
@@ -93,3 +127,4 @@ a larger responsive 2:3 frame so the full source artwork remains visible.
 | Chaos Weights | Turquoise extreme undercut | Mischievous disorder, varied silhouette |
 | Devil's Five | Red devil mohawk | Muscular, delighted villain holding a devil card |
 | Sealed Envelopes | Platinum teal | Secretive held card |
+| Mini-game Challenge | Lime braided portrait | A rare mandatory one-round Arcade challenge; alternate cobalt portrait |

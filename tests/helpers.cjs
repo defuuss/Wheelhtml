@@ -1,7 +1,7 @@
 const {JSDOM}=require('jsdom');
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),wait=ms=>new Promise(r=>setTimeout(r,ms));
-const cardIds=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes'];
+const cardIds=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes','miniGame'];
 const deck=(type,count=5)=>Object.fromEntries(cardIds.map(id=>[id,id===type?count:0]));
 async function setup(config={}, {page='index.html',saved=null}={}) {
  const dom=new JSDOM(fs.readFileSync(path.join(root,page),'utf8'),{url:'https://wheel.test/'+page,runScripts:'outside-only',pretendToBeVisual:true});

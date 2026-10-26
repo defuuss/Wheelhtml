@@ -71,6 +71,7 @@
     const s = session.cardState;
     s.respin = Math.max(0, Math.round(Number(s.respin) || 0));
     s.shorten = Math.max(0, Math.round(Number(s.shorten) || 0));
+    s.miniLuck = Math.max(0, Math.min(3,Math.round(Number(s.miniLuck) || 0)));
     s.chaosNext = Boolean(s.chaosNext);
     s.doubleTimeNext = Boolean(s.doubleTimeNext);
     s.forcedForfeits = Math.max(0, Math.round(Number(s.forcedForfeits) || 0));
@@ -119,6 +120,7 @@
   function renderWheel() {
     const items = active();
     segments = makeSegments(items);
+    renderEntryGuide(segments);
     rotor.innerHTML = '';
     spinBtn.disabled = spinning || pendingResult || Boolean(session.pendingForfeit || session.acceptedForfeit || session.revealBatch) || !segments.length;
 
@@ -164,7 +166,7 @@
         if (config.settings.showTextOnWheel && segment.span >= 20) {
           const label = svg('text', { x: 0, y: 25, 'text-anchor': 'middle', class: 'wheel-label' });
           const raw = segment.item.mystery ? 'MYSTERY' : segment.item.name;
-          const limit = segment.span >= 35 ? 16 : 10;
+          const limit = segment.span >= 35 ? 18 : 11;
           label.textContent = raw.length > limit ? raw.slice(0, limit - 1) + '…' : raw;
           group.appendChild(label);
         }
@@ -175,6 +177,21 @@
     root.appendChild(svg('circle', { cx: 300, cy: 300, r: 286, class: 'wheel-rim' }));
     rotor.appendChild(root);
     rotor.style.transform = `rotate(${rotation}deg)`;
+  }
+
+  function renderEntryGuide(list) {
+    const container=$('wheelEntryList');if(!container)return;
+    const count=$('wheelEntryCount');
+    if(count)count.textContent=`${list.length} active · full names & odds`;
+    container.replaceChildren();
+    for(const segment of list){
+      const row=document.createElement('div');row.className='wheel-entry-row';
+      const icon=document.createElement('span');icon.className='wheel-entry-icon';icon.textContent=segment.item.mystery?'❓':segment.item.icon;
+      icon.style.setProperty('--entry-color',segment.item.color);
+      const name=document.createElement('strong');name.textContent=segment.item.mystery?'Mystery':segment.item.name;
+      const chance=document.createElement('small');chance.textContent=`${(segment.weight/segment.total*100).toFixed(1)}%`;
+      row.append(icon,name,chance);container.append(row);
+    }
   }
 
   function renderLevels() {
@@ -546,7 +563,9 @@
       let modifier = null;
       try { modifier = await window.FortuneModifierWheel.resolve(pick.item); }
       catch (error) { console.warn('Modifier wheel could not open:', error); }
-      const resultItem = window.FortuneFeatures.applyModifier(pick.item, modifier);
+      let resultItem = window.FortuneFeatures.applyModifier(pick.item, modifier);
+      const luck = window.FortuneFeatures.consumeMiniLuck(resultItem,ensureCardState().miniLuck);
+      resultItem=luck.item;session.cardState.miniLuck=luck.remaining;
       if (session.pendingForfeit) { session.pendingForfeit.item = M.deepClone(resultItem); session.pendingForfeit.modifier = modifier; M.saveSession(session); }
       if (modifier && !session.pendingForfeit) {
         const last = session.history.at(-1);
@@ -1166,6 +1185,7 @@
     acceptPending, discardPending,
     canTakeCard: () => Boolean(session.pendingForfeit && !CARD_EVENTS.has(session.pendingForfeit.item.eventType) && !session.pendingForfeit.cardUsed && !session.revealBatch),
     markCardUsed() { if (session.pendingForfeit) { session.pendingForfeit.cardUsed=true; M.saveSession(session); } },
+    grantMiniLuck() {const cards=ensureCardState();cards.miniLuck=Math.min(3,cards.miniLuck+1);M.saveSession(session);return cards.miniLuck;},
     pendingItem: () => session.pendingForfeit?.item || null,
     settings: () => M.deepClone(config.settings),
     batch: () => session.revealBatch || null,
