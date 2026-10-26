@@ -1023,7 +1023,16 @@
   }
 
   function showResult(item, outcome) {
-    if (session.pendingForfeit && !session.revealBatch) acceptPending();
+    if (session.pendingForfeit && !session.revealBatch) {
+      const pending=session.pendingForfeit;
+      const eligible=!CARD_EVENTS.has(item.eventType) && item.eventType!=='spinAgain'
+        && session.spinCount-Number(session.lastEscapeOfferSpin ?? -100)>=3;
+      if(eligible && Math.random()<.30) {
+        pending.escapeOffered=true;
+        session.lastEscapeOfferSpin=session.spinCount;
+        M.saveSession(session);
+      } else acceptPending();
+    }
     currentResult = { item, outcome };
     ensureResultExtras();
     overlay.hidden = false;
@@ -1150,12 +1159,7 @@
       });
     }
     container.hidden=true;
-    if (!session.pendingForfeit || CARD_EVENTS.has(item.eventType) || item.eventType==='spinAgain' || session.revealBatch) return;
-    const spinNumber=session.spinCount;
-    const last=Number(session.lastEscapeOfferSpin ?? -100);
-    if(spinNumber-last<3 || Math.random()>=.30)return;
-    session.lastEscapeOfferSpin=spinNumber;
-    M.saveSession(session);
+    if (!session.pendingForfeit?.escapeOffered || session.revealBatch) return;
     container.hidden=false;
   }
 
