@@ -11,14 +11,14 @@ forfeits:Array.from({length:4},(_,i)=>({id:'e'+i,name:'Secret title '+i,descript
   ids=Array.from(f.session().revealBatch.entries,x=>x.item.id);assert.equal(new Set(ids).size,3);
   buttons[1].click();buttons[2].click();await wait(40);
   assert.equal(f.session().revealBatch.chosen,1);
-  assert.equal(f.session().history.length,0);assert.equal(f.session().activeLevels.b,false);
+  assert.equal(f.session().history.length,1);assert.equal(f.session().activeLevels.b,true);
   saved=f.saved();
  }finally{f.close();}
  const g=await setup(config,{saved});try{
   assert.equal(g.session().revealBatch.chosen,1);
   assert.equal(g.w.document.querySelectorAll('.fate-envelope').length,0);
   assert.equal(g.w.document.querySelector('.batch-forfeit h3').textContent,'Secret title '+ids[1].slice(1));
-  g.w.document.getElementById('batchAccept').click();
+  assert.equal(g.w.document.getElementById('batchAccept'),null);
   assert.deepEqual(Array.from(g.session().history,x=>x.id),[ids[1]]);
   assert.equal(g.session().activeLevels.b,true);
   ids.filter(id=>id!==ids[1]).forEach(id=>assert.equal(g.session().runtime[id].removed,false));

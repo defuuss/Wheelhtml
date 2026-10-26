@@ -83,7 +83,7 @@
     }
     return images;
   }
-  function defaultCardImage(id) { return 'assets/fate-cards/vector/'+(cardArtFiles[id] || 'card-back')+'.svg?v=20260915'; }
+  function defaultCardImage(id) { if(id !== 'back' && cardArtFiles[id]) return 'assets/fate-cards/manga/'+(['doubleOrNothing','fateRoulette','chaosWeights','tripleTrouble','sealedEnvelopes','swap'].includes(id)?'undercut-swimsuit':'bald-latex')+'.webp'; return 'assets/fate-cards/vector/'+(cardArtFiles[id] || 'card-back')+'.svg?v=20260915'; }
   function cardImage(id, settings) { return normalizeCardImages(settings?.cardImages)[id] || defaultCardImage(id); }
   function setCardImage(image,id,settings) {
     image.onerror=()=>{image.onerror=null;image.src=defaultCardImage(id);};

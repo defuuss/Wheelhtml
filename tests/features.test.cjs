@@ -85,5 +85,5 @@ test('custom card images accept bounded embedded raster data and fall back to de
  const clean=F.normalizeCardImages({rarest:image,back:image,skip:'https://example.com/card.png',swap:'data:image/svg+xml;base64,PHN2Zy8+',unknown:image,nothing:'data:image/png;base64,'+'A'.repeat(120001)});
  assert.deepEqual(Object.keys(clean),['back','rarest']);
  assert.equal(F.cardImage('rarest',{cardImages:clean}),image);
- assert.match(F.cardImage('skip',{cardImages:clean}),/lucky-skip\.svg/);
+ assert.match(F.cardImage('skip',{cardImages:clean}),/bald-latex\.webp/);
 });

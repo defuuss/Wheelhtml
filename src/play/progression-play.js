@@ -29,7 +29,7 @@
     if(cooling)effects.append(el('span','effect-pill','Cooling down · '+cooling));
     if(session.revealBatch)effects.append(el('span','effect-pill','Reveal in progress'));
     effects.hidden=!effects.children.length;
-    const accept=document.getElementById('resultCloseBtn');accept.textContent=session.pendingForfeit?'Accept':'Done';
+    const accept=document.getElementById('resultCloseBtn');accept.textContent='Continue';
     accept.hidden=false;
   }
   window.addEventListener('fortune-state-change',render);

@@ -65,13 +65,6 @@
     if(batch.hint==='duration')return !item.timerSeconds?'Untimed':item.timerSeconds<=60?'Up to 1 minute':item.timerSeconds<=300?'1–5 minutes':'Over 5 minutes';
     return 'A sealed possibility';
   }
-  function resolve(accept) {
-    const batch=current(), entry=batch && R.next(batch);
-    if(busy || batch?.paused || entry?.status!=='revealed')return;
-    P.resolveEntry(entry,accept);render();
-    const next=R.next(batch);
-    if(batch.autoplay && next?.status==='sealed')reveal(next);
-  }
   async function choose(index) {
     const batch=current();if(busy || batch?.paused || !R.chooseEnvelope(batch,index))return;
     batch.entries[index].status='revealing';save();
@@ -95,6 +88,7 @@
   }
   function render() {
     const batch=current();if(!batch || !overlay)return;
+    batch.entries.filter(entry=>entry.status==='revealed').forEach(entry=>P.resolveEntry(entry,true));
     const focusKey=document.activeElement?.dataset?.focus;
     overlay.replaceChildren();
     const dialog=el('section','batch-dialog midnight-reveal');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-labelledby','batchTitle');
@@ -104,7 +98,7 @@
     const summary=el('p','reveal-summary');summary.setAttribute('role','status');
     const resolved=batch.entries.filter(x=>['accepted','declined','unavailable'].includes(x.status)).length;
     const total=batch.envelopes?1:batch.entries.length;
-    summary.textContent=batch.paused?'Paused. Your results and timers are saved.':batch.envelopes && batch.chosen===null?'Choose a seal. Only your chosen result can be accepted.':resolved+' of '+total+' resolved'+(batch.groupId?' · '+(batch.entries.find(x=>x.key!=='original')?.item.groupName || 'Selected group'):'');
+    summary.textContent=batch.paused?'Paused. Your results and timers are saved.':batch.envelopes && batch.chosen===null?'Choose a seal. Your chosen result is final.':resolved+' of '+total+' resolved'+(batch.groupId?' · '+(batch.entries.find(x=>x.key!=='original')?.item.groupName || 'Selected group'):'');
     dialog.append(top,title,summary);
     if(batch.paused){
       const paused=el('div','reveal-paused');paused.append(el('span','seal-emblem','Ⅱ'),el('h3','','Take your time'),el('p','','Nothing progresses while paused.'),button('Resume reveal','btn primary large',resume));
@@ -131,8 +125,7 @@
         stage.append(sealed);
       } else if(entry){
         const card=el('article','batch-forfeit reveal-face');card.style.setProperty('--batch-color',entry.item.color);
-        card.append(el('small','',entry.status==='revealed'?'AWAITING YOUR ACCEPTANCE':entry.status.toUpperCase()),el('div','reveal-sigil',entry.item.icon || '✦'),el('h3','',entry.item.name),el('p','',entry.item.description || 'Your selected fate.'));
-        if(entry.status==='revealed')card.append(el('p','reveal-pending-note','No uses, unlocks or completion changes until you accept.'));
+        card.append(el('small','',entry.status==='revealed'?'YOUR CHALLENGE':entry.status.toUpperCase()),el('div','reveal-sigil',entry.item.icon || '✦'),el('h3','',entry.item.name),el('p','',entry.item.description || 'Your selected fate.'));
         if(entry.status==='accepted'){
           const type=entry.item.lifetime?.type;
           card.append(el('small','',type==='forever'?'Repeatable entry':type==='spins'?'One selection used':'Removed from the wheel'));
@@ -154,13 +147,7 @@
         slots.append(slot);
       });dialog.append(slots);
       const controls=el('div','reveal-controls'), next=R.next(batch);
-      if(next?.status==='revealed'){
-        if(entry!==next)controls.append(button('Return to pending result','btn primary',()=>{batch.view=batch.entries.indexOf(next);save();render();}));
-        else {
-          const accept=button('Accept result','btn primary large',()=>resolve(true));accept.id='batchAccept';accept.dataset.focus='accept';
-          controls.append(accept);
-        }
-      } else if(next){
+      if(next){
         const nextButton=button(busy?'Revealing…':'Reveal next','btn primary large',()=>reveal(next));
         nextButton.id='batchNext';nextButton.disabled=busy;nextButton.dataset.focus='next';controls.append(nextButton);
       } else {
@@ -172,7 +159,7 @@
     }
     overlay.append(dialog);
     const focus=focusKey && [...dialog.querySelectorAll('[data-focus]')].find(node=>node.dataset.focus===focusKey && !node.disabled);
-    (focus || dialog.querySelector('#batchAccept,#batchNext,#batchDone') || dialog.querySelector('.fate-envelope,.reveal-paused button') || dialog.querySelector('.reveal-pause'))?.focus();
+    (focus || dialog.querySelector('#batchNext,#batchDone') || dialog.querySelector('.fate-envelope,.reveal-paused button') || dialog.querySelector('.reveal-pause'))?.focus();
   }
   window.FortuneBatchReveal={
     open(options){if(current())return;const batch=P.startBatch(options);if(!batch)return;mount();render();if(batch.autoplay && !batch.envelopes && R.next(batch)?.status==='sealed')reveal(R.next(batch));},

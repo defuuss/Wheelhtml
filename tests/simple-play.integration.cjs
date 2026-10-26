@@ -16,7 +16,7 @@ const root=path.resolve(__dirname,'..');const pause=ms=>new Promise(r=>setTimeou
  button.click();button.click();await pause(3400);
  const modal=w.document.querySelector('.modifier-overlay');assert.ok(modal);
  modal.querySelector('.group-actions button').click();await pause(20);modal.querySelector('.group-actions button').click();await pause(100);
- assert.equal(w.FortuneModel.loadSession(cfg).completedLevels.start,undefined);w.FortunePlay.acceptPending();
+ assert.equal(w.FortuneModel.loadSession(cfg).completedLevels.start,true);w.FortunePlay.acceptPending();
  const s=w.FortuneModel.loadSession(cfg);assert.equal(s.spinCount,1);assert.equal(s.completedLevels.start,true);assert.equal(s.activeLevels.next,true);assert.equal(s.history.at(-1).modifierName,'2 min');
  assert.match(w.document.getElementById('resultTimerPanel').textContent,/02:00|2:00/);assert.deepEqual(errors,[]);
  console.log('PASS: manual spin waits for Stop, one result, minute wheel, XML, timer, group exhaustion and next-group unlock.');
