@@ -1067,6 +1067,65 @@
     state('Last result', bits.join(' · '));
   }
 
+  // The game is chosen before reveal, and each named game uses its matching
+  // manga Fate portrait. The player can inspect the stakes before starting.
+  function revealEscapeGame(game,onFinish,onCancel) {
+    let layer=$('escapeGameReveal');
+    if(!layer) {
+      layer=document.createElement('div');
+      layer.id='escapeGameReveal';
+      layer.className='escape-game-reveal';
+      layer.hidden=true;
+      layer.innerHTML=`<div class="escape-game-reveal-backdrop"></div>
+        <section class="escape-game-reveal-dialog" role="dialog" aria-modal="true" aria-labelledby="escapeGameName">
+          <span class="escape-game-eyebrow">THE DEVIL CHOOSES YOUR GAME</span>
+          <div class="escape-game-portrait">
+            <img id="escapeGameBack" alt="Sealed Fate card">
+            <img id="escapeGameFace" alt="Escape mini-game artwork" hidden>
+          </div>
+          <h2 id="escapeGameName">YOUR CHANCE TO ESCAPE</h2>
+          <p id="escapeGameRule"></p>
+          <p class="escape-game-stakes">WIN · FORFEIT CANCELLED<br>LOSE · FORFEIT + ONE EXTRA</p>
+          <div class="escape-game-controls">
+            <button id="escapeGameStart" type="button" class="btn primary large" disabled>REVEALING…</button>
+            <button id="escapeGameBackBtn" type="button" class="btn ghost large">BACK</button>
+          </div>
+        </section>`;
+      document.body.appendChild(layer);
+    }
+    if(!session.pendingForfeit)return onCancel();
+    const features=window.FortuneFeatures;
+    const settings=M.loadConfig().settings;
+    features.setCardImage($('escapeGameBack'),'back',settings);
+    features.setCardImage($('escapeGameFace'),game.card,settings,Math.floor(Math.random()*2));
+    $('escapeGameFace').alt=game.name+' Fate card';
+    $('escapeGameName').textContent=game.name;
+    $('escapeGameRule').textContent=game.rule;
+    $('escapeGameBack').hidden=false;
+    $('escapeGameFace').hidden=true;
+    const start=$('escapeGameStart'),back=$('escapeGameBackBtn');
+    start.disabled=true;start.textContent='REVEALING…';
+    layer.hidden=false;
+    const token=Symbol('reveal');
+    layer._revealToken=token;
+    const close=()=>{layer._revealToken=null;layer.hidden=true;};
+    back.onclick=()=>{close();onCancel();};
+    start.onclick=()=>{
+      if(start.disabled || !session.pendingForfeit)return;
+      close();
+      const opened=window.FortuneArcade?.openFateRound(game.id,onFinish,{escape:true});
+      if(!opened)onCancel();
+    };
+    setTimeout(()=>{
+      if(layer._revealToken!==token)return;
+      $('escapeGameBack').hidden=true;
+      $('escapeGameFace').hidden=false;
+      start.disabled=false;start.textContent='PLAY TO ESCAPE';
+      layer.classList.remove('escape-game-revealing');
+    },window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:900);
+    layer.classList.add('escape-game-revealing');
+  }
+
   // An occasional, optional risk at reveal time. The result remains provisional
   // until the player chooses to keep it or wins the escape mini-game.
   function offerEscapeWager(item) {
@@ -1082,15 +1141,12 @@
       $('escapeWagerPlay')?.addEventListener('click',()=>{
         if (!session.pendingForfeit || !window.FortuneArcade?.openFateRound) return;
         container.hidden=true;
-        const game=['higher','dice','meter'][Math.floor(Math.random()*3)];
-        const opened=window.FortuneArcade.openFateRound(game,won=>{
-          if (won) discardPending();
-          else {
-            window.FortuneFateDeck?.addEscapePenalty?.();
-            // Normal Continue commits the existing result; the extra penalty follows.
-          }
-        },{escape:true});
-        if(!opened)container.hidden=false;
+        const games=[{id:'higher',card:'miniHigher',name:'HIGHER OR LOWER',rule:'Guess whether the next number is higher or lower.'},{id:'dice',card:'miniDice',name:'DICE DUEL',rule:'Beat the house with two dice.'},{id:'meter',card:'miniMeter',name:'STOP THE METER',rule:'Stop the pointer inside the gold zone.'}];
+        const game=games[Math.floor(Math.random()*games.length)];
+        revealEscapeGame(game,won=>{
+          if(won)discardPending();
+          else window.FortuneFateDeck?.addEscapePenalty?.();
+        },()=>{container.hidden=false;});
       });
     }
     container.hidden=true;
