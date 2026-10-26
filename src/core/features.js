@@ -74,6 +74,15 @@
       autoplay: raw.autoplay === true };
   }
   const cardArtFiles = {back:'card-back',nothing:'nothing',skip:'lucky-skip',swap:'swap-fate',doubleForfeit:'double-forfeit',doubleOrNothing:'double-or-nothing',pickYourPoison:'pick-your-poison',fateRoulette:'fate-roulette',tripleTrouble:'triple-trouble',rarest:'rarest',chaosWeights:'chaos',devilFive:'devil-five',sealedEnvelopes:'sealed-envelopes'};
+  // Each Fate card has one stable illustration; user-uploaded card art still wins.
+  const defaultCardPortraits = {
+    nothing:'emerald-bald-swimsuit', skip:'bald-latex', swap:'copper-undercut-swimsuit',
+    doubleForfeit:'violet-undercut-red-latex', doubleOrNothing:'undercut-swimsuit',
+    pickYourPoison:'emerald-bald-swimsuit', fateRoulette:'undercut-swimsuit',
+    tripleTrouble:'violet-undercut-red-latex', rarest:'platinum-undercut-teal-latex',
+    chaosWeights:'copper-undercut-swimsuit', devilFive:'bald-latex',
+    sealedEnvelopes:'platinum-undercut-teal-latex'
+  };
   const maxCardImageLength = 120000;
   function normalizeCardImages(raw) {
     const images={};
@@ -83,7 +92,7 @@
     }
     return images;
   }
-  function defaultCardImage(id) { if(id !== 'back' && cardArtFiles[id]) return 'assets/fate-cards/manga/'+(['doubleOrNothing','fateRoulette','chaosWeights','tripleTrouble','sealedEnvelopes','swap'].includes(id)?'undercut-swimsuit':'bald-latex')+'.webp'; return 'assets/fate-cards/vector/'+(cardArtFiles[id] || 'card-back')+'.svg?v=20260915'; }
+  function defaultCardImage(id) { if(defaultCardPortraits[id]) return 'assets/fate-cards/manga/'+defaultCardPortraits[id]+'.webp'; return 'assets/fate-cards/vector/'+(cardArtFiles[id] || 'card-back')+'.svg?v=20260915'; }
   function cardImage(id, settings) { return normalizeCardImages(settings?.cardImages)[id] || defaultCardImage(id); }
   function setCardImage(image,id,settings) {
     image.onerror=()=>{image.onerror=null;image.src=defaultCardImage(id);};
