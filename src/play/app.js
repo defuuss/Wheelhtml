@@ -1044,6 +1044,7 @@
     respin.hidden = ensureCardState().respin <= 0;
     respin.textContent = `↻ Use Re-spin ×${ensureCardState().respin}`;
     setupTimer(item);
+    offerEscapeWager(item);
     resultTone(impact);
 
     if (item.mystery) {
@@ -1064,6 +1065,42 @@
     if (outcome.unlocked.length) bits.push('Unlocked ' + outcome.unlocked.join(', '));
     if (outcome.specialMessage) bits.push(outcome.specialMessage);
     state('Last result', bits.join(' · '));
+  }
+
+  // An occasional, optional risk at reveal time. The result remains provisional
+  // until the player chooses to keep it or wins the escape mini-game.
+  function offerEscapeWager(item) {
+    let container = $('escapeWagerOffer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'escapeWagerOffer';
+      container.className = 'escape-wager-offer';
+      container.style.cssText = 'margin:14px 0;padding:14px;border:1px solid #b95078;border-radius:14px;background:rgba(100,20,60,.23);text-align:center';
+      container.innerHTML = '<strong style="display:block;margin-bottom:7px">THE DEVIL OFFERS AN ESCAPE</strong><p style="margin:0 0 12px;font-size:.93rem">Win the mini-game to skip this forfeit. Lose and keep it PLUS one extra challenge.</p><button type="button" id="escapeWagerPlay" class="btn primary large">RISK IT · PLAY TO ESCAPE</button><button type="button" id="escapeWagerDecline" class="btn ghost large">Keep my forfeit</button>';
+      $('resultCard')?.querySelector('.result-actions')?.before(container);
+      $('escapeWagerDecline')?.addEventListener('click',()=>{container.hidden=true;});
+      $('escapeWagerPlay')?.addEventListener('click',()=>{
+        if (!session.pendingForfeit || !window.FortuneArcade?.openFateRound) return;
+        container.hidden=true;
+        const game=['higher','dice','meter'][Math.floor(Math.random()*3)];
+        const opened=window.FortuneArcade.openFateRound(game,won=>{
+          if (won) discardPending();
+          else {
+            window.FortuneFateDeck?.addEscapePenalty?.();
+            // Normal Continue commits the existing result; the extra penalty follows.
+          }
+        },{escape:true});
+        if(!opened)container.hidden=false;
+      });
+    }
+    container.hidden=true;
+    if (!session.pendingForfeit || CARD_EVENTS.has(item.eventType) || item.eventType==='spinAgain' || session.revealBatch) return;
+    const spinNumber=session.spinCount;
+    const last=Number(session.lastEscapeOfferSpin ?? -100);
+    if(spinNumber-last<3 || Math.random()>=.30)return;
+    session.lastEscapeOfferSpin=spinNumber;
+    M.saveSession(session);
+    container.hidden=false;
   }
 
   // The only path that consumes a selection, from either the wheel or a card.
