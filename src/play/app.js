@@ -1027,7 +1027,8 @@
       const pending=session.pendingForfeit;
       const eligible=!CARD_EVENTS.has(item.eventType) && item.eventType!=='spinAgain'
         && session.spinCount-Number(session.lastEscapeOfferSpin ?? -100)>=3;
-      if(eligible && Math.random()<.30) {
+      if(pending.escapeOffered) { /* Restore the same offer after reload. */ }
+      else if(eligible && Math.random()<.30) {
         pending.escapeOffered=true;
         session.lastEscapeOfferSpin=session.spinCount;
         M.saveSession(session);
