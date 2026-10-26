@@ -303,7 +303,7 @@
     showCard(id,'result');
   }
   function drawFromWheel() { if(loadState().draw || window.FortunePlay.batch())return false;const id = takeCard('wheel'); closeOldCardOverlay(); if (id) showCard(id,'wheel'); return Boolean(id); }
-  window.FortuneFateDeck = { drawFromWheel, hasCards:()=>loadState().cards.length>0 };
+  window.FortuneFateDeck = { drawFromWheel, hasCards:()=>loadState().cards.length>0, addEscapePenalty:()=>queuePenalty('Lost Escape Wager · Extra Challenge') };
   function closeOldCardOverlay() { const old = $('specialCardOverlay'); if (old) old.hidden = true; }
   function launchOnePendingSpin() {
     const state = loadState();

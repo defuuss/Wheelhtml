@@ -8,7 +8,7 @@
   const key='fortune-arcade-v1';
   let score=0;try{score=Math.max(0,Number(localStorage.getItem(key))||0);}catch{}
   let frame=0, opener=null, game='', turn=0, value=0, streak=0, position=0, running=false;
-  let fateMode=false,fateResolved=false,fateWin=false,fateComplete=null;
+  let fateMode=false,fateResolved=false,fateWin=false,fateComplete=null,fateEscape=false;
   const dialog=document.createElement('dialog');dialog.className='arcade-dialog';dialog.setAttribute('aria-labelledby','arcadeTitle');
   dialog.innerHTML='<header><div><span class="section-kicker">THE ARCADE</span><h2 id="arcadeTitle">A little luck. A little skill.</h2></div><button class="btn ghost" data-close aria-label="Close mini-games">✕</button></header><div class="arcade-score" role="status"></div><div class="arcade-body"></div>';
   document.body.append(dialog);
@@ -34,7 +34,7 @@
     if(fateWin)award(20);
     screen(fateWin?'You beat Fate!':'The devil wins this round');
     text(detail,'arcade-number dice-numbers');
-    text(fateWin?'The active timer is halved when possible. Otherwise, Luck is saved for the next timed challenge.':'Your original challenge stays, and one additional wheel challenge will be revealed.');
+    text(fateEscape?(fateWin?'ESCAPED! Your current forfeit is cancelled.':'The Devil wins. Your current forfeit remains, plus one extra challenge.'): (fateWin?'The active timer is halved when possible. Otherwise, Luck is saved for the next timed challenge.':'Your original challenge stays, and one additional wheel challenge will be revealed.'));
     actions(button('Continue',close));
   }
   function fateHigher(){
@@ -67,11 +67,11 @@
       }else{const win=position>=42&&position<=58;stop();resolveFate(win,win?'Perfect timing!':'Outside the gold zone');}
     });actions(trigger);
   }
-  function openFateRound(id,onFinish){
+  function openFateRound(id,onFinish,options={}){
     if(dialog.open || typeof onFinish!=='function')return false;
-    opener=document.activeElement;fateMode=true;fateResolved=false;fateWin=false;fateComplete=onFinish;
+    opener=document.activeElement;fateMode=true;fateResolved=false;fateWin=false;fateComplete=onFinish;fateEscape=options.escape===true;
     dialog.querySelector('.section-kicker').textContent='FATE CARD · MINI-GAME';
-    dialog.querySelector('#arcadeTitle').textContent='One round. One chance.';
+    dialog.querySelector('#arcadeTitle').textContent=fateEscape?'Win to escape your forfeit':'One round. One chance.';
     dialog.querySelector('[data-close]').textContent='Give up';
     dialog.querySelector('[data-close]').setAttribute('aria-label','Forfeit this mini-game round');
     updateScore();dialog.showModal();
@@ -84,7 +84,7 @@
   document.getElementById('arcadeBtn').onclick=open;
   dialog.querySelector('[data-close]').onclick=close;
   dialog.addEventListener('cancel',()=>stop());dialog.addEventListener('close',()=>{
-    stop();if(fateMode){const callback=fateComplete,won=fateResolved&&fateWin;fateMode=false;fateComplete=null;callback?.(won);}
+    stop();if(fateMode){const callback=fateComplete,won=fateResolved&&fateWin;fateMode=false;fateEscape=false;fateComplete=null;callback?.(won);}
   });
   dialog.addEventListener('keydown',e=>e.stopPropagation());
   dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();}});
