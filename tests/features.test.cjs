@@ -78,6 +78,23 @@ test('deck quantities are bounded and shuffled wheel order is stable across redr
  const session=M.createSession(config);assert.equal(new Set(session.wheelOrder).size,config.forfeits.length);
  const next=M.createSession(config);assert.notEqual(next.sessionId,session.sessionId);
 });
+test('Fate mood changes actual, disclosed surprise odds without permanent progression',()=>{
+ const {F,M}=setup();
+ assert.equal(F.normalizeFateSurprise('unknown'),'rare');
+ assert.equal(F.fateSurpriseChance('rare','calm'),.04);
+ assert.equal(F.fateSurpriseChance('rare','devilish'),.14);
+ assert.equal(F.fateSurpriseChance('frequent','watching'),.16);
+ assert.equal(F.fateSurpriseChance('off','devilish'),0);
+ assert.equal(F.fateSurpriseChance('frequent','devilish',2),0);
+ assert.equal(F.fateSurpriseChance('frequent','devilish',0,false),0);
+ assert.equal(F.nextFateOmen('calm',.2),'watching');
+ assert.equal(F.nextFateOmen('watching',.8),'watching');
+ assert.equal(F.nextFateOmen('devilish',.1),'watching');
+ let cfg=M.loadConfig();cfg.settings.fateSurprise='frequent';cfg=M.saveConfig(cfg);
+ assert.equal(M.loadConfig().settings.fateSurprise,'frequent');
+ const session=M.createSession(cfg);
+ assert.equal(session.cardState.fateOmen,'calm');assert.equal(session.cardState.fateCooldown,0);
+});
 
 test('custom card images accept bounded embedded raster data and fall back to defaults',()=>{
  const {F}=setup();

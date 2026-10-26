@@ -7,6 +7,17 @@
     const panel = document.createElement('section'); panel.id = 'deckSettings'; panel.className = 'editor-card static-card deck-settings';
     const title = document.createElement('h3'); title.textContent = 'Fate deck';
     const note = document.createElement('p'); note.textContent = 'Copies of each card per fresh session. Set 0 to exclude a card. Apply changes to start with the new deck.';
+    const surprise=document.createElement('label');surprise.className='field fate-surprise-setting';
+    surprise.textContent='Surprise Fate events after ordinary results';
+    const surpriseMode=document.createElement('select');surpriseMode.id='fateSurprise';
+    [['off','Off — only configured Fate wheel entries'],['rare','Occasional — 4–14% while Fate is awake'],['frequent','Wild — 8–25% while Fate is awake']].forEach(([value,label])=>{
+      const option=document.createElement('option');option.value=value;option.textContent=label;surpriseMode.append(option);
+    });
+    surpriseMode.value=F.normalizeFateSurprise(settings.fateSurprise);
+    surpriseMode.onchange=()=>{settings.fateSurprise=surpriseMode.value;changed();};
+    surprise.append(surpriseMode);
+    const surpriseHelp=document.createElement('small');surpriseHelp.className='mini-note';surpriseHelp.textContent='After a surprise, at least two ordinary results pass before another can occur. The Fate mood and actual odds are shown beside the wheel.';
+    surprise.append(surpriseHelp);
     const list = document.createElement('div'); list.className = 'deck-counts';
     const gallery=document.createElement('details');gallery.className='deck-art-gallery';
     const galleryTitle=document.createElement('summary');galleryTitle.textContent='Card artwork gallery · Preview or upload images';
@@ -44,7 +55,7 @@
     const auto=document.createElement('label');auto.className='check-line';
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.id='revealAutoplay';checkbox.checked=settings.reveals.autoplay;
     checkbox.onchange=()=>{settings.reveals.autoplay=checkbox.checked;changed();};
-    auto.append(checkbox,document.createTextNode('Automatically reveal next after accepting (never auto-accept)'));
+    auto.append(checkbox,document.createTextNode('Automatically reveal the next sealed item after the previous result'));
     const groups=document.createElement('fieldset');groups.className='envelope-group-settings';
     const legend=document.createElement('legend');legend.textContent='Envelope groups — none selected means all eligible groups';groups.append(legend);
     (levels || window.FortuneModel.loadConfig().levels).forEach(group=>{
@@ -53,9 +64,9 @@
       input.onchange=()=>{settings.reveals.envelopeGroups=[...groups.querySelectorAll('input:checked')].map(x=>x.value);changed();};
       label.append(input,document.createTextNode(group.name));groups.append(label);
     });
-    const info=document.createElement('p');info.textContent='Set Sealed Envelopes above to at least 1 copy to include it. Only the chosen, accepted result changes the wheel. Hints describe the base entry before any modifier.';
+    const info=document.createElement('p');info.textContent='Set Sealed Envelopes above to at least 1 copy to include it. The chosen result applies automatically; unchosen envelopes stay sealed. Hints describe the base entry before any modifier.';
     artwork.append(back);
     advanced.append(advancedTitle,revealTitle,revealControls,auto,groups,info);
-    panel.append(title,note,list,total,gallery,advanced); document.querySelector('#tab-settings .settings-grid').append(panel); update();
+    panel.append(title,surprise,note,list,total,gallery,advanced); document.querySelector('#tab-settings .settings-grid').append(panel); update();
   } };
 })();

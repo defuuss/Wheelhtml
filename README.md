@@ -142,6 +142,14 @@ Fate cards are drawn from the deck between challenges. The former pending-result
 replacement button is hidden because challenges are already committed. Cards still
 work as standalone draws. A previously saved pending result commits on recovery.
 
+The **Fate omen** beside the wheel can also trigger a surprise draw after a normal
+result is completed. The omen moves between Quiet, Watching and Devilish rather
+than filling a predictable progress bar. Its current percentage is the actual
+chance of a surprise card. **Settings → Fate deck → Surprise Fate events** offers
+Off, Occasional (4–14%) and Wild (8–25%). After any surprise, the next two normal
+results cannot trigger another. A depleted deck disables surprises. The chosen
+setting survives XML export/import; previously saved games remain readable.
+
 ## Simplified play and mini-games
 
 The Game menu contains load, export and editing. Mini-games opens a keyboard-accessible
@@ -160,12 +168,22 @@ Artwork is documented in `docs/card-artwork.md`.
 
 One rare **Mini-game Challenge** Fate card is included per default deck. Drawing
 it starts one mandatory one-round Higher or Lower, Dice Duel, or Stop the Meter
-game. A win earns a saved Luck boost that automatically halves the next timed
-challenge; a loss leaves the accepted challenge unchanged. Free-play mini-games
+game. A win halves the currently active timer when possible, otherwise saving a
+Luck boost that halves the next timed challenge. **Losing, tying, or giving up
+queues one additional eligible wheel challenge**; the underlying result remains
+committed. If a timer or result is still open, the extra reveal waits until it can
+start safely. Free-play mini-games
 remain in the Arcade menu. On the wheel, **See every wheel outcome** expands a
 readable full-name list with each active entry's chance, especially useful on mobile.
 The editor groups artwork customization and advanced envelope controls into
 collapsible sections for easier everyday editing.
+
+**Pick Your Poison** now offers a third choice, the **Devil's Wager**, with its
+real odds printed on the button: one-third gives a Luck boost, while two-thirds
+adds an extra challenge. Its decision is saved before the action is executed so
+reloading never rolls it twice. Normal wheel stops now show a more vivid landing
+effect; rare/bad Fate cards have longer, distinct reveals and sound cues when
+sound is enabled. Reduced-motion settings continue to bypass animations.
 
 **Remove after selected X times** counts selections of that specific forfeit, from
 the wheel or from cards. The historical XML token `lifetime="spins"` and

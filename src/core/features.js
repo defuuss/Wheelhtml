@@ -61,6 +61,21 @@
     return { item:{...item,timerSeconds:Math.max(1,Math.ceil(item.timerSeconds/2)),
       description:[item.description,'Mini-game luck: challenge timer reduced by half.'].filter(Boolean).join('\n\n')},remaining:saved-1 };
   }
+  // An omen is a temporary atmosphere, not a level or a guaranteed countdown.
+  // The displayed percentage is the actual chance of a surprise Fate draw.
+  function normalizeFateSurprise(value) { return ['off','rare','frequent'].includes(value) ? value : 'rare'; }
+  function fateSurpriseChance(mode, omen='calm', cooldown=0, cardsAvailable=true) {
+    if (normalizeFateSurprise(mode)==='off' || cooldown>0 || !cardsAvailable) return 0;
+    const odds=normalizeFateSurprise(mode)==='frequent'
+      ? {calm:.08,watching:.16,devilish:.25}
+      : {calm:.04,watching:.08,devilish:.14};
+    return odds[omen] ?? odds.calm;
+  }
+  function nextFateOmen(current='calm', roll=Math.random()) {
+    if (current==='devilish') return roll<.25?'watching':'devilish';
+    if (current==='watching') return roll<.55?'devilish':'watching';
+    return roll<.65?'watching':'calm';
+  }
   const deckDefaults = { nothing:3, skip:3, swap:3, doubleForfeit:3, doubleOrNothing:3, pickYourPoison:1, fateRoulette:1, tripleTrouble:1, rarest:1, chaosWeights:1, devilFive:1, sealedEnvelopes:0, miniGame:1 };
   const deckNames = { nothing:'Nothing', skip:'Lucky Skip', swap:'Swap Fate', doubleForfeit:'Double Forfeit', doubleOrNothing:'Double or Nothing', pickYourPoison:'Pick Your Poison', fateRoulette:'Fate Roulette', tripleTrouble:'Triple Trouble', rarest:'Rarest Fate', chaosWeights:'Chaos Weights', devilFive:'Devil’s Five', sealedEnvelopes:'Sealed Envelopes', miniGame:'Mini-game Challenge' };
   function normalizeDeck(raw) { return Object.fromEntries(Object.entries(deckDefaults).map(([id,count]) => [id, Math.round(number(raw?.[id] ?? count,0,30,count))])); }
@@ -124,5 +139,5 @@
     image.onerror=()=>{image.onerror=null;image.src=defaultCardImage(id);};
     image.src=cardImage(id,settings,variant);
   }
-  window.FortuneFeatures = { cardArtFiles,maxCardImageLength,normalizeCardImages,cardArtworkVariants,defaultCardImage,cardImage,setCardImage,normalizeReveals, deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier, consumeMiniLuck };
+  window.FortuneFeatures = { cardArtFiles,maxCardImageLength,normalizeCardImages,cardArtworkVariants,defaultCardImage,cardImage,setCardImage,normalizeReveals, deckDefaults, deckNames, normalizeDeck, shuffle, wheelOrder, normalizeModifier, modifierOutcomes, deleteGroup, choose, applyModifier, consumeMiniLuck, normalizeFateSurprise, fateSurpriseChance, nextFateOmen };
 })();

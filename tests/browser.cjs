@@ -9,7 +9,7 @@ const server=http.createServer((req,res)=>{
  res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png'})[path.extname(file)]||'application/octet-stream');res.end(data);});
 });
 const ids=['nothing','skip','swap','doubleForfeit','doubleOrNothing','pickYourPoison','fateRoulette','tripleTrouble','rarest','chaosWeights','devilFive','sealedEnvelopes','miniGame'];
-const config={settings:{soundEnabled:false,title:'The Midnight Collection',showTextOnWheel:true,fateDeck:Object.fromEntries(ids.map(id=>[id,id==='sealedEnvelopes'?3:0]))},
+const config={settings:{soundEnabled:false,fateSurprise:'off',title:'The Midnight Collection',showTextOnWheel:true,fateDeck:Object.fromEntries(ids.map(id=>[id,id==='sealedEnvelopes'?3:0]))},
 levels:[{id:'a',name:'Chaos',icon:'✦',activeAtStart:true},{id:'b',name:'The next chapter',activeAtStart:false}],
 forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A change of pace','Your choice','A moment of chance','The hidden path','A small surprise','Another possibility','The final seal','Next chapter'][i],description:'A custom result from your agreed collection.',levelId:i<8?'a':'b',icon:'✦',color:['#73516d','#7a5b55','#535d76','#6c6650'][i%4],weight:i+1,timerSeconds:60,lifetime:{type:'spins',spins:2}}))};
 (async()=>{
@@ -117,6 +117,23 @@ forfeits:Array.from({length:9},(_,i)=>({id:'f'+i,name:['A quiet beginning','A ch
    assert.equal(await page.locator('.arcade-dialog[open]').count(),0);
    await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('fortune-fate-deck-v4'))?.draw);
    assert.equal(await page.evaluate(()=>Boolean(JSON.parse(localStorage.getItem('fortune-fate-deck-v4'))?.draw)),false,'mini-game Fate card must resolve exactly once');
+   // The atmospheric Fate omen and three-way risk choice must work on mobile too.
+   await page.evaluate(()=>{const M=FortuneModel,cfg=M.loadConfig();cfg.settings.fateSurprise='frequent';cfg.settings.fateDeck=Object.fromEntries(Object.keys(FortuneFeatures.deckDefaults).map(id=>[id,id==='pickYourPoison'?1:0]));M.saveConfig(cfg);M.resetSession(cfg);});
+   await page.reload();
+   await page.locator('#fateOmen:not([hidden])').waitFor();
+   assert.match(await page.locator('#fateOmenDetail').textContent(),/8% chance/);
+   await page.evaluate(()=>FortuneFateDeck.drawFromWheel());
+   await page.locator('#fateV4ChoiceWager').waitFor({state:'visible'});
+   const riskBox=await page.locator('#fateV4ChoiceWager').boundingBox();
+   assert.ok(riskBox.y+riskBox.height<=viewport.height+2,'the wager action must be reachable without scrolling on '+name);
+   await page.screenshot({path:'test-artifacts/'+name+'-wager.png',fullPage:true});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+   await page.locator('#fateV4ChoiceWager').click();
+   const wager=await page.evaluate(()=>JSON.parse(localStorage.getItem('fortune-fate-deck-v4')).draw.action);
+   assert.ok(['wagerWin','wagerLose'].includes(wager));
+   await page.reload();
+   await page.locator('#fateV4Continue').waitFor({state:'visible'});
+   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('fortune-fate-deck-v4')).draw.action),wager);
    assert.deepEqual(errors,[]);assert.deepEqual(badAssets,[]);
    console.log('PASS '+name+': centered hub, no horizontal overflow, manga assets, animated envelopes, keyboard choice, reload recovery, automatic results and chapter layout, persistent Apply, image upload/XML/play/default reset and no Decline.');
   }finally{await browser.close();}

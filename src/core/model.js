@@ -84,6 +84,7 @@
       version:1,
       settings:{
         fateDeck:window.FortuneFeatures.normalizeDeck(settings.fateDeck),
+        fateSurprise:window.FortuneFeatures.normalizeFateSurprise(settings.fateSurprise),
         reveals:window.FortuneFeatures.normalizeReveals(settings.reveals),
         cardImages:window.FortuneFeatures.normalizeCardImages(settings.cardImages),
         spinMode:settings.spinMode === 'manual' ? 'manual' : 'auto',
@@ -107,6 +108,8 @@
     const s=session.cardState;
     s.respin=Math.max(0,Math.round(Number(s.respin)||0)); s.shorten=Math.max(0,Math.round(Number(s.shorten)||0));
     s.miniLuck=Math.max(0,Math.min(3,Math.round(Number(s.miniLuck)||0)));
+    s.fateOmen=['calm','watching','devilish'].includes(s.fateOmen)?s.fateOmen:'calm';
+    s.fateCooldown=Math.max(0,Math.min(3,Math.round(Number(s.fateCooldown)||0)));
     s.chaosNext=Boolean(s.chaosNext); s.doubleTimeNext=Boolean(s.doubleTimeNext);
     s.forcedForfeits=Math.max(0,Math.round(Number(s.forcedForfeits)||0));
     s.chaosBackup=s.chaosBackup&&typeof s.chaosBackup==='object'?s.chaosBackup:{};
@@ -127,7 +130,7 @@
   function createSession(config){
     const cfg=sanitizeConfig(config); const activeLevels={}; cfg.levels.forEach(level=>{activeLevels[level.id]=Boolean(level.activeAtStart);});
     const runtime={}; cfg.forfeits.forEach(item=>{runtime[item.id]={removed:false,cooldown:0,remainingSpins:item.lifetime.type==='spins'?item.lifetime.spins:null,weightMultiplier:1};});
-    return ensureCardState({version:1,sessionId:makeId('session'),configSignature:signature(cfg),spinCount:0,wheelOrder:window.FortuneFeatures.shuffle(cfg.forfeits.map(item=>item.id)),activeLevels,runtime,history:[],undoStack:[],immunityTokens:0,doubleSpinTokens:0,cardState:{respin:0,shorten:0,miniLuck:0,chaosNext:false,doubleTimeNext:false,forcedForfeits:0,chaosBackup:{}}});
+    return ensureCardState({version:1,sessionId:makeId('session'),configSignature:signature(cfg),spinCount:0,wheelOrder:window.FortuneFeatures.shuffle(cfg.forfeits.map(item=>item.id)),activeLevels,runtime,history:[],undoStack:[],immunityTokens:0,doubleSpinTokens:0,cardState:{respin:0,shorten:0,miniLuck:0,fateOmen:'calm',fateCooldown:0,chaosNext:false,doubleTimeNext:false,forcedForfeits:0,chaosBackup:{}}});
   }
   function loadSession(config){
     const cfg=sanitizeConfig(config); const sig=signature(cfg);
@@ -141,7 +144,7 @@
   function xmlEscape(value){ return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
   function configToXml(config){
     const cfg=sanitizeConfig(config); const lines=['<?xml version="1.0" encoding="UTF-8"?>','<fortuneEngine version="1">']; const s=cfg.settings;
-    lines.push(`  <settings spinMode="${s.spinMode}" title="${xmlEscape(s.title)}" minSpinSeconds="${s.minSpinSeconds}" maxSpinSeconds="${s.maxSpinSeconds}" minTurns="${s.minTurns}" soundEnabled="${s.soundEnabled}" showTextOnWheel="${s.showTextOnWheel}" showProbabilities="${s.showProbabilities}" />`);
+    lines.push(`  <settings spinMode="${s.spinMode}" title="${xmlEscape(s.title)}" minSpinSeconds="${s.minSpinSeconds}" maxSpinSeconds="${s.maxSpinSeconds}" minTurns="${s.minTurns}" soundEnabled="${s.soundEnabled}" showTextOnWheel="${s.showTextOnWheel}" showProbabilities="${s.showProbabilities}" fateSurprise="${s.fateSurprise}" />`);
     const reveal = window.FortuneFeatures.normalizeReveals(s.reveals);
     lines.push(`  <reveals envelopeCount="${reveal.envelopeCount}" envelopeHint="${reveal.envelopeHint}" autoplay="${reveal.autoplay}">`);
     reveal.envelopeGroups.forEach(id => lines.push(`    <group id="${xmlEscape(id)}" />`));
@@ -183,7 +186,7 @@
       lifetime:{type:attr(node,'lifetime','forever'),spins:Number(attr(node,'lifetimeSpins','3'))},cooldown:Number(attr(node,'cooldown','0')),eventType:attr(node,'eventType','normal'),timerSeconds:Number(attr(node,'timerSeconds','0')),mystery:boolAttr(node,'mystery',false),enabled:boolAttr(node,'enabled',true),unlockLevels:[...node.querySelectorAll(':scope > unlocks > group')].map(group=>attr(group,'ref')).filter(Boolean)
     }));
     const rules=[...root.querySelectorAll(':scope > rules > rule')].map(node=>({id:attr(node,'id',makeId('rule')),name:attr(node,'name','Rule'),mode:attr(node,'mode','all'),enabled:boolAttr(node,'enabled',true),conditionForfeitIds:[...node.querySelectorAll(':scope > conditions > forfeit')].map(entry=>attr(entry,'ref')).filter(Boolean),unlockLevels:[...node.querySelectorAll(':scope > unlocks > group')].map(group=>attr(group,'ref')).filter(Boolean)}));
-    return sanitizeConfig({version:1,settings:{reveals,cardImages:Object.fromEntries([...root.querySelectorAll(':scope > cardImages > image')].map(node=>[attr(node,'card'),node.textContent.trim()])),spinMode:settingsNode?attr(settingsNode,'spinMode','auto'):'auto',fateDeck:Object.fromEntries([...root.querySelectorAll(':scope > fateDeck > card')].map(node=>[attr(node,'type'),Number(attr(node,'count','0'))])),title:settingsNode?attr(settingsNode,'title','Fortune Engine'):'Fortune Engine',minSpinSeconds:settingsNode?Number(attr(settingsNode,'minSpinSeconds','6.5')):6.5,maxSpinSeconds:settingsNode?Number(attr(settingsNode,'maxSpinSeconds','9.5')):9.5,minTurns:settingsNode?Number(attr(settingsNode,'minTurns','6')):6,soundEnabled:settingsNode?boolAttr(settingsNode,'soundEnabled',true):true,showTextOnWheel:settingsNode?boolAttr(settingsNode,'showTextOnWheel',false):false,showProbabilities:settingsNode?boolAttr(settingsNode,'showProbabilities',true):true},levels,forfeits,rules});
+    return sanitizeConfig({version:1,settings:{reveals,cardImages:Object.fromEntries([...root.querySelectorAll(':scope > cardImages > image')].map(node=>[attr(node,'card'),node.textContent.trim()])),spinMode:settingsNode?attr(settingsNode,'spinMode','auto'):'auto',fateSurprise:settingsNode?attr(settingsNode,'fateSurprise','rare'):'rare',fateDeck:Object.fromEntries([...root.querySelectorAll(':scope > fateDeck > card')].map(node=>[attr(node,'type'),Number(attr(node,'count','0'))])),title:settingsNode?attr(settingsNode,'title','Fortune Engine'):'Fortune Engine',minSpinSeconds:settingsNode?Number(attr(settingsNode,'minSpinSeconds','6.5')):6.5,maxSpinSeconds:settingsNode?Number(attr(settingsNode,'maxSpinSeconds','9.5')):9.5,minTurns:settingsNode?Number(attr(settingsNode,'minTurns','6')):6,soundEnabled:settingsNode?boolAttr(settingsNode,'soundEnabled',true):true,showTextOnWheel:settingsNode?boolAttr(settingsNode,'showTextOnWheel',false):false,showProbabilities:settingsNode?boolAttr(settingsNode,'showProbabilities',true):true},levels,forfeits,rules});
   }
 
   function downloadXml(config,filename='fortune-wheel.xml'){ const blob=new Blob([configToXml(config)],{type:'application/xml;charset=utf-8'}); const url=URL.createObjectURL(blob); const link=document.createElement('a'); link.href=url; link.download=filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); }

@@ -15,7 +15,7 @@
   const body=dialog.querySelector('.arcade-body'),status=dialog.querySelector('.arcade-score');
   const button=(label,fn,cls='btn primary')=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.onclick=fn;return b;};
   function award(n){score+=n;try{localStorage.setItem(key,String(score));}catch{}updateScore();}
-  function updateScore(){status.textContent=fateMode?'Win this round for +20 points and a Luck boost for the next timed wheel challenge.':score+' arcade points · separate from your wheel';}
+  function updateScore(){status.textContent=fateMode?'ONE CHANCE · Win: current timer relief or saved Luck. Lose: one extra wheel challenge.':score+' arcade points · separate from your wheel';}
   function stop(){cancelAnimationFrame(frame);running=false;turn++;}
   function screen(title){stop();body.replaceChildren();const h=document.createElement('h3');h.textContent=title;body.append(h);}
   function text(message,cls='arcade-message'){const p=document.createElement('p');p.className=cls;p.textContent=message;body.append(p);return p;}
@@ -32,9 +32,9 @@
     if(fateResolved)return;
     fateResolved=true;fateWin=Boolean(win);
     if(fateWin)award(20);
-    screen(fateWin?'You earned a Luck boost!':'The house wins this round');
+    screen(fateWin?'You beat Fate!':'The devil wins this round');
     text(detail,'arcade-number dice-numbers');
-    text(fateWin?'Your next timed wheel challenge will be half as long. The current challenge remains accepted.':'No Luck boost this time. Your current challenge remains accepted.');
+    text(fateWin?'The active timer is halved when possible. Otherwise, Luck is saved for the next timed challenge.':'Your original challenge stays, and one additional wheel challenge will be revealed.');
     actions(button('Continue',close));
   }
   function fateHigher(){
