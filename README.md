@@ -149,7 +149,7 @@ dialog containing Higher or Lower, Dice Duel and Stop the Meter. Arcade points a
 saved in this browser, independently of wheel history, timers and chapter progression.
 No onboarding screen is shown. Closing a running meter cancels its animation.
 
-Six manga portraits are distributed across the default Fate deck; custom uploaded card
+Ten manga portraits are distributed across the default Fate deck; custom uploaded card
 images retain priority. The card back stays concealed. Artwork sources and prompts
 are recorded in `docs/card-artwork.md`.
 

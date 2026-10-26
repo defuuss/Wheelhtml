@@ -85,9 +85,10 @@ test('custom card images accept bounded embedded raster data and fall back to de
  const clean=F.normalizeCardImages({rarest:image,back:image,skip:'https://example.com/card.png',swap:'data:image/svg+xml;base64,PHN2Zy8+',unknown:image,nothing:'data:image/png;base64,'+'A'.repeat(120001)});
  assert.deepEqual(Object.keys(clean),['back','rarest']);
  assert.equal(F.cardImage('rarest',{cardImages:clean}),image);
- assert.match(F.cardImage('skip',{cardImages:clean}),/bald-latex\.webp/);
+ assert.match(F.cardImage('skip',{cardImages:clean}),/cobalt-short-curls-swimsuit\.webp/);
  const defaults=Object.keys(F.deckNames).map(id=>F.defaultCardImage(id));
- assert.equal(new Set(defaults).size,6,'the default deck should offer six portraits');
+ assert.equal(new Set(defaults).size,10,'the default deck should offer ten portraits');
  for(const artwork of defaults) assert.ok(fs.existsSync(path.join(__dirname,'..',artwork)),`${artwork} is missing`);
+ assert.match(F.defaultCardImage('doubleOrNothing'),/pink-side-shaved-mohawk-swimsuit\.webp/);
  assert.match(F.defaultCardImage('back'),/card-back\.svg/);
 });
